@@ -1,0 +1,13 @@
+* Thesis
+
+** Setup
+Code is executed in a Docker container. Since we need access to the GPU on your
+device, you'll need to install ~nvidia-docker~.
+
+On an Ubuntu machine:
+
+#+BEGIN_SRC sh
+git clone git@github.com:ryanolson/bootstrap.git
+cd bootstrap
+./bootstrap.sh
+#+END_SRC
