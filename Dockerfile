@@ -17,6 +17,7 @@ RUN apt-get install -y \
   python3-gi \
   python3-gi-cairo \
   python3-tk \
+  python-pil \
   gir1.2-gtk-3.0 \
   gir1.2-gstreamer-1.0 \
   gir1.2-gst-plugins-base-1.0 \
@@ -30,6 +31,7 @@ RUN apt-get install -y \
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
+RUN pip3 install --upgrade pip
 RUN pip3 install \
 	h5py \
 	jupyter \
@@ -39,6 +41,10 @@ RUN pip3 install \
 	scipy \
 	sklearn \
 	six \
-	tensorflow-gpu
+  Pillow \
+	tensorflow-gpu \
+  opencv-python \
+  imageio
 
 ADD ./src /root/dev
+WORKDIR /root/dev
