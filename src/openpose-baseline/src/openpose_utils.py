@@ -59,7 +59,7 @@ def load_clip_keypoints(clip, openpose_output_dir='/root/dev/output/'):
     if len(clip_files) == 0:
         logger.warn("No keypoints found for " + str(id))
 
-    for file_name in clip_files:
+    for file_name in sorted(clip_files):
         full_name = os.path.join(openpose_output_dir, file_name)
         with open(full_name) as keypoint_file:
             frame_keypoint_data = json.load(keypoint_file)

@@ -1,5 +1,6 @@
 import os
 import json
+import random
 
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -57,13 +58,15 @@ def image_path(id, i, root, ext):
     return os.path.join(root, id + "-" + ("{:06d}".format(i)) + ext)
 
 
-def preview_clip(n=0):
+def preview_clip(n=-1):
     config = {}
     with open('config.json') as config_file:
         config = json.load(config_file)
     image_root = config['image_root']
     image_extension = config['image_extension']
 
+    if n == -1:
+        n = random.randint(0, len(config['clips']))
     clip = config['clips'][n]
     images = [image_path(clip['id'], i + 1, image_root, image_extension) for i in range(clip['end'] - clip['start'])]
 
@@ -75,4 +78,4 @@ def preview_clip(n=0):
                   images)
 
 
-preview_clip(0)
+preview_clip()
