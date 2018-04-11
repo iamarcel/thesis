@@ -51,14 +51,16 @@ KEY_OP_PEOPLE = 'people'
 KEY_OP_KEYPOINTS = 'pose_keypoints_2d'
 
 
-def load_clip_keypoints(clip, openpose_output_dir='/root/dev/output/'):
+def load_clip_keypoints(
+        clip,
+        openpose_output_dir='/root/dev/output/',
+        min_confidence=0.6):
     id = clip['id']
     json_files = os.listdir(openpose_output_dir)
     keypoints = []
-    confidences = []
     clip_files = list(filter(lambda f: f.startswith(id + '-'), json_files))
     if len(clip_files) == 0:
-        logger.warn("No keypoints found for " + str(id))
+        raise ValueError("No keypoint data found")
 
     for file_name in sorted(clip_files):
         full_name = os.path.join(openpose_output_dir, file_name)
@@ -66,10 +68,14 @@ def load_clip_keypoints(clip, openpose_output_dir='/root/dev/output/'):
             frame_keypoint_data = json.load(keypoint_file)
             people = frame_keypoint_data[KEY_OP_PEOPLE]
             if len(people) == 0:
-                continue
+                raise ValueError("Clip has frame without people detected")
 
             person = closest_to_center_person(people, clip['center'])
-            # person = most_confident_person(people)
+            mean_confidence = np.mean(get_confidences(person[KEY_OP_KEYPOINTS]))
+            if np.any(mean_confidence < min_confidence):
+                raise ValueError("Clip has pose with confidence score" +
+                                 " lower than {}".format(min_confidence))
+
             keypoints.append(person[KEY_OP_KEYPOINTS])
 
     return keypoints
@@ -130,7 +136,11 @@ def get_all_positions(keypoints_arr):
         np.arange(0, n_points, 3),
         np.arange(1, n_points, 3))))
 
-    return keypoints_arr[:, indices]
+    return np.array(keypoints_arr)[:, indices]
+
+
+def get_all_confidences(keypoints_arr):
+    return np.array(keypoints_arr)[:, 2::3]
 
 
 def openpose_to_baseline(coco_frames):

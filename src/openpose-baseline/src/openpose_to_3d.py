@@ -110,9 +110,12 @@ def process_clips():
     input_keys = []
 
     for i, clip in enumerate(clips):
-        print("Queueing 3D poses for " + str(clip['id']))
-        keypoints = load_clip_keypoints(clip)
-        if len(keypoints) == 0:
+        clip_id = clip['id']
+        print("Queueing 3D poses for {}".format(clip_id))
+        try:
+            keypoints = load_clip_keypoints(clip)
+        except ValueError as e:
+            logger.warn("process_clips:{}:{}".format(clip_id, e))
             continue
 
         input_keys.append((len(input_points), len(input_points) + len(keypoints)))
