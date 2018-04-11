@@ -46,5 +46,9 @@ RUN pip3 install \
   opencv-python \
   imageio
 
+RUN mkdir -p /root/.jupyter/nbconfig && \
+	echo '{ "CodeCell": { "cm_config": { "indentUnit": 2 } } }' > /root/.jupyter/nbconfig/notebook.json
+
 ADD ./src /root/dev
 WORKDIR /root/dev
+EXPOSE 8888
