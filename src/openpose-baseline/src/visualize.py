@@ -9,10 +9,10 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 import viz
-from openpose_utils import load_clip_keypoints, openpose_to_baseline
+from openpose_utils import load_clip_keypoints, openpose_to_baseline, get_confidences, get_positions
 
 
-def plot_skeleton(points, points_2d, image_paths):
+def plot_skeleton(points, points_2d, image_paths, confidences=None):
     if (points.shape[1] != 32 or points.shape[2] != 3):
         raise ValueError(
             "Expected points.shape to be (?, 32, 3), got " + str(points.shape))
@@ -31,7 +31,7 @@ def plot_skeleton(points, points_2d, image_paths):
     ax_img = fig.add_subplot(133)
     ax_img.axis('off')
 
-    viz.show2Dpose(points_2d[0], ax_2d)
+    viz.show2Dpose(points_2d[0], ax_2d, confidences=confidences[0])
     # axes_3d = draw_3d_pose(points[0], ax=ax)
     viz.show3Dpose(points[0], ax)
     ax_img = plt.imshow(img.imread(image_paths[0]), animated=True)
@@ -41,7 +41,7 @@ def plot_skeleton(points, points_2d, image_paths):
         ax_img.set_data(img.imread(image_paths[img_i]))
 
         ax_2d.clear()
-        viz.show2Dpose(points_2d[img_i], ax_2d)
+        viz.show2Dpose(points_2d[img_i], ax_2d, confidences=confidences[img_i])
         ax_2d.invert_yaxis()
 
         ax.clear()
@@ -70,12 +70,13 @@ def preview_clip(n=-1):
     clip = config['clips'][n]
     images = [image_path(clip['id'], i + 1, image_root, image_extension) for i in range(clip['end'] - clip['start'])]
 
-    # points_2d = np.array(clip['points_2d'])
-    points_2d = np.array(openpose_to_baseline(np.array(load_clip_keypoints(clip))))
+    keypoints = openpose_to_baseline(np.array(load_clip_keypoints(clip)))
+    points_2d = np.array(list(map(get_positions, keypoints)))
 
     plot_skeleton(np.array(clip['points_3d']),
                   points_2d,
-                  images)
+                  images,
+                  confidences=list(map(get_confidences, keypoints)))
 
 
 preview_clip()

@@ -14,6 +14,7 @@ import logging
 
 from predict_3dpose import create_model, train_dir
 from openpose_utils import load_clip_keypoints, openpose_to_baseline
+import openpose_utils
 import linear_model
 
 # import flags
@@ -105,7 +106,7 @@ def process_clips():
     clips = read_clips()
 
     input_indices = []
-    input_points = np.empty((0, len(COCO_BODY_PARTS) * 2))
+    input_points = np.empty((0, len(COCO_BODY_PARTS) * 3))
     input_keys = []
 
     for i, clip in enumerate(clips):
@@ -115,13 +116,13 @@ def process_clips():
             continue
 
         input_keys.append((len(input_points), len(input_points) + len(keypoints)))
-        points_2d = np.array(keypoints)
-        input_points = np.append(input_points, points_2d, axis=0)
+        input_points = np.append(input_points, keypoints, axis=0)
         input_indices.append(i)
 
     # TODO Try to implement smoothing
 
-    poses_3d = predict_batch(openpose_to_baseline(input_points))
+    h36m_points = openpose_utils.get_all_positions(openpose_to_baseline(input_points))
+    poses_3d = predict_batch(h36m_points)
 
     config = {}
     with open('config.json') as config_file:

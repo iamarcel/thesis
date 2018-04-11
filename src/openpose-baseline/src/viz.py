@@ -2,6 +2,7 @@
 """Functions to visualize human poses"""
 
 import matplotlib.pyplot as plt
+import matplotlib.cm
 import data_utils
 import numpy as np
 import h5py
@@ -65,7 +66,7 @@ def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
   ax.w_yaxis.line.set_color(white)
   ax.w_zaxis.line.set_color(white)
 
-def show2Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=False):
+def show2Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=False, confidences=None):
   """
   Visualize a 2d skeleton
 
@@ -82,14 +83,19 @@ def show2Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
   assert channels.size == len(data_utils.H36M_NAMES)*2, "channels should have 64 entries, it has %d instead" % channels.size
   vals = np.reshape( channels, (len(data_utils.H36M_NAMES), -1) )
 
-  I  = np.array([1,2,3,1,7,8,1, 13,14,14,18,19,14,26,27])-1 # start points
-  J  = np.array([2,3,4,7,8,9,13,14,16,18,19,20,26,27,28])-1 # end points
+  I  = np.array([1,2,3,1,7,8,1, 13,14,14,18,19,14,26,27], dtype=int)-1 # start points
+  J  = np.array([2,3,4,7,8,9,13,14,16,18,19,20,26,27,28], dtype=int)-1 # end points
   LR = np.array([1,1,1,0,0,0,0, 0, 0, 0, 0, 0, 1, 1, 1], dtype=bool)
 
   # Make connection matrix
   for i in np.arange( len(I) ):
     x, y = [np.array( [vals[I[i], j], vals[J[i], j]] ) for j in range(2)]
-    ax.plot(x, y, lw=2, marker='o', c=lcolor if LR[i] else rcolor)
+
+    color = lcolor if LR[i] else rcolor
+    if confidences is not None:
+      color = matplotlib.cm.viridis(confidences[I[i]])
+
+    ax.plot(x, y, lw=2, marker='o', c=color)
 
   # Get rid of the ticks
   ax.set_xticks([])
@@ -106,5 +112,10 @@ def show2Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
   if add_labels:
     ax.set_xlabel("x")
     ax.set_ylabel("z")
+
+  if confidences is not None:
+    indices = np.sort(np.unique(np.hstack((I, J))))
+    confidences = np.array(confidences)
+    plt.title("Average confidence: {:.3f}".format(np.mean(confidences[indices])))
 
   ax.set_aspect('equal')

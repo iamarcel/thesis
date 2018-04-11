@@ -55,6 +55,7 @@ def load_clip_keypoints(clip, openpose_output_dir='/root/dev/output/'):
     id = clip['id']
     json_files = os.listdir(openpose_output_dir)
     keypoints = []
+    confidences = []
     clip_files = list(filter(lambda f: f.startswith(id + '-'), json_files))
     if len(clip_files) == 0:
         logger.warn("No keypoints found for " + str(id))
@@ -69,7 +70,7 @@ def load_clip_keypoints(clip, openpose_output_dir='/root/dev/output/'):
 
             person = closest_to_center_person(people, clip['center'])
             # person = most_confident_person(people)
-            keypoints.append(xy_positions(person[KEY_OP_KEYPOINTS]))
+            keypoints.append(person[KEY_OP_KEYPOINTS])
 
     return keypoints
 
@@ -105,7 +106,7 @@ def closest_to_center_person(people, center):
     return best_person
 
 
-def xy_positions(keypoints):
+def get_positions(keypoints):
     xy = []
     # ignore confidence score
     for o in range(0, len(keypoints), 3):
@@ -115,36 +116,56 @@ def xy_positions(keypoints):
     return xy
 
 
+def get_confidences(keypoints):
+    confidences = []
+    for o in range(0, len(keypoints), 3):
+        confidences.append(keypoints[o+2])
+
+    return confidences
+
+
+def get_all_positions(keypoints_arr):
+    n_points = keypoints_arr.shape[1]
+    indices = np.sort(np.hstack((
+        np.arange(0, n_points, 3),
+        np.arange(1, n_points, 3))))
+
+    return keypoints_arr[:, indices]
+
+
 def openpose_to_baseline(coco_frames):
     """Converts a list of OpenPose frames to Baseline-compatible format
 
-    input:
-      coco_frames: ndarray (?, 18*3) - for every body part xi, yi
+    Args:
+      coco_frames: ndarray (?x, 18*3) - for every body part xi, yi, ci
+    Returns:
+      b36m_frames: ndarray (?x, 32*3) - for every H36M body part xi, yi, ci
     """
-    if coco_frames.shape[1] != len(COCO_BODY_PARTS) * 2:
-        raise ValueError("Expected predictions to be in OpenPose format, i.e. of shape (?, " + str(len(COCO_BODY_PARTS)*2) + "), but got " + str(coco_frames.shape))
+    if coco_frames.shape[1] != len(COCO_BODY_PARTS) * 3:
+        raise ValueError("Expected predictions to be in OpenPose format, i.e. of shape (?, " + str(len(COCO_BODY_PARTS)*3) + "), but got " + str(coco_frames.shape))
 
     # Store in flattened 2D coordinate array
-    h36m_frames = np.zeros((coco_frames.shape[0], len(H36M_NAMES) * 2))
+    h36m_frames = np.zeros((coco_frames.shape[0], len(H36M_NAMES) * 3))
 
     # Corresponsing destination indices to map OpenPose data into H36M data
     h36m_indices = [np.where(np.array(H36M_NAMES) == name)[0] for name in COCO_BODY_PARTS]
     coco_indices = np.where([len(i) != 0 for i in h36m_indices])[0]
     h36m_indices = np.array([x[0] for x in list(filter(lambda x: len(x) != 0, h36m_indices))])
 
-    # OpenPose format: xi, yi, ci (confidence), so skip every 3rd
-    h36m_frames[:, h36m_indices * 2] = coco_frames[:, coco_indices * 2]
-    h36m_frames[:, h36m_indices * 2 + 1] = coco_frames[:, coco_indices * 2 + 1]
+    # OpenPose format: xi, yi, ci (confidence)
+    h36m_frames[:, h36m_indices * 3] = coco_frames[:, coco_indices * 3]
+    h36m_frames[:, h36m_indices * 3 + 1] = coco_frames[:, coco_indices * 3 + 1]
+    h36m_frames[:, h36m_indices * 3 + 2] = coco_frames[:, coco_indices * 3 + 2]
 
     def add_computed_point(dest_name, src1_name, src2_name, fn):
         dest_index = np.where(np.array(H36M_NAMES) == dest_name)[0][0]
         src1_index = np.where(np.array(H36M_NAMES) == src1_name)[0][0]
         src2_index = np.where(np.array(H36M_NAMES) == src2_name)[0][0]
 
-        for j in range(2):
-            di = dest_index * 2 + j
-            s1i = src1_index * 2 + j
-            s2i = src2_index * 2 + j
+        for j in range(3):
+            di = dest_index * 3 + j
+            s1i = src1_index * 3 + j
+            s2i = src2_index * 3 + j
             h36m_frames[:, di] = fn(h36m_frames[:, s1i], h36m_frames[:, s2i])
 
     # Hip is center of Left and Right Hip
