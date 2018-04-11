@@ -48,6 +48,7 @@ FILTERED_NAMES = [
 FILTERED_INDICES = [i for i, s in enumerate(H36M_NAMES) if s in FILTERED_NAMES]
 
 N_POSE_FEATURES = len(FILTERED_NAMES) * 3 + 1
+POSE_DTYPE = tf.float32
 
 # GET TO DA CHOPPA
 TERMINATOR_CHAR = '¶'
@@ -66,7 +67,7 @@ def get_input(data_filename='samples.npy',
     config = common.config_utils.load_config(path=config_filename)
     samples, vocab = create_examples(config['clips'])
     characters, poses = map(list, zip(*samples))
-    gen_batches = create_batches(characters, poses, vocab, batch_size)
+    gen_batches = create_batches(characters, poses, batch_size)
 
     feature_columns = [
         tf.feature_column.categorical_column_with_identity(
@@ -77,14 +78,14 @@ def get_input(data_filename='samples.npy',
         dataset = tf.data.Dataset.from_generator(
             gen_batches,
             ({
-                'characters': tf.int64,
-                'characters_lengths': tf.int64
+                'characters': tf.int32,
+                'characters_lengths': tf.int32
             }, {
-                'poses': tf.float32,
-                'poses_lengths': tf.int64
+                'poses': POSE_DTYPE,
+                'poses_lengths': tf.int32
             }),
             ({
-                'characters': tf.TensorShape([batch_size, None, len(vocab)]),
+                'characters': tf.TensorShape([batch_size, None]),
                 'characters_lengths': tf.TensorShape([batch_size])
             }, {
                 'poses': tf.TensorShape([batch_size, None, N_POSE_FEATURES]),
@@ -94,7 +95,7 @@ def get_input(data_filename='samples.npy',
         iterator = dataset.make_one_shot_iterator()
         return iterator.get_next()
 
-    return input_fn, feature_columns
+    return input_fn, feature_columns, len(vocab)
 
 
 def create_vocab(clips):
@@ -115,8 +116,8 @@ def create_vocab(clips):
     return vocab_index_dict, index_vocab_dict, vocab_size
 
 
-def get_empty_input(vocab):
-    return np.zeros((len(vocab),))
+def get_empty_input():
+    return TERMINATOR_INDEX
 
 
 def get_empty_output():
@@ -124,8 +125,7 @@ def get_empty_output():
 
 
 def char2feature(char, vocab):
-    index = vocab[char]
-    return np.eye(len(vocab))[index]
+    return vocab[char]
 
 
 def features2chars(ids, vocab):
@@ -142,8 +142,7 @@ def subtitle2features(subtitle, vocab):
       ndarray (subtitle_length + 1, vocab_size): converted subtitle with
         terminator symbol added (i.e. time = subtitle_length + 1)
     """
-    indices = [vocab[char] for char in subtitle] + [TERMINATOR_INDEX]
-    features = np.eye(len(vocab))[np.array(indices).flatten()]
+    features = [vocab[char] for char in subtitle] + [TERMINATOR_INDEX]
     length = len(subtitle)
 
     return (features, length)
@@ -228,7 +227,7 @@ def create_examples(clips):
                         and len(clip['points_3d']) > 0, clips))), vocab)
 
 
-def create_batches(characters, poses, vocab, batch_size):
+def create_batches(characters, poses, batch_size):
     """Splits samples in batch_size batches and pads each batch as
     necessary.
 
@@ -243,20 +242,23 @@ def create_batches(characters, poses, vocab, batch_size):
       batch_outputs[i].shape == (batch_size, max_output_time, n_labels)
     """
     n_batches = math.ceil(len(characters) / batch_size)
-    total_length = n_batches * batch_size
-    n_padding_samples = total_length - len(characters)
     logging.debug("Got {} samples in total".format(len(characters)))
-    logging.debug("Adding {} padding samples".format(n_padding_samples))
 
-    inputs = characters + ([get_empty_input(vocab)] * n_padding_samples)
-    outputs = poses + ([get_empty_output()] * n_padding_samples)
+    # inputs = characters + ([get_empty_input()] * n_padding_samples)
+    # outputs = poses + ([get_empty_output()] * n_padding_samples)
+    inputs = characters
+    outputs = poses
     logging.debug("Batching inputs {} and outputs {} with batch size {}"
                   .format(len(inputs), len(outputs), batch_size))
 
     def generator():
         for i in range(n_batches):
-            batch_inputs = inputs[i*batch_size:(i+1)*batch_size]
-            batch_outputs = outputs[i*batch_size:(i+1)*batch_size]
+            batch_start = i * batch_size
+            batch_end = min((i + 1) * batch_size, len(characters))
+            this_batch_size = batch_end - batch_start
+
+            batch_inputs = inputs[batch_start:batch_end]
+            batch_outputs = outputs[batch_start:batch_end]
 
             batch_input_lengths = np.array([len(i) for i in batch_inputs],
                                            dtype=np.int32)
@@ -268,15 +270,40 @@ def create_batches(characters, poses, vocab, batch_size):
             padded_inputs = np.array(
                 list(itertools.zip_longest(
                     *batch_inputs,
-                    fillvalue=get_empty_input(vocab))))
+                    fillvalue=get_empty_input())))
             padded_inputs = np.swapaxes(padded_inputs, 0, 1)
-            logging.debug("Padded input shape {}".format(padded_inputs.shape))
 
             padded_outputs = np.array(
                 list(itertools.zip_longest(
                     *batch_outputs,
                     fillvalue=get_empty_output())))
             padded_outputs = np.swapaxes(padded_outputs, 0, 1)
+
+            if this_batch_size < batch_size:
+                n_padding_samples = batch_size - this_batch_size
+                max_input_time = padded_inputs.shape[1]
+                max_output_time = padded_outputs.shape[1]
+
+                padded_inputs = np.concatenate((
+                    padded_inputs,
+                    np.tile(
+                        [get_empty_input()] * max_input_time,
+                        (n_padding_samples, 1))))
+                padded_outputs = np.concatenate((
+                    padded_outputs,
+                    np.tile(
+                        get_empty_output(),
+                        (n_padding_samples, max_output_time, 1))))
+
+                batch_input_lengths = np.append(
+                    batch_input_lengths,
+                    [0] * n_padding_samples)
+                batch_output_lengths = np.append(
+                    batch_output_lengths,
+                    [0] * n_padding_samples)
+
+            logging.debug("Padded input shape {}"
+                          .format(padded_inputs.shape))
             logging.debug("Padded outputs shape {}"
                           .format(padded_outputs.shape))
 
@@ -285,7 +312,7 @@ def create_batches(characters, poses, vocab, batch_size):
                 'characters_lengths': batch_input_lengths
             }, {
                 'poses': padded_outputs,
-                'outputs_lengths': batch_output_lengths
+                'poses_lengths': batch_output_lengths
             })
 
     return generator
