@@ -11,7 +11,7 @@ import tensorflow as tf
 import common.config_utils
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 H36M_NAMES = ['']*32
 H36M_NAMES[0] = 'Hip'

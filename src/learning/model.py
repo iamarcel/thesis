@@ -103,9 +103,11 @@ def rnn_model_fn(features, labels, mode, params):
         return ids
 
     def _create_rnn_cell(cell_size, name=None):
-        cell = tf.nn.rnn_cell.BasicRNNCell(cell_size, name=name)
-        initial_state = cell.zero_state(params.batch_size, data.POSE_DTYPE)
-        return cell, initial_state
+        base_cell = tf.nn.rnn_cell.BasicRNNCell(cell_size, name=name)
+        cell = tf.nn.rnn_cell.DropoutWrapper(
+            base_cell,
+            input_keep_prob=0.5)
+        return cell
 
     def _add_rnn_layers(inputs, cell_size, input_lengths=None, name=None):
         """Adds RNN layers after inputs and returns output, state
@@ -115,7 +117,8 @@ def rnn_model_fn(features, labels, mode, params):
             num_units: Size of the cell state (defaults to 128)
         Returns: Tensor[batch_size, max_time, num_units] Output
         """
-        cell, initial_state = _create_rnn_cell(cell_size, name=name)
+        cell = tf.nn.rnn_cell.BasicRNNCell(cell_size, name=name)
+        initial_state = cell.zero_state(params.batch_size, data.POSE_DTYPE)
         output, state = tf.nn.dynamic_rnn(
             cell,
             inputs,
@@ -130,13 +133,15 @@ def rnn_model_fn(features, labels, mode, params):
         return tf.layers.dense(final_state, output_size, activation=None)
 
     def _decode(helper, cell, initial_state, reuse=False, name=None):
-        with tf.variable_scope('decode_{}'.format(name), reuse=reuse):
-            decoder = tf.contrib.seq2seq.BasicDecoder(
-                cell=cell,
-                helper=helper,
-                initial_state=hidden_state)
+        scope = tf.VariableScope(reuse, 'decode_{}'.format(name))
+        decoder = tf.contrib.seq2seq.BasicDecoder(
+            cell=cell,
+            helper=helper,
+            initial_state=hidden_state)
 
-            return tf.contrib.seq2seq.dynamic_decode(decoder=decoder)
+        return tf.contrib.seq2seq.dynamic_decode(
+            decoder=decoder,
+            scope=scope)
 
     def _decode_train(cell, initial_state, reuse=False, name=None):
         helper = ContinuousTrainingHelper(
@@ -158,42 +163,50 @@ def rnn_model_fn(features, labels, mode, params):
 
         return _decode(helper, cell, initial_state, reuse=reuse, name=name)
 
-    inputs = _get_input_tensors(features)
-    _, hidden_state = _add_rnn_layers(
-        inputs,
-        params.hidden_size,
-        input_lengths=features['characters_lengths'],
-        name='encoder_cell')
-    logging.debug("Hidden state shape: {}".format(hidden_state.get_shape()))
-    decoder_cell, _ = _create_rnn_cell(params.hidden_size, name='decoder_cell')
-    out_cell = tf.contrib.rnn.OutputProjectionWrapper(
-        decoder_cell,
-        output_size=params.n_labels)
+    with tf.variable_scope('encoding'):
+        inputs = _get_input_tensors(features)
+        _, hidden_state = _add_rnn_layers(
+            inputs,
+            params.hidden_size,
+            name='encoder_cell')
+        logging.debug("Hidden state shape: {}".format(hidden_state.get_shape()))
+
+    with tf.variable_scope('decoding'):
+        decoder_cell = _create_rnn_cell(params.hidden_size, name='decoder_cell')
+        out_cell = tf.contrib.rnn.OutputProjectionWrapper(
+            decoder_cell,
+            output_size=params.n_labels)
 
     train_op = None
     loss = None
     if mode != tf.estimator.ModeKeys.PREDICT:
-        outputs, _, _ = _decode_train(out_cell, hidden_state, name='train')
-        logging.debug("Training decoder output: {}".format(outputs.rnn_output))
+        with tf.variable_scope("train"):
+            outputs, _, _ = _decode_train(out_cell, hidden_state, name='train')
+            logging.debug("Training decoder output: {}"
+                          .format(outputs.rnn_output))
 
-        loss = tf.losses.mean_squared_error(
-            outputs.rnn_output,
-            labels['poses'],
-            weights=tf.tile(
-                tf.stack([tf.sequence_mask(labels['poses_lengths'])], axis=2),
-                multiples=[1, 1, params.n_labels]))
+            loss = tf.losses.mean_squared_error(
+                outputs.rnn_output,
+                labels['poses'],
+                weights=tf.tile(
+                    tf.stack(
+                        [tf.sequence_mask(labels['poses_lengths'])],
+                        axis=2),
+                    multiples=[1, 1, params.n_labels]))
 
-        optimizer = tf.train.AdamOptimizer(learning_rate=params.learning_rate)
-        train_op = optimizer.minimize(
-            loss=loss,
-            global_step=tf.train.get_global_step())
+            optimizer = tf.train.AdamOptimizer(
+                learning_rate=params.learning_rate)
+            train_op = optimizer.minimize(
+                loss=loss,
+                global_step=tf.train.get_global_step())
 
-    prediction_output, _, _ = _decode_infer(
-        out_cell,
-        hidden_state,
-        reuse=True,
-        name='infer')
-    predictions = prediction_output.rnn_output
+    with tf.variable_scope("infer"):
+        prediction_output, _, _ = _decode_infer(
+            out_cell,
+            hidden_state,
+            reuse=True,
+            name='infer')
+        predictions = prediction_output.rnn_output
 
     return tf.estimator.EstimatorSpec(
         mode=mode,
@@ -206,7 +219,8 @@ if __name__ == '__main__':
     # Set up learning
     batch_size = 16
     input_fn, feature_columns, vocab_size = data.get_input(
-        batch_size=batch_size)
+        batch_size=batch_size,
+        n_epochs=256)
 
     model_params = tf.contrib.training.HParams(
         vocab_size=vocab_size,
@@ -214,7 +228,7 @@ if __name__ == '__main__':
         n_labels=data.N_POSE_FEATURES,
         hidden_size=128,
         batch_size=batch_size,
-        learning_rate=0.0001)
+        learning_rate=0.001)
 
     run_config = tf.estimator.RunConfig(
         model_dir='models',
