@@ -64,19 +64,26 @@ def preview_clip(n=-1):
         config = json.load(config_file)
     image_root = config['image_root']
     image_extension = config['image_extension']
+    print(len(config['clips']))
 
-    if n == -1:
-        n = random.randint(0, len(config['clips']))
-    clip = config['clips'][n]
-    images = [image_path(clip['id'], i + 1, image_root, image_extension) for i in range(clip['end'] - clip['start'])]
+    while True:
+        try:
+            if n == -1:
+                n = random.randint(0, len(config['clips']))
+            clip = config['clips'][n]
+            images = [image_path(clip['id'], i + 1, image_root, image_extension) for i in range(clip['end'] - clip['start'])]
 
-    keypoints = openpose_to_baseline(np.array(load_clip_keypoints(clip)))
-    points_2d = np.array(list(map(get_positions, keypoints)))
+            keypoints = openpose_to_baseline(np.array(load_clip_keypoints(clip)))
+            points_2d = np.array(list(map(get_positions, keypoints)))
 
-    plot_skeleton(np.array(clip['points_3d']),
-                  points_2d,
-                  images,
-                  confidences=list(map(get_confidences, keypoints)))
+            plot_skeleton(np.array(clip['points_3d']),
+                          points_2d,
+                          images,
+                          confidences=list(map(get_confidences, keypoints)))
+            return
+        except ValueError as e:
+            print(e)
+            print("Trying another clip...")
 
 
-preview_clip()
+preview_clip(200)

@@ -71,6 +71,9 @@ def load_clip_keypoints(
                 raise ValueError("Clip has frame without people detected")
 
             person = closest_to_center_person(people, clip['center'])
+            if len(person[KEY_OP_KEYPOINTS]) == 0:
+                raise ValueError("No keypoints available")
+
             mean_confidence = np.mean(get_confidences(person[KEY_OP_KEYPOINTS]))
             if np.any(mean_confidence < min_confidence):
                 raise ValueError("Clip has pose with confidence score" +
