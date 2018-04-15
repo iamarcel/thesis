@@ -12,6 +12,7 @@ start: Dockerfile
 		-v $(XDG_RUNTIME_DIR)/pulse/native:$(XDG_RUNTIME_DIR)/pulse/native \
 		--group-add $(shell getent group audio | cut -d: -f3) \
 		-p 8888:8888 \
+		-p 6006:6006 \
 		thesis
 	xhost -local:root
 

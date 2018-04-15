@@ -1,39 +1,37 @@
 FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
 
-RUN apt-get update
-RUN apt-get install -y \
-  cuda-cublas-9-0 \
-  torch7-nv \
-	libhdf5-dev \
-  libgtk-3-dev \
-  dbus-x11 \
-  ffmpeg
-
-RUN apt-get install -y \
+RUN apt-get update && apt-get install -y \
 	python3 \
-  python3-cairo \
+	python3-cairo \
 	python3-dev \
 	python3-pip \
-  python3-gi \
-  python3-gi-cairo \
-  python3-tk \
-  python-pil \
-  gir1.2-gtk-3.0 \
-  gir1.2-gstreamer-1.0 \
-  gir1.2-gst-plugins-base-1.0 \
-  libgstreamer1.0-0 \
-  libgstreamer1.0-dev \
-  gstreamer1.0-tools \
-  gstreamer1.0-plugins-good \
-  gstreamer1.0-plugins-ugly \
-  gstreamer1.0-plugins-bad \
-  gstreamer1.0-libav
+	python3-gi \
+	python3-gi-cairo \
+	python3-tk \
+	python-pil \
+	gir1.2-gtk-3.0 \
+	gir1.2-gstreamer-1.0 \
+	gir1.2-gst-plugins-base-1.0 \
+	libgstreamer1.0-0 \
+	libgstreamer1.0-dev \
+	gstreamer1.0-tools \
+	gstreamer1.0-plugins-good \
+	gstreamer1.0-plugins-ugly \
+	gstreamer1.0-plugins-bad \
+	gstreamer1.0-libav \
+	ffmpeg \
+	unzip
+
+RUN curl -OL https://github.com/google/protobuf/releases/download/v3.5.1/protoc-3.5.1-linux-x86_64.zip && \
+  unzip protoc-3.5.1-linux-x86_64.zip -d protoc3 && \
+  mv protoc3/bin/* /usr/local/bin/ && \
+  mv protoc3/include/* /usr/local/include/
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
-RUN pip3 install --upgrade pip
-RUN pip3 install \
+RUN pip3 install --upgrade 'pip<10.0.0' && pip3 install \
 	h5py \
+	jsonlines \
 	jupyter \
 	matplotlib \
 	numpy \
@@ -41,10 +39,11 @@ RUN pip3 install \
 	scipy \
 	sklearn \
 	six \
-  Pillow \
+	Pillow \
 	tensorflow-gpu \
-  opencv-python \
-  imageio
+	opencv-python \
+	imageio \
+  html5lib==0.999999999
 
 RUN mkdir -p /root/.jupyter/nbconfig && \
 	echo '{ "CodeCell": { "cm_config": { "indentUnit": 2 } } }' > /root/.jupyter/nbconfig/notebook.json
@@ -52,3 +51,4 @@ RUN mkdir -p /root/.jupyter/nbconfig && \
 ADD ./src /root/dev
 WORKDIR /root/dev
 EXPOSE 8888
+EXPOSE 6006
