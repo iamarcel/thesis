@@ -3,7 +3,6 @@ import json
 import logging
 import numpy as np
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Joints in H3.6M -- data has 32 joints, but only 17 that move; these are the indices.
@@ -50,20 +49,22 @@ COCO_BODY_PARTS = [
 KEY_OP_PEOPLE = 'people'
 KEY_OP_KEYPOINTS = 'pose_keypoints_2d'
 
+DEFAULT_OPENPOSE_OUTPUT_PATH = '/root/dev/output/'
+
 
 def load_clip_keypoints(
         clip,
-        openpose_output_dir='/root/dev/output/',
-        min_confidence=0.6):
-    id = clip['id']
-    json_files = os.listdir(openpose_output_dir)
+        openpose_output_dir=DEFAULT_OPENPOSE_OUTPUT_PATH,
+        min_confidence=0.6,
+        filenames=None):
+    if filenames is None:
+        filenames = get_outputs(openpose_output_dir)
     keypoints = []
-    clip_files = list(filter(lambda f: f.startswith(id + '-'), json_files))
+    clip_files = list(get_clip_files(clip, filenames=filenames))
     if len(clip_files) == 0:
         raise ValueError("No keypoint data found")
 
-    for file_name in sorted(clip_files):
-        full_name = os.path.join(openpose_output_dir, file_name)
+    for full_name in clip_files:
         with open(full_name) as keypoint_file:
             frame_keypoint_data = json.load(keypoint_file)
             people = frame_keypoint_data[KEY_OP_PEOPLE]
@@ -82,6 +83,25 @@ def load_clip_keypoints(
             keypoints.append(person[KEY_OP_KEYPOINTS])
 
     return keypoints
+
+
+def get_clip_files(
+        clip,
+        filenames=None,
+        openpose_output_dir=DEFAULT_OPENPOSE_OUTPUT_PATH):
+
+    if filenames is None:
+        filenames = get_outputs(openpose_output_dir)
+
+    return map(
+        lambda f: os.path.join(openpose_output_dir, f),
+        sorted(filter(
+            lambda f: f.startswith(clip['id'] + '-'),
+            filenames)))
+
+
+def get_outputs(path=DEFAULT_OPENPOSE_OUTPUT_PATH):
+    return filter(lambda f: f.endswith('_keypoints.json'), os.listdir(path))
 
 
 def closest_to_center_person(people, center):

@@ -13,8 +13,9 @@ import imageio
 import logging
 
 from predict_3dpose import create_model, train_dir
-from openpose_utils import load_clip_keypoints, openpose_to_baseline
-import openpose_utils
+from common.openpose_utils import load_clip_keypoints, openpose_to_baseline
+from common import openpose_utils
+import common.data_utils
 import linear_model
 
 # import flags
@@ -94,12 +95,8 @@ def most_confident_person(people):
     return people[best_person]
 
 
-def read_clips(file_name='config.json'):
-    config = {}
-    with open(file_name) as config_file:
-        config = json.load(config_file)
-
-    return filter(lambda c: 'processed_2d' not in c or c['processed_2d'] == False, config['clips'])
+def read_clips(file_name='clips.jsonl'):
+    return common.data_utils.get_clips(file_name)
 
 
 def process_clips():
@@ -111,6 +108,10 @@ def process_clips():
 
     for i, clip in enumerate(clips):
         clip_id = clip['id']
+
+        if len(clip['points_3d']) > 0:
+            logger.warn("{} already has 3D predictions".format(clip_id))
+            continue
         print("Queueing 3D poses for {}".format(clip_id))
         try:
             keypoints = load_clip_keypoints(clip)
@@ -122,21 +123,17 @@ def process_clips():
         input_points = np.append(input_points, keypoints, axis=0)
         input_indices.append(i)
 
-    # TODO Try to implement smoothing
-
     h36m_points = openpose_utils.get_all_positions(openpose_to_baseline(input_points))
     poses_3d = predict_batch(h36m_points)
 
-    config = {}
-    with open('config.json') as config_file:
-        config = json.load(config_file)
-
     for i, (start, end) in enumerate(input_keys):
-        config['clips'][input_indices[i]]['points_3d'] = poses_3d[start:end,:].tolist()
+        clips[input_indices[i]]['points_3d'] = poses_3d[start:end,:].tolist()
 
-    with open('config.json', 'w') as config_file:
-        json.dump(config, config_file, indent=2)
-        print("Wrote " + str('config.json'))
+    writer = common.data_utils.ClipWriter('clips-with-3d.jsonl')
+    for clip in clips:
+        writer.send(clip)
+    writer.close()
+    logger.info("Wrote clips-with-3d.jsonl")
 
 
 def normalize_batch(frames):

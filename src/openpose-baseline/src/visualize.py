@@ -9,7 +9,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 import viz
-from openpose_utils import load_clip_keypoints, openpose_to_baseline, get_confidences, get_positions
+from common.openpose_utils import load_clip_keypoints, openpose_to_baseline, get_confidences, get_positions
+import common.data_utils
 
 
 def plot_skeleton(points, points_2d, image_paths, confidences=None):
@@ -59,18 +60,20 @@ def image_path(id, i, root, ext):
 
 
 def preview_clip(n=-1):
+    clips = list(common.data_utils.get_clips(path='clips-with-3d.jsonl'))
     config = {}
     with open('config.json') as config_file:
         config = json.load(config_file)
     image_root = config['image_root']
     image_extension = config['image_extension']
-    print(len(config['clips']))
+    print(len(clips))
+
+    if n == -1:
+        n = random.randint(0, len(clips))
 
     while True:
         try:
-            if n == -1:
-                n = random.randint(0, len(config['clips']))
-            clip = config['clips'][n]
+            clip = clips[n]
             images = [image_path(clip['id'], i + 1, image_root, image_extension) for i in range(clip['end'] - clip['start'])]
 
             keypoints = openpose_to_baseline(np.array(load_clip_keypoints(clip)))
@@ -84,6 +87,7 @@ def preview_clip(n=-1):
         except ValueError as e:
             print(e)
             print("Trying another clip...")
+            n = random.randint(0, len(clips))
 
 
-preview_clip(200)
+preview_clip()
