@@ -9,6 +9,7 @@ import numpy as np
 import tensorflow as tf
 
 import common.config_utils
+import common.data_utils
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -54,18 +55,13 @@ POSE_DTYPE = tf.float32
 TERMINATOR_CHAR = '¶'
 TERMINATOR_INDEX = 0
 
-DATASET_FILENAME = 'data.hdf5'
 
-
-def get_input(data_filename='samples.npy',
-              force_refresh=False,
-              config_filename='config.json',
+def get_input(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
               batch_size=16,
-              n_epochs=1,
-              path='/samples/all'):
+              n_epochs=1):
 
-    config = common.config_utils.load_config(path=config_filename)
-    samples, vocab = create_examples(config['clips'])
+    clips = common.data_utils.get_clips(path=clips_path)
+    samples, vocab = create_examples(clips)
     characters, poses = map(list, zip(*samples))
     gen_batches = create_batches(characters, poses, batch_size)
 
@@ -243,6 +239,8 @@ def create_batches(characters, poses, batch_size):
     """
     n_batches = math.ceil(len(characters) / batch_size)
     logging.debug("Got {} samples in total".format(len(characters)))
+
+    logging.info("Total poses: {}".format(sum(len(i) for i in poses)))
 
     # inputs = characters + ([get_empty_input()] * n_padding_samples)
     # outputs = poses + ([get_empty_output()] * n_padding_samples)

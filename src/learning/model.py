@@ -8,10 +8,6 @@ import logging
 import numpy as np
 import tensorflow as tf
 
-from mpl_toolkits.mplot3d import Axes3D
-import matplotlib.pyplot as plt
-from matplotlib import animation
-
 import data
 
 tf.logging.set_verbosity(tf.logging.INFO)
@@ -100,14 +96,17 @@ def rnn_model_fn(features, labels, mode, params):
             'word_embeddings',
             [params.vocab_size, params.embedding_size])
         ids = tf.nn.embedding_lookup(embeddings, features['characters'])
+        tf.summary.histogram(
+            "characters_length",
+            features['characters_lengths'])
         return ids
 
     def _create_rnn_cell(cell_size, name=None):
-        base_cell = tf.nn.rnn_cell.BasicRNNCell(cell_size, name=name)
+        base_cell = tf.nn.rnn_cell.GRUCell(cell_size, name=name)
         cell = tf.nn.rnn_cell.DropoutWrapper(
             base_cell,
             input_keep_prob=0.5)
-        return cell
+        return base_cell, cell
 
     def _add_rnn_layers(inputs, cell_size, input_lengths=None, name=None):
         """Adds RNN layers after inputs and returns output, state
@@ -117,7 +116,8 @@ def rnn_model_fn(features, labels, mode, params):
             num_units: Size of the cell state (defaults to 128)
         Returns: Tensor[batch_size, max_time, num_units] Output
         """
-        cell = tf.nn.rnn_cell.BasicRNNCell(cell_size, name=name)
+        # cell = tf.nn.rnn_cell.BasicRNNCell(cell_size, name=name)
+        base_cell, cell = _create_rnn_cell(cell_size, name=name)
         initial_state = cell.zero_state(params.batch_size, data.POSE_DTYPE)
         output, state = tf.nn.dynamic_rnn(
             cell,
@@ -125,6 +125,10 @@ def rnn_model_fn(features, labels, mode, params):
             sequence_length=input_lengths,
             initial_state=initial_state,
             dtype=data.POSE_DTYPE)
+
+        for var in base_cell.trainable_weights:
+            tf.summary.histogram(var.name, var)
+
         return output, state
 
     def _add_fc_layers(final_state, output_size):
@@ -144,6 +148,9 @@ def rnn_model_fn(features, labels, mode, params):
             scope=scope)
 
     def _decode_train(cell, initial_state, reuse=False, name=None):
+        tf.summary.histogram(
+            "poses_lengths",
+            labels['poses_lengths'])
         helper = ContinuousTrainingHelper(
             labels['poses'],
             labels['poses_lengths'],
@@ -155,7 +162,6 @@ def rnn_model_fn(features, labels, mode, params):
         start_input = np.array(
             [data.get_empty_output()] * params.batch_size,
             dtype=np.float32)
-        logging.debug("Starting input shape {}".format(start_input.shape))
 
         helper = ContinuousSamplingHelper(
             start_input,
@@ -169,10 +175,9 @@ def rnn_model_fn(features, labels, mode, params):
             inputs,
             params.hidden_size,
             name='encoder_cell')
-        logging.debug("Hidden state shape: {}".format(hidden_state.get_shape()))
 
     with tf.variable_scope('decoding'):
-        decoder_cell = _create_rnn_cell(params.hidden_size, name='decoder_cell')
+        decoder_base_cell, decoder_cell = _create_rnn_cell(params.hidden_size, name='decoder_cell')
         out_cell = tf.contrib.rnn.OutputProjectionWrapper(
             decoder_cell,
             output_size=params.n_labels)
@@ -182,8 +187,9 @@ def rnn_model_fn(features, labels, mode, params):
     if mode != tf.estimator.ModeKeys.PREDICT:
         with tf.variable_scope("train"):
             outputs, _, _ = _decode_train(out_cell, hidden_state, name='train')
-            logging.debug("Training decoder output: {}"
-                          .format(outputs.rnn_output))
+
+            for var in decoder_base_cell.trainable_weights:
+                tf.summary.histogram(var.name, var)
 
             loss = tf.losses.mean_squared_error(
                 outputs.rnn_output,
@@ -217,21 +223,21 @@ def rnn_model_fn(features, labels, mode, params):
 
 if __name__ == '__main__':
     # Set up learning
-    batch_size = 16
+    batch_size = 32
     input_fn, feature_columns, vocab_size = data.get_input(
         batch_size=batch_size,
-        n_epochs=256)
+        n_epochs=8192)
 
     model_params = tf.contrib.training.HParams(
         vocab_size=vocab_size,
-        embedding_size=16,
+        embedding_size=8,
         n_labels=data.N_POSE_FEATURES,
         hidden_size=128,
         batch_size=batch_size,
         learning_rate=0.001)
 
     run_config = tf.estimator.RunConfig(
-        model_dir='models',
+        model_dir='log',
         save_checkpoints_secs=60,
         save_summary_steps=100)
 
@@ -240,5 +246,8 @@ if __name__ == '__main__':
         config=run_config,
         params=model_params)
 
+    # profiler_hook = tf.train.ProfilerHook(save_steps=200, output_dir='profile')
+
     # Train
     estimator.train(input_fn)
+    # estimator.train(input_fn, hooks=[profiler_hook])

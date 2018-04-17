@@ -7,9 +7,7 @@ import jsonlines
 
 from common import config_utils, openpose_utils
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 DEFAULT_CLIPS_PATH = 'clips.jsonl'
 DEFAULT_CONFIG_PATH = 'config.json'
