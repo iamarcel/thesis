@@ -3,11 +3,20 @@
 
 import matplotlib.pyplot as plt
 import matplotlib.cm
-import data_utils
+from . import data_utils
 import numpy as np
 import h5py
 import os
 from mpl_toolkits.mplot3d import Axes3D
+
+def print_line_lengths(lines, start_index, end_index):
+  lines = np.array(lines)
+  start_name = data_utils.H36M_NAMES[start_index]
+  end_name = data_utils.H36M_NAMES[end_index]
+  names = "{} -> {}:".format(start_name, end_name)
+
+  distance = np.linalg.norm(lines[0, :] - lines[1, :])
+  print("{:<32} {}".format(names, distance))
 
 def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=False): # blue, orange
   """
@@ -30,11 +39,14 @@ def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
   J   = np.array([2,3,4,7,8,9,13,14,15,16,18,19,20,26,27,28])-1 # end points
   LR  = np.array([1,1,1,0,0,0,0, 0, 0, 0, 0, 0, 0, 1, 1, 1], dtype=bool)
   # Make connection matrix
+  print(vals.shape)
+  print(vals[1, 2]) # RHip.z
   for i in np.arange( len(I) ):
     x, y, z = [np.array( [vals[I[i], j], vals[J[i], j]] ) for j in range(3)]
     ax.plot(x, y, z, marker='o', markersize=2, lw=1, c=lcolor if LR[i] else rcolor)
+    # print_line_lengths([x, y, z], I[i], J[i])
 
-  RADIUS = 750 # space around the subject
+  RADIUS = 0.5 # space around the subject
   xroot, yroot, zroot = vals[0,0], vals[0,1], vals[0,2]
   ax.set_xlim3d([-RADIUS+xroot, RADIUS+xroot])
   ax.set_zlim3d([-RADIUS+zroot, RADIUS+zroot])
@@ -46,13 +58,13 @@ def show3Dpose(channels, ax, lcolor="#3498db", rcolor="#e74c3c", add_labels=Fals
     ax.set_zlabel("z")
 
   # Get rid of the ticks and tick labels
-  ax.set_xticks([])
-  ax.set_yticks([])
-  ax.set_zticks([])
+  # ax.set_xticks([])
+  # ax.set_yticks([])
+  # ax.set_zticks([])
 
-  ax.get_xaxis().set_ticklabels([])
-  ax.get_yaxis().set_ticklabels([])
-  ax.set_zticklabels([])
+  # ax.get_xaxis().set_ticklabels([])
+  # ax.get_yaxis().set_ticklabels([])
+  # ax.set_zticklabels([])
   ax.set_aspect('equal')
 
   # Get rid of the panes (actually, make them white)

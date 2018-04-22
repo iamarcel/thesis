@@ -10,7 +10,7 @@ import numpy as np
 
 import viz
 from common.openpose_utils import load_clip_keypoints, openpose_to_baseline, get_confidences, get_positions
-import common.data_utils
+from . import data_utils
 
 
 def plot_skeleton(points, points_2d, image_paths, confidences=None):
@@ -60,7 +60,7 @@ def image_path(id, i, root, ext):
 
 
 def preview_clip(n=-1):
-    clips = list(common.data_utils.get_clips(path='clips-with-3d.jsonl'))
+    clips = list(data_utils.get_clips(path='clips-with-3d.jsonl'))
     config = {}
     with open('config.json') as config_file:
         config = json.load(config_file)
