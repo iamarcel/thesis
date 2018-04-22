@@ -2,10 +2,14 @@ import argparse
 import logging
 import os
 import shutil
+import numpy as np
+import scipy
+import scipy.linalg
+import math
 
 import jsonlines
 
-from common import config_utils, openpose_utils
+import config_utils, openpose_utils
 
 logger = logging.getLogger(__name__)
 
@@ -154,12 +158,124 @@ def move_2d_finished_images(
                  .format(n_clips_done, n_clips_all))
 
 
+def clip_stats():
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
+    import itertools
+    import numpy as np
+
+    clips = get_clips()
+    clip_poses = map(lambda clip: clip['points_3d'], clips)
+    poses = itertools.chain.from_iterable(clip_poses)
+    poses = np.array(list(poses))
+    poses = np.reshape(poses, (poses.shape[0] * poses.shape[1], poses.shape[2]))
+    print(poses.shape)
+    poses = poses[:100, :]
+    xs = poses[:, 0]
+    ys = poses[:, 1]
+    zs = poses[:, 2]
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(xs, zs, ys)
+    ax.invert_yaxis()
+    plt.show()
+
+
+def normalize_clips(read_path=DEFAULT_CLIPS_PATH,
+                    write_path='clips-normalized.jsonl'):
+
+    assert read_path != write_path
+
+    writer = ClipWriter(write_path, mode='w')
+    clips = get_clips(read_path)
+    for clip in clips:
+        clip['points_3d'] = list(map(straighten_pose, clip['points_3d']))
+        writer.send(clip)
+
+    writer.close()
+
+
+def oneliner_rotation_matrix(axis, theta):
+    return scipy.linalg.expm(np.cross(np.eye(3), axis / scipy.linalg.norm(axis) * theta))
+
+
+def straighten_pose(points_3d):
+    points_3d = np.array(points_3d)
+
+    # Figure out the person's orientation from hip position
+    # Note that the hip center is [0, 0, 0]
+    rhip = points_3d[1, :]
+    rhip = rhip / np.linalg.norm(rhip)
+    alpha = np.arcsin(rhip[2])
+
+    # Straighten the person's orientation so he looks towards +z
+    # Rotate alpha degrees around the y axis, some transformation matrix thing
+    M = rotation_matrix([0, 1, 0], alpha)
+    assert points_3d.shape[1] == 3
+    normal_points = np.matmul(points_3d, M)
+
+    # if not abs(normal_points[1, 2]) < 1.0e-5:
+    #     logger.warn("RHip z is large before rescale")
+    #     print(normal_points[1, 2])
+    # else:
+    #     print("OK")
+
+    # Normalize size
+    normal_points = normalize_pose_scale(normal_points)
+
+    if not abs(normal_points[1, 2]) < 1.0e-2:
+        print(normal_points[1, 2])
+
+    # Move upper body points so that the neck is above the hip
+    # ...if he's leaning forward
+    # epsilon = 9001  # FIXME
+    # neck_z = points_3[14*3 + 2]
+    # if neck_z > epsilon:
+    #     delta = neck_z
+    #     points_3d[UPPER_BODY_POINTS_3D] -= delta
+
+    return normal_points.tolist()
+
+
+def rotation_matrix(axis, theta):
+    """
+    Return the rotation matrix associated with counterclockwise rotation about
+    the given axis by theta radians.
+    """
+    axis = np.asarray(axis)
+    axis = axis/math.sqrt(np.dot(axis, axis))
+    a = math.cos(theta/2.0)
+    b, c, d = -axis*math.sin(theta/2.0)
+    aa, bb, cc, dd = a*a, b*b, c*c, d*d
+    bc, ad, ac, ab, bd, cd = b*c, a*d, a*c, a*b, b*d, c*d
+    return np.array([[aa+bb-cc-dd, 2*(bc+ad), 2*(bd-ac)],
+                     [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
+                     [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
+
+
+def normalize_pose_scale(pose):
+    """Scales a pose so its height is 1
+    """
+    head_index = openpose_utils.H36M_NAMES.index('Head')
+    foot_index = openpose_utils.H36M_NAMES.index('LFoot')
+    head_y = pose[head_index, 1]
+    foot_y = pose[foot_index, 1]
+
+    height = abs(head_y - foot_y)
+    scale = 1 / height
+
+    return pose * scale
+
+
 if __name__ == '__main__':
     command_choices = [
         'config_to_clips',
         'remove_duplicate_clips',
         'add_clips_to', 'merge',
-        'move_2d_finished_images'
+        'move_2d_finished_images',
+        'clip_stats',
+        'normalize_clips'
     ]
 
     parser = argparse.ArgumentParser(description='Manipulate clip data files.')
@@ -183,5 +299,9 @@ if __name__ == '__main__':
         add_clips_to(*args.args)
     elif command_name == 'move_2d_finished_images':
         move_2d_finished_images(*args.args)
+    elif command_name == 'clip_stats':
+        clip_stats(*args.args)
+    elif command_name == 'normalize_clips':
+        normalize_clips(*args.args)
     else:
         logger.error("Command {} not found.".format(command_name))
