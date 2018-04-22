@@ -20,7 +20,8 @@ RUN apt-get update && apt-get install -y \
 	gstreamer1.0-plugins-bad \
 	gstreamer1.0-libav \
 	ffmpeg \
-	unzip
+	unzip \
+  tmux
 
 RUN curl -OL https://github.com/google/protobuf/releases/download/v3.5.1/protoc-3.5.1-linux-x86_64.zip && \
   unzip protoc-3.5.1-linux-x86_64.zip -d protoc3 && \
