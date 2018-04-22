@@ -7,8 +7,12 @@ import logging
 
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 import data
+
+from opbl import viz
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -87,7 +91,8 @@ def rnn_model_fn(features, labels, mode, params):
 
     logging.info("Building RNN Model.")
     logging.info("Features: {}".format(features.keys()))
-    logging.info("Labels: {}".format(labels.keys()))
+    if labels is not None:
+        logging.info("Labels: {}".format(labels.keys()))
     logging.info("Params: {}".format(params.values()))
 
     def _get_input_tensors(features):
@@ -137,7 +142,6 @@ def rnn_model_fn(features, labels, mode, params):
         return tf.layers.dense(final_state, output_size, activation=None)
 
     def _decode(helper, cell, initial_state, reuse=False, name=None):
-        scope = tf.VariableScope(reuse, 'decode_{}'.format(name))
         decoder = tf.contrib.seq2seq.BasicDecoder(
             cell=cell,
             helper=helper,
@@ -145,7 +149,7 @@ def rnn_model_fn(features, labels, mode, params):
 
         return tf.contrib.seq2seq.dynamic_decode(
             decoder=decoder,
-            scope=scope)
+            maximum_iterations=1024)
 
     def _decode_train(cell, initial_state, reuse=False, name=None):
         tf.summary.histogram(
@@ -185,34 +189,36 @@ def rnn_model_fn(features, labels, mode, params):
     train_op = None
     loss = None
     if mode != tf.estimator.ModeKeys.PREDICT:
-        with tf.variable_scope("train"):
-            outputs, _, _ = _decode_train(out_cell, hidden_state, name='train')
+        outputs, _, _ = _decode_train(out_cell, hidden_state)
 
-            for var in decoder_base_cell.trainable_weights:
-                tf.summary.histogram(var.name, var)
+        for var in decoder_base_cell.trainable_weights:
+            tf.summary.histogram(var.name, var)
 
-            loss = tf.losses.mean_squared_error(
-                outputs.rnn_output,
-                labels['poses'],
-                weights=tf.tile(
-                    tf.stack(
-                        [tf.sequence_mask(labels['poses_lengths'])],
-                        axis=2),
-                    multiples=[1, 1, params.n_labels]))
+        loss = tf.losses.mean_squared_error(
+            outputs.rnn_output,
+            labels['poses'],
+            weights=tf.tile(
+                tf.stack(
+                    [tf.sequence_mask(labels['poses_lengths'])],
+                    axis=2),
+                multiples=[1, 1, params.n_labels]))
 
-            optimizer = tf.train.AdamOptimizer(
-                learning_rate=params.learning_rate)
-            train_op = optimizer.minimize(
-                loss=loss,
-                global_step=tf.train.get_global_step())
+        optimizer = tf.train.AdamOptimizer(
+            learning_rate=params.learning_rate)
+        train_op = optimizer.minimize(
+            loss=loss,
+            global_step=tf.train.get_global_step())
 
-    with tf.variable_scope("infer"):
-        prediction_output, _, _ = _decode_infer(
-            out_cell,
-            hidden_state,
-            reuse=True,
-            name='infer')
-        predictions = prediction_output.rnn_output
+    prediction_output, _, _ = _decode_infer(
+        out_cell,
+        hidden_state,
+        reuse=True)
+    predictions = prediction_output.rnn_output
+
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        return tf.estimator.EstimatorSpec(
+            mode=mode,
+            predictions=predictions)
 
     return tf.estimator.EstimatorSpec(
         mode=mode,
@@ -223,8 +229,8 @@ def rnn_model_fn(features, labels, mode, params):
 
 if __name__ == '__main__':
     # Set up learning
-    batch_size = 32
-    input_fn, feature_columns, vocab_size = data.get_input(
+    batch_size = 1
+    input_fn, feature_columns, vocab_size, vocab = data.get_input(
         batch_size=batch_size,
         n_epochs=8192)
 
@@ -247,6 +253,34 @@ if __name__ == '__main__':
         params=model_params)
 
     # profiler_hook = tf.train.ProfilerHook(save_steps=200, output_dir='profile')
+
+    subtitle = 'machine learning is awesome'
+    feature, feature_len = data.subtitle2features(subtitle, vocab)
+
+    predict_input_fn = tf.estimator.inputs.numpy_input_fn(
+        x={
+            'characters': np.array([feature]),
+            'characters_lengths': np.array([feature_len])
+        },
+        num_epochs=1,
+        shuffle=False)
+    preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
+    pose = preds[0, 0, 0:30]
+    pose = np.reshape(pose, (10, 3))
+    pose_complete = np.zeros((32, 3))
+    pose_complete[data.FILTERED_INDICES, :] = pose
+    pose_complete = pose_complete.flatten()
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_aspect(1)
+    ax.set_xlim(-1, 1)
+    ax.set_ylim(-1, 1)
+    ax.set_zlim(-1, 1)
+    ax.invert_zaxis()
+    # ax.scatter(pose[0::3], pose[2::3], pose[1::3])
+    viz.show3Dpose(pose_complete, ax)
+    plt.show()
 
     # Train
     estimator.train(input_fn)

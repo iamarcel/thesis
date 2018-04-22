@@ -91,7 +91,7 @@ def get_input(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
         iterator = dataset.make_one_shot_iterator()
         return iterator.get_next()
 
-    return input_fn, feature_columns, len(vocab)
+    return input_fn, feature_columns, len(vocab), vocab
 
 
 def create_vocab(clips):
@@ -210,6 +210,15 @@ def clip2sample(clip, vocab):
     labels, labels_length = poses2labels(poses_3d)
 
     return (features, labels)
+
+
+def get_poses(path=common.data_utils.DEFAULT_CLIPS_PATH):
+    clips = common.data_utils.get_clips(path)
+    poses = list(map(lambda c: c['points_3d'],
+                     filter(lambda c: 'points_3d' in c and len(c['points_3d']) > 0,
+                            clips)))
+    poses = np.vstack(poses)[:, FILTERED_INDICES, :]
+    return poses
 
 
 def create_examples(clips):

@@ -6,14 +6,14 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 # Joints in H3.6M -- data has 32 joints, but only 17 that move; these are the indices.
-H36M_NAMES = ['']*32
-H36M_NAMES[0]  = 'Hip'
-H36M_NAMES[1]  = 'RHip'
-H36M_NAMES[2]  = 'RKnee'
-H36M_NAMES[3]  = 'RFoot'
-H36M_NAMES[6]  = 'LHip'
-H36M_NAMES[7]  = 'LKnee'
-H36M_NAMES[8]  = 'LFoot'
+H36M_NAMES = [''] * 32
+H36M_NAMES[0] = 'Hip'
+H36M_NAMES[1] = 'RHip'
+H36M_NAMES[2] = 'RKnee'
+H36M_NAMES[3] = 'RFoot'
+H36M_NAMES[6] = 'LHip'
+H36M_NAMES[7] = 'LKnee'
+H36M_NAMES[8] = 'LFoot'
 H36M_NAMES[12] = 'Spine'
 H36M_NAMES[13] = 'Thorax'
 H36M_NAMES[14] = 'Neck/Nose'
@@ -26,24 +26,9 @@ H36M_NAMES[26] = 'RElbow'
 H36M_NAMES[27] = 'RWrist'
 
 COCO_BODY_PARTS = [
-    'Neck/Nose',
-    'Thorax',
-    'RShoulder',
-    'RElbow',
-    'RWrist',
-    'LShoulder',
-    'LElbow',
-    'LWrist',
-    'RHip',
-    'RKnee',
-    'RFoot',
-    'LHip',
-    'LKnee',
-    'LFoot',
-    'REye',
-    'LEye',
-    'REar',
-    'LEar'
+    'Neck/Nose', 'Thorax', 'RShoulder', 'RElbow', 'RWrist', 'LShoulder',
+    'LElbow', 'LWrist', 'RHip', 'RKnee', 'RFoot', 'LHip', 'LKnee', 'LFoot',
+    'REye', 'LEye', 'REar', 'LEar'
 ]
 
 KEY_OP_PEOPLE = 'people'
@@ -52,11 +37,10 @@ KEY_OP_KEYPOINTS = 'pose_keypoints_2d'
 DEFAULT_OPENPOSE_OUTPUT_PATH = '/root/dev/output/'
 
 
-def load_clip_keypoints(
-        clip,
-        openpose_output_dir=DEFAULT_OPENPOSE_OUTPUT_PATH,
-        min_confidence=0.6,
-        filenames=None):
+def load_clip_keypoints(clip,
+                        openpose_output_dir=DEFAULT_OPENPOSE_OUTPUT_PATH,
+                        min_confidence=0.6,
+                        filenames=None):
     if filenames is None:
         filenames = get_outputs(openpose_output_dir)
     keypoints = []
@@ -75,7 +59,8 @@ def load_clip_keypoints(
             if len(person[KEY_OP_KEYPOINTS]) == 0:
                 raise ValueError("No keypoints available")
 
-            mean_confidence = np.mean(get_confidences(person[KEY_OP_KEYPOINTS]))
+            mean_confidence = np.mean(
+                get_confidences(person[KEY_OP_KEYPOINTS]))
             if np.any(mean_confidence < min_confidence):
                 raise ValueError("Clip has pose with confidence score" +
                                  " lower than {}".format(min_confidence))
@@ -85,19 +70,17 @@ def load_clip_keypoints(
     return keypoints
 
 
-def get_clip_files(
-        clip,
-        filenames=None,
-        openpose_output_dir=DEFAULT_OPENPOSE_OUTPUT_PATH):
+def get_clip_files(clip,
+                   filenames=None,
+                   openpose_output_dir=DEFAULT_OPENPOSE_OUTPUT_PATH):
 
     if filenames is None:
         filenames = get_outputs(openpose_output_dir)
 
-    return map(
-        lambda f: os.path.join(openpose_output_dir, f),
-        sorted(filter(
-            lambda f: f.startswith(clip['id'] + '-'),
-            filenames)))
+    return map(lambda f: os.path.join(openpose_output_dir, f),
+               sorted(
+                   filter(lambda f: f.startswith(clip['id'] + '-'),
+                          filenames)))
 
 
 def get_outputs(path=DEFAULT_OPENPOSE_OUTPUT_PATH):
@@ -118,14 +101,10 @@ def closest_to_center_person(people, center):
     best_person_distance = 100000
     for i, person in enumerate(people):
         points = person[KEY_OP_KEYPOINTS]
-        hip = (
-            float(
-                points[COCO_BODY_PARTS.index('LHip') * 3] +
-                points[COCO_BODY_PARTS.index('RHip') * 3]) / 2,
-            float(
-                points[COCO_BODY_PARTS.index('LHip') * 3] +
-                points[COCO_BODY_PARTS.index('RHip') * 3]) / 2
-        )
+        hip = (float(points[COCO_BODY_PARTS.index('LHip') * 3] +
+                     points[COCO_BODY_PARTS.index('RHip') * 3]) / 2,
+               float(points[COCO_BODY_PARTS.index('LHip') * 3] +
+                     points[COCO_BODY_PARTS.index('RHip') * 3]) / 2)
 
         distance = (hip[0] - center[0])**2 + (hip[1] - center[1])**2
         if distance < best_person_distance:
@@ -140,7 +119,7 @@ def get_positions(keypoints):
     # ignore confidence score
     for o in range(0, len(keypoints), 3):
         xy.append(keypoints[o])
-        xy.append(keypoints[o+1])
+        xy.append(keypoints[o + 1])
 
     return xy
 
@@ -148,16 +127,15 @@ def get_positions(keypoints):
 def get_confidences(keypoints):
     confidences = []
     for o in range(0, len(keypoints), 3):
-        confidences.append(keypoints[o+2])
+        confidences.append(keypoints[o + 2])
 
     return confidences
 
 
 def get_all_positions(keypoints_arr):
     n_points = keypoints_arr.shape[1]
-    indices = np.sort(np.hstack((
-        np.arange(0, n_points, 3),
-        np.arange(1, n_points, 3))))
+    indices = np.sort(
+        np.hstack((np.arange(0, n_points, 3), np.arange(1, n_points, 3))))
 
     return np.array(keypoints_arr)[:, indices]
 
@@ -175,15 +153,21 @@ def openpose_to_baseline(coco_frames):
       b36m_frames: ndarray (?x, 32*3) - for every H36M body part xi, yi, ci
     """
     if coco_frames.shape[1] != len(COCO_BODY_PARTS) * 3:
-        raise ValueError("Expected predictions to be in OpenPose format, i.e. of shape (?, " + str(len(COCO_BODY_PARTS)*3) + "), but got " + str(coco_frames.shape))
+        raise ValueError(
+            "Expected predictions to be in OpenPose format, i.e. of shape (?, "
+            + str(len(COCO_BODY_PARTS) * 3) + "), but got " + str(
+                coco_frames.shape))
 
     # Store in flattened 2D coordinate array
     h36m_frames = np.zeros((coco_frames.shape[0], len(H36M_NAMES) * 3))
 
     # Corresponsing destination indices to map OpenPose data into H36M data
-    h36m_indices = [np.where(np.array(H36M_NAMES) == name)[0] for name in COCO_BODY_PARTS]
+    h36m_indices = [
+        np.where(np.array(H36M_NAMES) == name)[0] for name in COCO_BODY_PARTS
+    ]
     coco_indices = np.where([len(i) != 0 for i in h36m_indices])[0]
-    h36m_indices = np.array([x[0] for x in list(filter(lambda x: len(x) != 0, h36m_indices))])
+    h36m_indices = np.array(
+        [x[0] for x in list(filter(lambda x: len(x) != 0, h36m_indices))])
 
     # OpenPose format: xi, yi, ci (confidence)
     h36m_frames[:, h36m_indices * 3] = coco_frames[:, coco_indices * 3]
@@ -209,7 +193,84 @@ def openpose_to_baseline(coco_frames):
                        lambda i, j: i + (i - j) / 2)
 
     # Spine is nead the neck base, between neck and hip
-    add_computed_point('Spine', 'Thorax', 'Hip',
-                       lambda i, j: i + (j - i) / 4)
+    add_computed_point('Spine', 'Thorax', 'Hip', lambda i, j: i + (j - i) / 4)
 
     return h36m_frames
+
+
+def plot_3d_pose(pose,
+                 ax,
+                 lcolor="#3498db",
+                 rcolor="#e74c3c",
+                 add_labels=False):
+    """
+    Visualize a 3d skeleton
+
+    Args
+        channels: 96x1 vector. The pose to plot.
+        ax: matplotlib 3d axis to draw on
+        lcolor: color for left part of the body
+        rcolor: color for right part of the body
+        add_labels: whether to add coordinate labels
+    Returns
+        Nothing. Draws on ax.
+    """
+
+    pose = np.asarray(pose)
+    assert pose.shape == (len(H36M_NAMES), 3), \
+        ("pose should have shape ({}, 3), instead got {}"
+         .format(len(H36M_NAMES), pose.shape))
+
+    start_points = np.array([
+        1, 2, 3, 1, 7, 8, 1, 13, 14, 15, 14, 18, 19, 14, 26, 27
+    ]) - 1  # start points
+    end_points = np.array([
+        2, 3, 4, 7, 8, 9, 13, 14, 15, 16, 18, 19, 20, 26, 27, 28
+    ]) - 1  # end points
+    is_left = np.array(
+        [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1], dtype=bool)
+
+    # Make connection matrix
+    for i in np.arange(len(start_points)):
+        x, y, z = [np.array([pose[start_points[i], j], pose[end_points[i], j]])
+                   for j in range(3)]
+        ax.plot(
+            x,
+            y,
+            z,
+            marker='o',
+            markersize=2,
+            lw=1,
+            c=lcolor if is_left[i] else rcolor)
+
+    RADIUS = 0.5  # space around the subject
+    xroot, yroot, zroot = pose[0, 0], pose[0, 1], pose[0, 2]
+    ax.set_xlim3d([-RADIUS + xroot, RADIUS + xroot])
+    ax.set_zlim3d([-RADIUS + zroot, RADIUS + zroot])
+    ax.set_ylim3d([-RADIUS + yroot, RADIUS + yroot])
+
+    if add_labels:
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_zlabel("z")
+
+    # Get rid of the ticks and tick labels
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks([])
+
+    ax.get_xaxis().set_ticklabels([])
+    ax.get_yaxis().set_ticklabels([])
+    ax.set_zticklabels([])
+    ax.set_aspect('equal')
+
+    # Get rid of the panes (actually, make them white)
+    white = (1.0, 1.0, 0.1, 0.0)
+    ax.w_xaxis.set_pane_color(white)
+    ax.w_yaxis.set_pane_color(white)
+    # Keep z pane
+
+    # Get rid of the lines in 3d
+    ax.w_xaxis.line.set_color(white)
+    ax.w_yaxis.line.set_color(white)
+    ax.w_zaxis.line.set_color(white)
