@@ -15,8 +15,6 @@ import common.visualize
 
 import data
 
-from opbl import viz
-
 tf.logging.set_verbosity(tf.logging.INFO)
 
 
