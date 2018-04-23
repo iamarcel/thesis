@@ -7,8 +7,11 @@ import logging
 
 import numpy as np
 import tensorflow as tf
+from tensorflow.python import debug as tf_debug
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+
+import common.visualize
 
 import data
 
@@ -252,36 +255,29 @@ if __name__ == '__main__':
         config=run_config,
         params=model_params)
 
-    # profiler_hook = tf.train.ProfilerHook(save_steps=200, output_dir='profile')
+    do_train = False
+    if do_train:
+        # profiler_hook = tf.train.ProfilerHook(save_steps=200, output_dir='profile')
+        # debug_hook = tf_debug.TensorBoardDebugHook("e6a12e88887e:7000")
+        estimator.train(input_fn, hooks=[])
 
-    subtitle = 'machine learning is awesome'
-    feature, feature_len = data.subtitle2features(subtitle, vocab)
+    do_predict = True
+    if do_predict:
+        subtitle = 'sfalfhwqauiohghklcbjlcuhewicwqechjwekgsacusgy'
+        feature, feature_len = data.subtitle2features(subtitle, vocab)
 
-    predict_input_fn = tf.estimator.inputs.numpy_input_fn(
-        x={
-            'characters': np.array([feature]),
-            'characters_lengths': np.array([feature_len])
-        },
-        num_epochs=1,
-        shuffle=False)
-    preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
-    pose = preds[0, 0, 0:30]
-    pose = np.reshape(pose, (10, 3))
-    pose_complete = np.zeros((32, 3))
-    pose_complete[data.FILTERED_INDICES, :] = pose
-    pose_complete = pose_complete.flatten()
+        predict_input_fn = tf.estimator.inputs.numpy_input_fn(
+            x={
+                'characters': np.array([feature]),
+                'characters_lengths': np.array([feature_len])
+            },
+            num_epochs=1,
+            shuffle=False)
+        preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
+        n_frames = 100
+        pose = preds[0, :n_frames, 0:30]
+        pose = np.reshape(pose, (n_frames, 10, 3))
+        pose_complete = np.zeros((n_frames, 32, 3))
+        pose_complete[:, data.FILTERED_INDICES, :] = pose
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.set_aspect(1)
-    ax.set_xlim(-1, 1)
-    ax.set_ylim(-1, 1)
-    ax.set_zlim(-1, 1)
-    ax.invert_zaxis()
-    # ax.scatter(pose[0::3], pose[2::3], pose[1::3])
-    viz.show3Dpose(pose_complete, ax)
-    plt.show()
-
-    # Train
-    estimator.train(input_fn)
-    # estimator.train(input_fn, hooks=[profiler_hook])
+        common.visualize.animate_3d_poses(pose_complete)
