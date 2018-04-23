@@ -9,7 +9,7 @@ import math
 
 import jsonlines
 
-import config_utils, openpose_utils
+from . import config_utils, openpose_utils
 
 logger = logging.getLogger(__name__)
 
@@ -158,26 +158,40 @@ def move_2d_finished_images(
                  .format(n_clips_done, n_clips_all))
 
 
-def clip_stats():
+def clip_stats(clips_path=DEFAULT_CLIPS_PATH):
     import matplotlib.pyplot as plt
-    from mpl_toolkits.mplot3d import Axes3D
+    from mpl_toolkits.mplot3d import Axes3D  # noqa:401
     import itertools
     import numpy as np
+    import seaborn as sns
 
-    clips = get_clips()
+    clips = get_clips(clips_path)
     clip_poses = map(lambda clip: clip['points_3d'], clips)
     poses = itertools.chain.from_iterable(clip_poses)
     poses = np.array(list(poses))
-    poses = np.reshape(poses, (poses.shape[0] * poses.shape[1], poses.shape[2]))
-    print(poses.shape)
-    poses = poses[:100, :]
-    xs = poses[:, 0]
-    ys = poses[:, 1]
-    zs = poses[:, 2]
+    # poses = np.reshape(poses, (poses.shape[0] * poses.shape[1], poses.shape[2]))
+    n_poses = 1000
+    poses = poses[:1000, :, :]
+    xs = poses[:, :, 0]
+    ys = poses[:, :, 2]
+    zs = poses[:, :, 1]
+
+    sns.boxplot(data=np.reshape(poses, (1000, -1)))
+
+    def stats(points):
+        return np.mean(points, axis=0), np.var(points, axis=0)
+
+    mu_x, std_x = stats(xs)
+    mu_y, std_y = stats(ys)
+    mu_z, std_z = stats(zs)
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(xs, zs, ys)
+    ax.set_aspect(1)
+    ax.set_xlim(-1, 1)
+    ax.set_ylim(-1, 1)
+    ax.set_zlim(-1, 1)
+    ax.scatter(mu_x, mu_y, -mu_z, s=(100000 / n_poses)*(std_x+std_y+std_z))
     ax.invert_yaxis()
     plt.show()
 
@@ -189,11 +203,25 @@ def normalize_clips(read_path=DEFAULT_CLIPS_PATH,
 
     writer = ClipWriter(write_path, mode='w')
     clips = get_clips(read_path)
+
+    n_clips_in = 0
+    n_clips_out = 0
+
     for clip in clips:
-        clip['points_3d'] = list(map(straighten_pose, clip['points_3d']))
-        writer.send(clip)
+        n_clips_in += 1
+        try:
+            points = np.asarray(clip['points_3d'])
+            points = list(map(straighten_pose, points))
+            points = patch_poses(points)
+            clip['points_3d'] = points.tolist()
+            writer.send(clip)
+            n_clips_out += 1
+        except ValueError as e:
+            logger.warn(e)
 
     writer.close()
+
+    logger.info("Wrote {} out of {} clips.".format(n_clips_out, n_clips_in))
 
 
 def oneliner_rotation_matrix(axis, theta):
@@ -224,8 +252,11 @@ def straighten_pose(points_3d):
     # Normalize size
     normal_points = normalize_pose_scale(normal_points)
 
+    if np.any(np.abs(normal_points) > 1.0):
+        raise ValueError("At least one point is larger than 1.0")
+
     if not abs(normal_points[1, 2]) < 1.0e-2:
-        print(normal_points[1, 2])
+        logging.warn("Right hip z is large: {}".format(normal_points[1, 2]))
 
     # Move upper body points so that the neck is above the hip
     # ...if he's leaning forward
@@ -235,7 +266,7 @@ def straighten_pose(points_3d):
     #     delta = neck_z
     #     points_3d[UPPER_BODY_POINTS_3D] -= delta
 
-    return normal_points.tolist()
+    return normal_points
 
 
 def rotation_matrix(axis, theta):
@@ -264,44 +295,48 @@ def normalize_pose_scale(pose):
 
     height = abs(head_y - foot_y)
     scale = 1 / height
+    pose = pose * scale
 
-    return pose * scale
+    return pose
 
 
-if __name__ == '__main__':
-    command_choices = [
-        'config_to_clips',
-        'remove_duplicate_clips',
-        'add_clips_to', 'merge',
-        'move_2d_finished_images',
-        'clip_stats',
-        'normalize_clips'
-    ]
+def patch_poses(poses, max_out_of_bounds_joints=4.0/32, max_distance=0.3):
+    """Fills in points that moved too much with the previous frame's point.
 
-    parser = argparse.ArgumentParser(description='Manipulate clip data files.')
-    parser.add_argument('command', metavar='command', type=str, nargs=1,
-                        help="The command to execute. One of {}"
-                        .format(command_choices),
-                        choices=command_choices)
-    parser.add_argument('args', metavar='args', type=str, nargs='*',
-                        help='Arguments for the command')
+    Args:
+        poses: ndarray (n_frames, n_joints, n_dims)
+        max_out_of_bounds_joints: float Fraction of out of bounds allowed
+        max_distance: maximum travel distance between frames
+            (a person's height is 1)
+    Returns:
+        poses
+    Raises:
+        ValueError: if too many joints are out of bounds (specified by
+            max_out_of_bounds_joints)
+    """
+    max_distance_sq = max_distance ** 2
 
-    args = parser.parse_args()
+    poses = np.asarray(poses)
 
-    command_name = args.command[0]
-    if command_name == 'config_to_clips':
-        config_to_clips(*args.args)
-    elif command_name == 'remove_duplicate_clips':
-        remove_duplicate_clips(*args.args)
-    elif command_name == 'add_clips_to':
-        add_clips_to(*args.args)
-    elif command_name == 'merge':
-        add_clips_to(*args.args)
-    elif command_name == 'move_2d_finished_images':
-        move_2d_finished_images(*args.args)
-    elif command_name == 'clip_stats':
-        clip_stats(*args.args)
-    elif command_name == 'normalize_clips':
-        normalize_clips(*args.args)
-    else:
-        logger.error("Command {} not found.".format(command_name))
+    for i, pose in enumerate(poses):
+        # Skip first frame
+        if i == 0:
+            continue
+
+        # Calculate distance to previous frame
+        previous_pose = poses[i-1]
+        distance_sq = np.sum((pose - previous_pose) ** 2, axis=1)
+        assert distance_sq.shape == (pose.shape[0],), \
+            "Should sum for every joint, instead got shape {}" \
+            .format(distance_sq.shape)
+        out_of_bounds_joints = np.where(distance_sq > max_distance_sq)
+
+        if len(out_of_bounds_joints[0]) > \
+           max_out_of_bounds_joints * pose.shape[0]:
+            raise ValueError("Too many ({} out of {}) joints out of bounds."
+                             .format(len(out_of_bounds_joints[0]), pose.shape[0]))
+
+        # Fill in with previous frame's points
+        pose[out_of_bounds_joints, :] = previous_pose[out_of_bounds_joints, :]
+
+    return poses
