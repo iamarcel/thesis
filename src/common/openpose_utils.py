@@ -2,6 +2,8 @@ import os
 import json
 import logging
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +200,77 @@ def openpose_to_baseline(coco_frames):
     return h36m_frames
 
 
+def get_lines_3d(pose):
+    pose = np.asarray(pose)
+    assert pose.shape == (len(H36M_NAMES), 3), \
+        ("pose should have shape ({}, 3), instead got {}"
+         .format(len(H36M_NAMES), pose.shape))
+
+    start_points = np.array([
+        1, 2, 3, 1, 7, 8, 1, 13, 14, 15, 14, 18, 19, 14, 26, 27
+    ]) - 1  # start points
+    end_points = np.array([
+        2, 3, 4, 7, 8, 9, 13, 14, 15, 16, 18, 19, 20, 26, 27, 28
+    ]) - 1  # end points
+
+    lines = []
+    for i in np.arange(len(start_points)):
+        x, y, z = [np.array([pose[start_points[i], j], pose[end_points[i], j]])
+                   for j in range(3)]
+        lines.append((x, y, z))
+
+    return lines
+
+
+def plot_lines_3d(lines, ax, lcolor="#3498db", rcolor="#e74c3c"):
+    is_left = np.array(
+        [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1], dtype=bool)
+
+    ax.set_aspect(1)
+    ax.set_xlim(-0.5, 0.5)
+    ax.set_ylim(-0.5, 0.5)
+    ax.set_zlim(-0.5, 0.5)
+    ax.invert_zaxis()
+
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks([])
+
+    ax.get_xaxis().set_ticklabels([])
+    ax.get_yaxis().set_ticklabels([])
+    ax.set_zticklabels([])
+
+    # Get rid of the panes (actually, make them white)
+    white = (1.0, 1.0, 0.1, 0.0)
+    ax.w_xaxis.set_pane_color(white)
+    ax.w_yaxis.set_pane_color(white)
+
+    # Get rid of the lines in 3d
+    ax.w_xaxis.line.set_color(white)
+    ax.w_yaxis.line.set_color(white)
+    ax.w_zaxis.line.set_color(white)
+
+    plots = []
+    for i, (x, y, z) in enumerate(lines):
+        plot, = ax.plot(
+            x,
+            y,
+            z,
+            marker='o',
+            markersize=2,
+            lw=1,
+            c=lcolor if is_left[i] else rcolor)
+        plots.append(plot)
+
+    return plots
+
+
+def update_plots_3d(plots, lines):
+    for plot, line in zip(plots, lines):
+        plot.set_data(line[0], line[1])
+        plot.set_3d_properties(line[2])
+
+
 def plot_3d_pose(pose,
                  ax,
                  lcolor="#3498db",
@@ -274,3 +347,29 @@ def plot_3d_pose(pose,
     ax.w_xaxis.line.set_color(white)
     ax.w_yaxis.line.set_color(white)
     ax.w_zaxis.line.set_color(white)
+
+
+def plot_3d_animation(poses, ax):
+    if (poses.shape[1] != 32 or poses.shape[2] != 3):
+        raise ValueError(
+            "Expected poses.shape to be (?, 32, 3), got " + str(poses.shape))
+
+    # Swap y and z axes because mpl shows z as height instead of depth
+    poses[:, :, 1], poses[:, :, 2] = poses[:, :, 2].copy(), poses[:, :, 1].copy()
+
+    ax.set_aspect(1)
+    ax.set_xlim(-0.5, 0.5)
+    ax.set_ylim(-0.5, 0.5)
+    ax.set_zlim(-0.5, 0.5)
+    ax.invert_zaxis()
+
+    plot_3d_pose(poses[0], ax)
+    def update(pose):
+        ax.clear()
+        plot_3d_pose(pose, ax)
+        ax.invert_zaxis()
+
+    return update, poses
+
+    # ani = FuncAnimation(fig, update, frames=poses, interval=80)
+    # ani.save('viz.mp4')
