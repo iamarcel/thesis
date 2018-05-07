@@ -1,0 +1,1 @@
+ffmpeg -i cluster_1.mp4 -i cluster_2.mp4 -i cluster_3.mp4 -i cluster_4.mp4 -i cluster_5.mp4 -i cluster_6.mp4 -i cluster_7.mp4 -i cluster_8.mp4 -filter_complex "[0:v][1:v][2:v][3:v]hstack=inputs=4[t];[4:v][5:v][6:v][7:v]hstack=inputs=4[b];[t][b]vstack[v]" -map "[v]" output.mp4
