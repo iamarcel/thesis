@@ -7,8 +7,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from . import cameras
-from . import viz
+import cameras
+import viz
 import h5py
 import glob
 import copy

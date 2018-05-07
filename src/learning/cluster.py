@@ -63,7 +63,6 @@ def cluster_poses(points_3d):
     plt.show()
 
 
-
 def cluster_k_means(data, n_clusters, n_iterations, window_size=5, reach=5):
     data = list(map(lambda x: np.asarray(x), data))
     centroids = np.random.choice(data, n_clusters).tolist()

@@ -7,8 +7,8 @@ import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-from . import data_utils
-from . import viz
+import data_utils
+import viz
 
 def project_point_radial( P, R, T, f, c, k, p ):
   """

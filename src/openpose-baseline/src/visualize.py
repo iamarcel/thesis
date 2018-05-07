@@ -10,7 +10,8 @@ import numpy as np
 
 import viz
 from common.openpose_utils import load_clip_keypoints, openpose_to_baseline, get_confidences, get_positions
-from . import data_utils
+import common.data_utils
+import common.visualize
 
 
 def plot_skeleton(points, points_2d, image_paths, confidences=None):
@@ -60,7 +61,7 @@ def image_path(id, i, root, ext):
 
 
 def preview_clip(n=-1):
-    clips = list(data_utils.get_clips(path='clips-with-3d.jsonl'))
+    clips = list(common.data_utils.get_clips(path='clips.jsonl'))
     config = {}
     with open('config.json') as config_file:
         config = json.load(config_file)
@@ -79,11 +80,14 @@ def preview_clip(n=-1):
             keypoints = openpose_to_baseline(np.array(load_clip_keypoints(clip)))
             points_2d = np.array(list(map(get_positions, keypoints)))
 
-            plot_skeleton(np.array(clip['points_3d']),
-                          points_2d,
-                          images,
-                          confidences=list(map(get_confidences, keypoints)))
-            return
+            print(np.asarray(clip['points_3d'][1]))
+
+            common.visualize.plot_skeleton(
+                np.array(clip['points_3d']),
+                points_2d,
+                images,
+                confidences=list(map(get_confidences, keypoints)))
+            n = random.randint(0, len(clips))
         except ValueError as e:
             print(e)
             print("Trying another clip...")

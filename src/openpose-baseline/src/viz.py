@@ -3,7 +3,7 @@
 
 import matplotlib.pyplot as plt
 import matplotlib.cm
-from . import data_utils
+import data_utils
 import numpy as np
 import h5py
 import os

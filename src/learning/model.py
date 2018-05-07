@@ -261,7 +261,7 @@ if __name__ == '__main__':
 
     do_predict = True
     if do_predict:
-        subtitle = 'sfalfhwqauiohghklcbjlcuhewicwqechjwekgsacusgy'
+        subtitle = 'we are creating a machine learning algorithm'
         feature, feature_len = data.subtitle2features(subtitle, vocab)
 
         predict_input_fn = tf.estimator.inputs.numpy_input_fn(
@@ -275,7 +275,7 @@ if __name__ == '__main__':
         n_frames = 100
         pose = preds[0, :n_frames, 0:30]
         pose = np.reshape(pose, (n_frames, 10, 3))
-        pose_complete = np.zeros((n_frames, 32, 3))
+        pose_complete = np.tile(data.REFERENCE_POSE, (n_frames, 1, 1))
         pose_complete[:, data.FILTERED_INDICES, :] = pose
 
         common.visualize.animate_3d_poses(pose_complete)
