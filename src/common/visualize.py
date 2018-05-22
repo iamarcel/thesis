@@ -86,34 +86,36 @@ def preview_clip(n=-1):
             n = random.randint(0, len(clips))
 
 
-def animate_3d_poses(points):
+def animate_3d_poses(points, add_labels=False):
     # Swap y and z axes because mpl shows z as height instead of depth
     # points[:, :, 1], points[:, :, 2] = (
     #     points[:, :, 2].copy(), points[:, :, 1].copy())
+    points = np.asarray(points)
+    # points = _mpl_reorder_poses(points)
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    show3Dpose(points[0], ax)
+    show3Dpose(points[0], ax, add_labels=add_labels)
 
     def update(frame_enumerated):
         img_i, frame = frame_enumerated
 
         ax.clear()
-        show3Dpose(frame, ax)
+        show3Dpose(frame, ax, add_labels=add_labels)
 
-    ani = FuncAnimation(fig, update, frames=enumerate(points), interval=80)
+    ani = FuncAnimation(fig, update, frames=enumerate(points), interval=17)
     # ani.save('viz.mp4')
 
     plt.show()
 
 
-def show_3d_pose(points):
+def show_3d_pose(points, add_labels=False):
     points = _mpl_reorder_pose(points)
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    show3Dpose(points, ax)
+    show3Dpose(points, ax, add_labels=add_labels)
 
     plt.show()
 
@@ -141,7 +143,7 @@ def show3Dpose(channels,
     ) * 3, "channels should have 96 entries, it has %d instead" % channels.size
     vals = np.reshape(channels, (len(openpose_utils.H36M_NAMES), -1))
 
-    _mpl_setup_ax_3d(ax)
+    _mpl_setup_ax_3d(ax, add_labels=add_labels)
 
     I = np.array([1, 2, 3, 1, 7, 8, 1, 13, 14, 15, 14, 18, 19, 14, 26, 27
                   ]) - 1  # start points
@@ -230,13 +232,6 @@ def _mpl_reorder_pose(points):
 
 
 def _mpl_setup_ax_2d(ax, radius=0.5, add_labels=False):
-    # Get rid of the ticks
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-    # Get rid of tick labels
-    ax.get_xaxis().set_ticklabels([])
-    ax.get_yaxis().set_ticklabels([])
 
     ax.set_xlim([-radius, radius])
     ax.set_ylim([-radius, radius])
@@ -245,7 +240,15 @@ def _mpl_setup_ax_2d(ax, radius=0.5, add_labels=False):
 
     if add_labels:
         ax.set_xlabel("x")
-        ax.set_ylabel("z")
+        ax.set_ylabel("y")
+    else:
+        # Get rid of the ticks
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        # Get rid of tick labels
+        ax.get_xaxis().set_ticklabels([])
+        ax.get_yaxis().set_ticklabels([])
 
     ax.invert_yaxis()
 
@@ -257,11 +260,11 @@ def _mpl_setup_ax_3d(ax, radius=0.5, add_labels=False):
     ax.set_zlim3d([-radius, radius])
     ax.set_ylim3d([-radius, radius])
 
-    ax.set_zticks([])
-    ax.set_zticklabels([])
-
     if add_labels:
         ax.set_zlabel("z")
+    else:
+        ax.set_zticks([])
+        ax.set_zticklabels([])
 
     # Get rid of the panes (actually, make them white)
     white = (1.0, 1.0, 0.1, 0.0)

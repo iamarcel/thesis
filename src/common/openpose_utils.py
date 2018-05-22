@@ -2,8 +2,7 @@ import os
 import json
 import logging
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+import scipy
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +199,26 @@ def openpose_to_baseline(coco_frames):
     return h36m_frames
 
 
+def get_named_pose(in_pose, fmt='h36m'):
+    names = []
+    if fmt == 'h36m':
+        names = H36M_NAMES
+    elif fmt == 'coco':
+        names = COCO_BODY_PARTS
+    elif fmt == 'sh':
+        raise NotImplementedError("Doesn't support SH yet")
+    else:
+        raise ValueError("Unrecognized pose format {}".format(fmt))
+
+    out_pose = {}
+    for i, name in enumerate(names):
+        if name is None or name == '':
+            continue
+        out_pose[name] = in_pose[i]
+
+    return out_pose
+
+
 def get_lines_3d(pose):
     pose = np.asarray(pose)
     assert pose.shape == (len(H36M_NAMES), 3), \
@@ -373,3 +392,43 @@ def plot_3d_animation(poses, ax):
 
     # ani = FuncAnimation(fig, update, frames=poses, interval=80)
     # ani.save('viz.mp4')
+
+
+def get_pose_angles(pose):
+    pose = get_named_pose(pose)
+    angles = {}
+
+    def norm_joint(name_a, name_b):
+        vec = np.asarray(pose[name_b]) - np.asarray(pose[name_a])
+        vec /= scipy.linalg.norm(vec)
+        return vec
+
+    def angle_between(vec_a, vec_b):
+        return np.arccos(np.dot(np.asarray(vec_a), np.asarray(vec_b)))
+
+    chest = norm_joint('Hip', 'Thorax')
+
+    # Only Pepper has a hip
+    angles['HipRoll'] = angle_between(chest, [-1., 0., 0.]) - np.pi / 2
+    angles['HipPitch'] = angle_between(chest, [0., 0., -1.]) - np.pi / 2
+
+    r_upper_arm = norm_joint('RShoulder', 'RElbow')
+    angles['RShoulderPitch'] = angle_between(chest, r_upper_arm) - np.pi / 2
+    angles['RShoulderRoll'] = angle_between([0.0, 0.0, -1.0], r_upper_arm)
+
+    l_upper_arm = norm_joint('LShoulder', 'LElbow')
+    angles['LShoulderPitch'] = angle_between(chest, l_upper_arm) - np.pi / 2
+    angles['LShoulderRoll'] = - angle_between([0.0, 0.0, -1.0], l_upper_arm)
+
+    r_elbow = norm_joint('RElbow', 'RWrist')
+    angles['RElbowRoll'] = angle_between(r_upper_arm, r_elbow)
+
+    l_elbow = norm_joint('LElbow', 'LWrist')
+    angles['LElbowRoll'] = - angle_between(l_upper_arm, l_elbow)
+
+    head = norm_joint('Thorax', 'Head')
+    angles['HeadPitch'] = angle_between([0., 0., -1.], head) - np.pi / 2
+    angles['HeadYaw'] = angle_between([-1., 0., 0.], head) - np.pi / 2
+    print(angles)
+
+    return angles

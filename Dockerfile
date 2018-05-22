@@ -1,6 +1,7 @@
 FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
 
-RUN apt-get update && apt-get install -y \
+RUN export DEBIAN_FRONTEND=noninteractive && \
+  apt-get update && apt-get install -y \
 	python3 \
 	python3-cairo \
 	python3-dev \
@@ -22,31 +23,51 @@ RUN apt-get update && apt-get install -y \
 	ffmpeg \
 	unzip \
   tmux
+  # libav-tools \
+  # libfreeimage3 \
+  # libgl1-mesa-dev \
+  # libjpeg8-dev \
+  # libpci3 \
+  # libxaw7 \
+  # libzzip-0-13 \
+  # libssh-dev \
+  # libzip-dev \
+  # mesa-common-dev \
+  # xserver-xorg-core \
+  # libx11-dev \
+  # libxslt1.1 \
+  # libpulse-mainloop-glib0
 
+# Install correct Protobuf version for TensorFlow
 RUN curl -OL https://github.com/google/protobuf/releases/download/v3.5.1/protoc-3.5.1-linux-x86_64.zip && \
   unzip protoc-3.5.1-linux-x86_64.zip -d protoc3 && \
   mv protoc3/bin/* /usr/local/bin/ && \
   mv protoc3/include/* /usr/local/include/
 
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+# Install NAO dependencies
+# ADD pynaoqi-python2.7-2.5.5.5-linux64.tar.gz /root/
+# ADD webots_2018a-rev2_amd64.deb /root/webots_2018a-rev2_amd64.deb
+# RUN dpkg -i /root/webots_2018a-rev2_amd64.deb && \
+#   rm /root/webots_2018a-rev2_amd64.deb && \
+#   echo 'export PYTHONPATH=${PYTHONPATH}:/root/pynaoqi-python2.7-2.5.5.5-linux64'
 
-RUN pip3 install --upgrade 'pip<10.0.0' && pip3 install \
-	h5py \
-	jsonlines \
-	jupyter \
-	matplotlib \
-	numpy \
-	pandas \
-	scipy \
-	sklearn \
-	six \
-	Pillow \
-	tensorflow-gpu \
-	opencv-python \
-	imageio \
-  html5lib==0.999999999
-
-RUN mkdir -p /root/.jupyter/nbconfig && \
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
+  pip3 install --upgrade 'pip<10.0.0' && pip3 install \
+	  h5py \
+	  jsonlines \
+	  jupyter \
+	  matplotlib \
+	  numpy \
+	  pandas \
+	  scipy \
+	  sklearn \
+	  six \
+	  Pillow \
+	  tensorflow-gpu \
+	  opencv-python \
+	  imageio \
+    html5lib==0.999999999 && \
+  mkdir -p /root/.jupyter/nbconfig && \
 	echo '{ "CodeCell": { "cm_config": { "indentUnit": 2 } } }' > /root/.jupyter/nbconfig/notebook.json
 
 ADD ./src /root/dev
