@@ -14,7 +14,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import common.visualize
 
 import data
-from sequence_encoder import SequenceEncoder
+from sequence_embedder import SequenceEmbedder
 from sequence_decoder import SequenceDecoder
 
 tf.logging.set_verbosity(tf.logging.INFO)
@@ -40,26 +40,16 @@ def rnn_model_fn(features, labels, mode, params):
         logging.info("Labels: {}".format(labels.keys()))
     logging.info("Params: {}".format(params.values()))
 
-    def _get_input_tensors(features):
-        """Converts the input dict into a feature and target tensor"""
-        embeddings = tf.get_variable(
-            'word_embeddings',
-            [params.vocab_size, params.embedding_size])
-        ids = tf.nn.embedding_lookup(embeddings, features['characters'])
-        tf.summary.histogram(
-            "characters_length",
-            features['characters_lengths'])
-        return ids
-
-    def _add_fc_layers(final_state, output_size):
-        """Add final dense layer to get the correct output size
-        """
-        return tf.layers.dense(final_state, output_size, activation=None)
-
     with tf.variable_scope('encoding'):
-        inputs = _get_input_tensors(features)
-        encoder = SequenceEncoder(params.hidden_size, data.POSE_DTYPE, params.batch_size)
-        hidden_state = encoder.encode(inputs)
+        embedder = SequenceEmbedder(
+            params.vocab_size,
+            params.embedding_size,
+            params.hidden_size,
+            params.batch_size,
+            data.POSE_DTYPE
+        )
+        embed = embedder.embed
+        hidden_state = embed(features['characters'], features['characters_lengths'])
 
     decoder = SequenceDecoder(params.hidden_size, params.n_labels, hidden_state, params.batch_size)
 
