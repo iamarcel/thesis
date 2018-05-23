@@ -14,66 +14,10 @@ from mpl_toolkits.mplot3d import Axes3D
 import common.visualize
 
 import data
+from sequence_encoder import SequenceEncoder
+from sequence_decoder import SequenceDecoder
 
 tf.logging.set_verbosity(tf.logging.INFO)
-
-
-class ContinuousTrainingHelper(tf.contrib.seq2seq.TrainingHelper):
-
-    def __init__(self, inputs, sequence_length, sample_ids_shape, time_major=False, name=None):
-        tf.contrib.seq2seq.TrainingHelper.__init__(
-            self, inputs, sequence_length, time_major, name)
-        self._sample_ids_shape = tf.TensorShape([inputs.get_shape()[-1]])
-
-    def sample(self, time, outputs, name=None, **unused_kwargs):
-        with tf.name_scope(name, "TrainingHelperSample", [time, outputs]):
-            return outputs
-
-    @property
-    def sample_ids_shape(self):
-        return self._sample_ids_shape
-
-    @property
-    def sample_ids_dtype(self):
-        return data.POSE_DTYPE
-
-
-class ContinuousSamplingHelper(tf.contrib.seq2seq.GreedyEmbeddingHelper):
-
-    def __init__(self, start_tokens, end_token):
-        # NOTE End token will be checked at the first feature of a sample
-        self._embedding_fn = tf.identity
-
-        self._start_tokens = tf.convert_to_tensor(
-            start_tokens, name="start_tokens", dtype=data.POSE_DTYPE)
-        self._end_token = tf.convert_to_tensor(
-            end_token, name="end_token", dtype=data.POSE_DTYPE)
-        self._batch_size = tf.shape(start_tokens)[0]
-        self._start_inputs = self._embedding_fn(self._start_tokens)
-        self._sample_ids_shape = tf.TensorShape([len(start_tokens[0])])
-
-    def sample(self, time, outputs, state, name=None):
-        del time, state
-        return outputs
-
-    def next_inputs(self, time, outputs, state, sample_ids, name=None):
-        del time, outputs
-        finished = tf.equal(sample_ids[:, 0], self._end_token)
-        all_finished = tf.reduce_all(finished)
-        logging.debug("Next inputs for sampling. Got sample shape {}".format(sample_ids.get_shape()))
-        next_inputs = tf.cond(
-            all_finished,
-            lambda: self._start_inputs,
-            lambda: sample_ids)
-        return (finished, next_inputs, state)
-
-    @property
-    def sample_ids_shape(self):
-        return self._sample_ids_shape
-
-    @property
-    def sample_ids_dtype(self):
-        return data.POSE_DTYPE
 
 
 def rnn_model_fn(features, labels, mode, params):
@@ -107,92 +51,24 @@ def rnn_model_fn(features, labels, mode, params):
             features['characters_lengths'])
         return ids
 
-    def _create_rnn_cell(cell_size, name=None):
-        base_cell = tf.nn.rnn_cell.GRUCell(cell_size, name=name)
-        cell = tf.nn.rnn_cell.DropoutWrapper(
-            base_cell,
-            input_keep_prob=0.5)
-        return base_cell, cell
-
-    def _add_rnn_layers(inputs, cell_size, input_lengths=None, name=None):
-        """Adds RNN layers after inputs and returns output, state
-
-        Args:
-            inputs: Tensor[batch_size, max_time, ?]
-            num_units: Size of the cell state (defaults to 128)
-        Returns: Tensor[batch_size, max_time, num_units] Output
-        """
-        # cell = tf.nn.rnn_cell.BasicRNNCell(cell_size, name=name)
-        base_cell, cell = _create_rnn_cell(cell_size, name=name)
-        initial_state = cell.zero_state(params.batch_size, data.POSE_DTYPE)
-        output, state = tf.nn.dynamic_rnn(
-            cell,
-            inputs,
-            sequence_length=input_lengths,
-            initial_state=initial_state,
-            dtype=data.POSE_DTYPE)
-
-        for var in base_cell.trainable_weights:
-            tf.summary.histogram(var.name, var)
-
-        return output, state
-
     def _add_fc_layers(final_state, output_size):
         """Add final dense layer to get the correct output size
         """
         return tf.layers.dense(final_state, output_size, activation=None)
 
-    def _decode(helper, cell, initial_state, reuse=False, name=None):
-        decoder = tf.contrib.seq2seq.BasicDecoder(
-            cell=cell,
-            helper=helper,
-            initial_state=hidden_state)
-
-        return tf.contrib.seq2seq.dynamic_decode(
-            decoder=decoder,
-            maximum_iterations=1024)
-
-    def _decode_train(cell, initial_state, reuse=False, name=None):
-        tf.summary.histogram(
-            "poses_lengths",
-            labels['poses_lengths'])
-        helper = ContinuousTrainingHelper(
-            labels['poses'],
-            labels['poses_lengths'],
-            tf.TensorShape([params.n_labels]))
-
-        return _decode(helper, cell, initial_state, reuse=reuse, name=name)
-
-    def _decode_infer(cell, initial_state, reuse=False, name=None):
-        start_input = np.array(
-            [data.get_empty_output()] * params.batch_size,
-            dtype=np.float32)
-
-        helper = ContinuousSamplingHelper(
-            start_input,
-            0)
-
-        return _decode(helper, cell, initial_state, reuse=reuse, name=name)
-
     with tf.variable_scope('encoding'):
         inputs = _get_input_tensors(features)
-        _, hidden_state = _add_rnn_layers(
-            inputs,
-            params.hidden_size,
-            name='encoder_cell')
+        encoder = SequenceEncoder(params.hidden_size, data.POSE_DTYPE, params.batch_size)
+        hidden_state = encoder.encode(inputs)
 
-    with tf.variable_scope('decoding'):
-        decoder_base_cell, decoder_cell = _create_rnn_cell(params.hidden_size, name='decoder_cell')
-        out_cell = tf.contrib.rnn.OutputProjectionWrapper(
-            decoder_cell,
-            output_size=params.n_labels)
+    decoder = SequenceDecoder(params.hidden_size, params.n_labels, hidden_state, params.batch_size)
 
     train_op = None
     loss = None
     if mode != tf.estimator.ModeKeys.PREDICT:
-        outputs, _, _ = _decode_train(out_cell, hidden_state)
+        outputs, _, _ = decoder.decode_train(labels['poses'], labels['poses_lengths'])
 
-        for var in decoder_base_cell.trainable_weights:
+        for var in decoder.base_cell.trainable_weights:
             tf.summary.histogram(var.name, var)
 
         loss = tf.losses.mean_squared_error(
@@ -210,9 +86,7 @@ def rnn_model_fn(features, labels, mode, params):
             loss=loss,
             global_step=tf.train.get_global_step())
 
-    prediction_output, _, _ = _decode_infer(
-        out_cell,
-        hidden_state,
+    prediction_output, _, _ = decoder.decode_predict(
         reuse=True)
     predictions = prediction_output.rnn_output
 
@@ -231,14 +105,14 @@ def rnn_model_fn(features, labels, mode, params):
 if __name__ == '__main__':
     # Set up learning
     batch_size = 1
-    input_fn, feature_columns, vocab_size, vocab = data.get_input(
+    input_fn, feature_columns, vocab_size, vocab, n_labels = data.get_input_angles(
         batch_size=batch_size,
         n_epochs=8192)
 
     model_params = tf.contrib.training.HParams(
         vocab_size=vocab_size,
         embedding_size=8,
-        n_labels=data.N_POSE_FEATURES,
+        n_labels=n_labels,
         hidden_size=128,
         batch_size=batch_size,
         learning_rate=0.001)
@@ -253,14 +127,16 @@ if __name__ == '__main__':
         config=run_config,
         params=model_params)
 
-    do_train = False
+    do_train = True
     if do_train:
         # profiler_hook = tf.train.ProfilerHook(save_steps=200, output_dir='profile')
-        # debug_hook = tf_debug.TensorBoardDebugHook("e6a12e88887e:7000")
+        # debug_hook = tf_debug.TensorBoardDebugHook("24c83624d92b:7000")
         estimator.train(input_fn, hooks=[])
 
-    do_predict = True
+    do_predict = False
     if do_predict:
+        import json
+
         subtitle = 'we are creating a machine learning algorithm'
         feature, feature_len = data.subtitle2features(subtitle, vocab)
 
@@ -273,9 +149,16 @@ if __name__ == '__main__':
             shuffle=False)
         preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
         n_frames = 100
-        pose = preds[0, :n_frames, 0:30]
-        pose = np.reshape(pose, (n_frames, 10, 3))
-        pose_complete = np.tile(data.REFERENCE_POSE, (n_frames, 1, 1))
-        pose_complete[:, data.FILTERED_INDICES, :] = pose
 
-        common.visualize.animate_3d_poses(pose_complete)
+        frames = preds[0, :n_frames, :-1].tolist() # Cut off the mask
+        angles = list(map(common.pose_utils.get_named_angles, frames))
+
+        with open("predicted_angles.json", "w") as write_file:
+            json.dump({'clip': angles}, write_file)
+
+        # pose = preds[0, :n_frames, 0:30]
+        # pose = np.reshape(pose, (n_frames, 10, 3))
+        # pose_complete = np.tile(data.REFERENCE_POSE, (n_frames, 1, 1))
+        # pose_complete[:, data.FILTERED_INDICES, :] = pose
+
+        # common.visualize.animate_3d_poses(pose_complete)

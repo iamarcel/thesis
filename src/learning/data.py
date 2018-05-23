@@ -40,7 +40,7 @@ FILTERED_NAMES = [
 
 FILTERED_INDICES = [i for i, s in enumerate(H36M_NAMES) if s in FILTERED_NAMES]
 
-N_POSE_FEATURES = len(FILTERED_NAMES) * 3 + 1
+# N_POSE_FEATURES = len(FILTERED_NAMES) * 3 + 1
 POSE_DTYPE = tf.float32
 
 # GET TO DA CHOPPA
@@ -82,42 +82,6 @@ REFERENCE_POSE = np.asarray([[0.0, 0.0, 0.0], [
 ]])
 
 
-def get_input(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
-              batch_size=16,
-              n_epochs=1):
-
-    clips = common.data_utils.get_clips(path=clips_path)
-    samples, vocab = create_examples(clips)
-    characters, poses = map(list, zip(*samples))
-    gen_batches = create_batches(characters, poses, batch_size)
-
-    feature_columns = [
-        tf.feature_column.categorical_column_with_identity(
-            key='characters', num_buckets=len(vocab))
-    ]
-
-    def input_fn():
-        dataset = tf.data.Dataset.from_generator(
-            gen_batches, ({
-                'characters': tf.int32,
-                'characters_lengths': tf.int32
-            }, {
-                'poses': POSE_DTYPE,
-                'poses_lengths': tf.int32
-            }), ({
-                'characters': tf.TensorShape([batch_size, None]),
-                'characters_lengths': tf.TensorShape([batch_size])
-            }, {
-                'poses': tf.TensorShape([batch_size, None, N_POSE_FEATURES]),
-                'poses_lengths': tf.TensorShape([batch_size])
-            }))
-        dataset = dataset.repeat(n_epochs)
-        iterator = dataset.make_one_shot_iterator()
-        return iterator.get_next()
-
-    return input_fn, feature_columns, len(vocab), vocab
-
-
 def create_vocab(clips):
     subtitles = map(lambda clip: clip['subtitle'], clips)
 
@@ -140,8 +104,8 @@ def get_empty_input():
     return TERMINATOR_INDEX
 
 
-def get_empty_output():
-    return np.zeros((len(FILTERED_INDICES) * 3 + 1, ))
+def get_empty_output(n_labels):
+    return np.zeros((n_labels, ))
 
 
 def char2feature(char, vocab):
@@ -195,6 +159,29 @@ def poses2labels(poses):
     return (poses, poses_length)
 
 
+def poses2angles(poses):
+    """Converts a list of poses to a list of angles.
+
+    Args:
+      poses: list of (n_poses, n_indices, 3): 3D poses
+    Returns:
+      ndarray (n_poses + 1, n_joints + 1): list of angles
+        with terminator label + terminator pose added
+        (i.e. time = n_poses + 1)
+    """
+    angles = np.asarray(list(map(common.pose_utils.get_pose_angle_list, poses)))
+
+    # Add mask indices (extra first "joint" with value 1)
+    angles = np.concatenate((np.ones((angles.shape[0], 1)), angles), axis=1)
+
+    # Append terminator pose (all indices 0)
+    angles = np.concatenate((angles, np.zeros((1, angles.shape[1]))), axis=0)
+
+    angles_length = angles.shape[0]
+
+    return (angles, angles_length)
+
+
 def pad_features(features, vocab, n):
     return np.append(
         features, np.repeat([TERMINATOR_INDEX], n, axis=0), axis=0)
@@ -217,14 +204,18 @@ def pad_labels(labels, n):
     return np.insert(labels, np.zeros((n, labels.shape[1])), axis=0)
 
 
-def clip2sample(clip, vocab):
+def clip2sample(clip, vocab, get_features=subtitle2features, get_labels=poses2labels):
     subtitle = clip['subtitle']
     poses_3d = clip['points_3d']
 
-    features, features_length = subtitle2features(subtitle, vocab)
-    labels, labels_length = poses2labels(poses_3d)
+    features, features_length = get_features(subtitle, vocab)
+    labels, labels_length = get_labels(poses_3d)
 
     return (features, labels)
+
+
+def clip2sample_angles(clip, vocab):
+    return clip2sample(clip, vocab, get_labels=poses2angles)
 
 
 def get_poses(path=common.data_utils.DEFAULT_CLIPS_PATH):
@@ -237,16 +228,20 @@ def get_poses(path=common.data_utils.DEFAULT_CLIPS_PATH):
     return poses
 
 
-def create_examples(clips):
+def create_examples(clips, get_sample=clip2sample):
     """Creates a list of examples from given clips.
     Examples all have a different length.
     """
     vocab, _, _ = create_vocab(clips)
     return (list(
-        map(lambda clip: clip2sample(clip, vocab),
+        map(lambda clip: get_sample(clip, vocab),
             filter(
                 lambda clip: 'points_3d' in clip and len(clip['points_3d']) > 0,
                 clips))), vocab)
+
+
+def create_examples_angles(clips):
+    return create_examples(clips, get_sample=clip2sample_angles)
 
 
 def create_batches(characters, poses, batch_size):
@@ -265,6 +260,8 @@ def create_batches(characters, poses, batch_size):
     """
     n_batches = math.ceil(len(characters) / batch_size)
     logging.debug("Got {} samples in total".format(len(characters)))
+
+    n_labels = poses[0][0].shape[0]
 
     logging.info("Total poses: {}".format(sum(len(i) for i in poses)))
 
@@ -300,7 +297,7 @@ def create_batches(characters, poses, batch_size):
             padded_outputs = np.array(
                 list(
                     itertools.zip_longest(
-                        *batch_outputs, fillvalue=get_empty_output())))
+                        *batch_outputs, fillvalue=get_empty_output(n_labels))))
             padded_outputs = np.swapaxes(padded_outputs, 0, 1)
 
             if this_batch_size < batch_size:
@@ -314,7 +311,7 @@ def create_batches(characters, poses, batch_size):
                              (n_padding_samples, 1))))
                 padded_outputs = np.concatenate(
                     (padded_outputs,
-                     np.tile(get_empty_output(),
+                     np.tile(get_empty_output(n_labels),
                              (n_padding_samples, max_output_time, 1))))
 
                 batch_input_lengths = np.append(batch_input_lengths,
@@ -335,3 +332,46 @@ def create_batches(characters, poses, batch_size):
             })
 
     return generator
+
+
+def get_input(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
+              batch_size=16,
+              n_epochs=1,
+              get_examples=create_examples):
+
+    clips = common.data_utils.get_clips(path=clips_path)
+    samples, vocab = get_examples(clips)
+    characters, poses = map(list, zip(*samples))
+    gen_batches = create_batches(characters, poses, batch_size)
+
+    feature_columns = [
+        tf.feature_column.categorical_column_with_identity(
+            key='characters', num_buckets=len(vocab))
+    ]
+
+    n_labels = poses[0][0].shape[0]
+
+    def input_fn():
+        dataset = tf.data.Dataset.from_generator(
+            gen_batches, ({
+                'characters': tf.int32,
+                'characters_lengths': tf.int32
+            }, {
+                'poses': POSE_DTYPE,
+                'poses_lengths': tf.int32
+            }), ({
+                'characters': tf.TensorShape([batch_size, None]),
+                'characters_lengths': tf.TensorShape([batch_size])
+            }, {
+                'poses': tf.TensorShape([batch_size, None, n_labels]),
+                'poses_lengths': tf.TensorShape([batch_size])
+            }))
+        dataset = dataset.repeat(n_epochs)
+        iterator = dataset.make_one_shot_iterator()
+        return iterator.get_next()
+
+    return input_fn, feature_columns, len(vocab), vocab, n_labels
+
+
+def get_input_angles(**kwargs):
+    return get_input(get_examples=create_examples_angles, **kwargs)
