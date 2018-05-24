@@ -17,10 +17,10 @@ class SequenceDecoder():
 
         self._build_model()
 
-    def decode_train(self, inputs, input_lengths, reuse=False, name='decode_train'):
+    def decode_train(self, labels, label_lengths, reuse=False, name='decode_train'):
         helper = ContinuousTrainingHelper(
-            inputs,
-            input_lengths,
+            labels,
+            label_lengths,
             tf.TensorShape([self.output_size]))
 
         return self._decode(helper, reuse=reuse, name=name)
@@ -50,7 +50,7 @@ class SequenceDecoder():
 
         return tf.contrib.seq2seq.dynamic_decode(
             decoder=decoder,
-            maximum_iterations=1024)
+            maximum_iterations=1024)[0]
 
 
 class ContinuousTrainingHelper(tf.contrib.seq2seq.TrainingHelper):
@@ -58,7 +58,8 @@ class ContinuousTrainingHelper(tf.contrib.seq2seq.TrainingHelper):
     def __init__(self, inputs, sequence_length, sample_ids_shape, time_major=False, name=None):
         tf.contrib.seq2seq.TrainingHelper.__init__(
             self, inputs, sequence_length, time_major, name)
-        self._sample_ids_shape = tf.TensorShape([inputs.get_shape()[-1]])
+        # self._sample_ids_shape = tf.TensorShape([inputs.get_shape()[-1]])
+        self._sample_ids_shape = sample_ids_shape
 
     def sample(self, time, outputs, name=None, **unused_kwargs):
         with tf.name_scope(name, "TrainingHelperSample", [time, outputs]):

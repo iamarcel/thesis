@@ -7,6 +7,7 @@ import logging
 
 import numpy as np
 import tensorflow as tf
+import tensorflow_hub as hub
 from tensorflow.python import debug as tf_debug
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -32,78 +33,114 @@ def rnn_model_fn(features, labels, mode, params):
             learning_rate
             n_labels: output dimensionality
             hidden_size: size of the thought vector
+            output_type: one of {'classes','sequences'}
     """
 
-    logging.info("Building RNN Model.")
     logging.info("Features: {}".format(features.keys()))
     if labels is not None:
         logging.info("Labels: {}".format(labels.keys()))
     logging.info("Params: {}".format(params.values()))
 
     with tf.variable_scope('encoding'):
-        embedder = SequenceEmbedder(
-            params.vocab_size,
-            params.embedding_size,
-            params.hidden_size,
-            params.batch_size,
-            data.POSE_DTYPE
-        )
-        embed = embedder.embed
-        hidden_state = embed(features['characters'], features['characters_lengths'])
+        # Use this when you have word ids:
+        # embedder = SequenceEmbedder(
+        #     params.vocab_size,
+        #     params.embedding_size,
+        #     params.hidden_size,
+        #     params.batch_size,
+        #     data.POSE_DTYPE
+        # )
+        # embed = embedder.embed
+        # hidden_state = embed(features['characters'], features['characters_lengths'])
 
-    decoder = SequenceDecoder(params.hidden_size, params.n_labels, hidden_state, params.batch_size)
+        # Use this when you have subtitles:
+        embed = hub.Module("https://tfhub.dev/google/universal-sentence-encoder/1")
+        input_shape = features['subtitles'].get_shape()
+        flat_input = tf.reshape(features['subtitles'], [-1])
+        hidden_state = tf.reshape(embed(flat_input), [params.batch_size, params.hidden_size])
 
     train_op = None
     loss = None
-    if mode != tf.estimator.ModeKeys.PREDICT:
-        outputs, _, _ = decoder.decode_train(labels['poses'], labels['poses_lengths'])
+    predictions = None
+    if params.output_type == 'sequences':
+        decoder = SequenceDecoder(params.hidden_size, params.n_labels, hidden_state, params.batch_size)
 
-        for var in decoder.base_cell.trainable_weights:
-            tf.summary.histogram(var.name, var)
+        if mode != tf.estimator.ModeKeys.PREDICT:
+            outputs = decoder.decode_train(labels['poses'], labels['poses_lengths'])
 
-        loss = tf.losses.mean_squared_error(
-            outputs.rnn_output,
-            labels['poses'],
-            weights=tf.tile(
-                tf.stack(
-                    [tf.sequence_mask(labels['poses_lengths'])],
-                    axis=2),
-                multiples=[1, 1, params.n_labels]))
+            for var in decoder.base_cell.trainable_weights:
+                tf.summary.histogram(var.name, var)
 
+            loss = tf.losses.mean_squared_error(
+                outputs.rnn_output,
+                labels['poses'],
+                weights=tf.tile(
+                    tf.stack(
+                        [tf.sequence_mask(labels['poses_lengths'])],
+                        axis=2),
+                    multiples=[1, 1, params.n_labels]))
+
+        prediction_output = decoder.decode_predict(reuse=True)
+        predictions = prediction_output.rnn_output
+    elif params.output_type == 'classes':
+        dropout = tf.layers.dropout(
+            inputs=hidden_state,
+            rate=0.4,
+            training=mode == tf.estimator.ModeKeys.PREDICT)
+        logits = tf.layers.dense(
+            inputs=dropout,
+            units=params.n_labels,
+            activation=tf.nn.relu)
+
+        if mode != tf.estimator.ModeKeys.PREDICT:
+            onehot_labels = tf.one_hot(indices=tf.cast(labels['class'], tf.int32), depth=params.n_labels)
+            loss = tf.losses.softmax_cross_entropy(
+                onehot_labels=onehot_labels,
+                logits=logits)
+
+        predictions = tf.argmax(input=logits, axis=1)
+    else:
+        raise NotImplementedError()
+
+
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        return tf.estimator.EstimatorSpec(
+            mode=mode,
+            predictions=predictions)
+    else:
         optimizer = tf.train.AdamOptimizer(
             learning_rate=params.learning_rate)
         train_op = optimizer.minimize(
             loss=loss,
             global_step=tf.train.get_global_step())
 
-    prediction_output, _, _ = decoder.decode_predict(
-        reuse=True)
-    predictions = prediction_output.rnn_output
-
-    if mode == tf.estimator.ModeKeys.PREDICT:
         return tf.estimator.EstimatorSpec(
             mode=mode,
-            predictions=predictions)
-
-    return tf.estimator.EstimatorSpec(
-        mode=mode,
-        predictions=predictions,
-        loss=loss,
-        train_op=train_op)
+            predictions=predictions,
+            loss=loss,
+            train_op=train_op)
 
 
 if __name__ == '__main__':
     # Set up learning
     batch_size = 1
-    input_fn, feature_columns, vocab_size, vocab, n_labels = data.get_input_angles(
+
+    # Use this if you want word ids:
+    # input_fn, feature_columns, vocab_size, vocab, n_labels = data.get_input_angles(
+    #     batch_size=batch_size,
+    #     n_epochs=8192)
+
+    # Use this if you want plain sentences:
+    input_fn, feature_columns, vocab_size, vocab, n_labels = data.get_input_sentences(
         batch_size=batch_size,
         n_epochs=8192)
 
     model_params = tf.contrib.training.HParams(
         vocab_size=vocab_size,
+        output_type='classes',
         embedding_size=8,
         n_labels=n_labels,
-        hidden_size=128,
+        hidden_size=512,
         batch_size=batch_size,
         learning_rate=0.001)
 
@@ -117,23 +154,23 @@ if __name__ == '__main__':
         config=run_config,
         params=model_params)
 
-    do_train = True
+    do_train = False
     if do_train:
         # profiler_hook = tf.train.ProfilerHook(save_steps=200, output_dir='profile')
-        # debug_hook = tf_debug.TensorBoardDebugHook("24c83624d92b:7000")
+        debug_hook = tf_debug.TensorBoardDebugHook("f9f267322738:7000")
         estimator.train(input_fn, hooks=[])
 
-    do_predict = False
+    do_predict = True
     if do_predict:
         import json
 
         subtitle = 'we are creating a machine learning algorithm'
-        feature, feature_len = data.subtitle2features(subtitle, vocab)
+        feature, feature_len = data.subtitle2subtitle(subtitle, vocab)
 
         predict_input_fn = tf.estimator.inputs.numpy_input_fn(
             x={
-                'characters': np.array([feature]),
-                'characters_lengths': np.array([feature_len])
+                'subtitles': np.array([feature]),
+                'subtitle_lengths': np.array([feature_len])
             },
             num_epochs=1,
             shuffle=False)
