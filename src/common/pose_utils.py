@@ -32,6 +32,15 @@ COCO_BODY_PARTS = [
     'REye', 'LEye', 'REar', 'LEar'
 ]
 
+# To convert the dictionary to a list with consistent ordering
+ANGLE_NAMES_ORDER = [
+    'HipRoll', 'HipPitch',
+    'RShoulderPitch', 'RShoulderRoll',
+    'LShoulderPitch', 'LShoulderRoll',
+    'RElbowRoll', 'LElbowRoll',
+    'HeadPitch', 'HeadYaw'
+]
+
 KEY_OP_PEOPLE = 'people'
 KEY_OP_KEYPOINTS = 'pose_keypoints_2d'
 
@@ -429,6 +438,14 @@ def get_pose_angles(pose):
     head = norm_joint('Thorax', 'Head')
     angles['HeadPitch'] = angle_between([0., 0., -1.], head) - np.pi / 2
     angles['HeadYaw'] = angle_between([-1., 0., 0.], head) - np.pi / 2
-    print(angles)
 
     return angles
+
+
+def get_pose_angle_list(pose):
+    angles = get_pose_angles(pose)
+    return [angles[k] for k in ANGLE_NAMES_ORDER]
+
+
+def get_named_angles(angle_list):
+    return {ANGLE_NAMES_ORDER[i]: v for i, v in enumerate(angle_list)}

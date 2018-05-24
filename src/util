@@ -9,7 +9,7 @@ import json
 import jsonlines
 
 import common.data_utils
-import common.openpose_utils
+import common.pose_utils
 import common.bot
 import common.visualize
 
@@ -25,8 +25,10 @@ if __name__ == '__main__':
         'move_2d_finished_images',
         'clip_stats',
         'normalize',
+        'add-angles',
         'sample',
-        'test-bot'
+        'test-bot',
+        'bot-play'
     ]
 
     parser = argparse.ArgumentParser(description='Manipulate clip data files.')
@@ -54,13 +56,23 @@ if __name__ == '__main__':
         common.data_utils.clip_stats(*args.args)
     elif command_name == 'normalize':
         common.data_utils.normalize_clips(*args.args)
+    elif command_name == 'add-angles':
+        common.data_utils.add_clip_angles(*args.args)
     elif command_name == 'test-bot':
-        bot = common.bot.BotController(43073)
+        bot = common.bot.BotController(46617)
 
         clips = common.data_utils.get_clips()
         clip = clips[randint(0, len(clips))]
         poses = clip['points_3d']
-        angles = list(map(common.openpose_utils.get_pose_angles, poses))
+        angles = list(map(common.pose_utils.get_pose_angles, poses))
+
+        bot.play_angles(angles)
+    elif command_name == 'bot-play':
+        bot = common.bot.BotController(33115)
+
+        angles = []
+        with open(args.args[0], "r") as read_file:
+            angles = json.load(read_file)['clip']
 
         bot.play_angles(angles)
     else:

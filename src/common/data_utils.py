@@ -9,7 +9,7 @@ import math
 
 import jsonlines
 
-from . import config_utils, openpose_utils
+from . import config_utils, pose_utils
 
 logger = logging.getLogger(__name__)
 
@@ -212,12 +212,12 @@ def move_2d_finished_images(
 
     n_clips_done = 0
     n_clips_all = 0
-    all_filenames = list(openpose_utils.get_outputs())
+    all_filenames = list(pose_utils.get_outputs())
     with jsonlines.open(clips_path, 'r') as reader:
         for clip in reader:
             n_clips_all += 1
 
-            filenames = openpose_utils.get_clip_files(
+            filenames = pose_utils.get_clip_files(
                 clip,
                 filenames=all_filenames)
             has_detections = any(True for _ in filenames)
@@ -280,6 +280,33 @@ def clip_stats(clips_path=DEFAULT_CLIPS_PATH):
     ax.scatter(mu_x, mu_y, -mu_z, s=(100000 / n_poses)*(std_x+std_y+std_z))
     ax.invert_yaxis()
     plt.show()
+
+
+def add_clip_angles(read_path=DEFAULT_CLIPS_PATH,
+                    write_path='clips-angles.jsonl'):
+
+    assert read_path != write_path
+
+    writer = ClipWriter(write_path, mode='w')
+    clips = get_clips(read_path)
+
+    n_clips_in = 0
+    n_clips_out = 0
+
+    for clip in clips:
+        n_clips_in += 1
+        try:
+            points = np.asarray(clip['points_3d'])
+            angles = list(map(pose_utils.get_pose_angles, points))
+            clip['angles'] = angles
+            writer.send(clip)
+            n_clips_out += 1
+        except ValueError as e:
+            logger.warn(e)
+
+    writer.close()
+
+    logger.info("Wrote {} out of {} clips.".format(n_clips_out, n_clips_in))
 
 
 def normalize_clips(read_path=DEFAULT_CLIPS_PATH,
@@ -411,8 +438,8 @@ def rotation_matrix(axis, theta):
 def normalize_pose_scale(pose, to_height=1.0):
     """Scales a pose so its height is 1
     """
-    head_index = openpose_utils.H36M_NAMES.index('Head')
-    foot_index = openpose_utils.H36M_NAMES.index('LFoot')
+    head_index = pose_utils.H36M_NAMES.index('Head')
+    foot_index = pose_utils.H36M_NAMES.index('LFoot')
     head_y = pose[head_index, 1]
     foot_y = pose[foot_index, 1]
 

@@ -9,8 +9,8 @@ import matplotlib.image as img
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
-from common.openpose_utils import load_clip_keypoints, openpose_to_baseline, get_confidences, get_positions
-from . import data_utils, openpose_utils
+from common.pose_utils import load_clip_keypoints, openpose_to_baseline, get_confidences, get_positions
+from . import data_utils, pose_utils
 
 
 def plot_skeleton(points, points_2d, image_paths, confidences=None):
@@ -139,9 +139,9 @@ def show3Dpose(channels,
     """
 
     assert channels.size == len(
-        openpose_utils.H36M_NAMES
+        pose_utils.H36M_NAMES
     ) * 3, "channels should have 96 entries, it has %d instead" % channels.size
-    vals = np.reshape(channels, (len(openpose_utils.H36M_NAMES), -1))
+    vals = np.reshape(channels, (len(pose_utils.H36M_NAMES), -1))
 
     _mpl_setup_ax_3d(ax, add_labels=add_labels)
 
@@ -185,9 +185,9 @@ def show2Dpose(channels,
     """
 
     assert channels.size == len(
-        openpose_utils.H36M_NAMES
+        pose_utils.H36M_NAMES
     ) * 2, "channels should have 64 entries, it has %d instead" % channels.size
-    vals = np.reshape(channels, (len(openpose_utils.H36M_NAMES), -1))
+    vals = np.reshape(channels, (len(pose_utils.H36M_NAMES), -1))
 
     _mpl_setup_ax_2d(ax)
 
