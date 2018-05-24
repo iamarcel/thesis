@@ -64,6 +64,7 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
 	  six \
 	  Pillow \
 	  tensorflow-gpu \
+	  tensorflow_hub \
 	  opencv-python \
 	  imageio \
     html5lib==0.999999999 && \
