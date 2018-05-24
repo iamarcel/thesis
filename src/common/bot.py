@@ -65,7 +65,7 @@ class BotController:
         joint_names = self.motion.getBodyNames('Body')
 
         for frame in angles_frames:
-            supported_joints = {k: v for k, v in frame.iteritems() if k in joint_names}
+            supported_joints = {str(k): v for k, v in frame.iteritems() if k in joint_names}
             names = supported_joints.keys()
             angles = supported_joints.values()
             self.motion.setAngles(names, angles, 0.5)
