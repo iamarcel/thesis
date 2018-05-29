@@ -417,8 +417,6 @@ def calc_bone_lengths(pose):
                                 pose[H36M_NAMES.index('LHip')])
 
 
-
-
 def rotation_matrix(axis, theta):
     """
     Return the rotation matrix associated with counterclockwise rotation about

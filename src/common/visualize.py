@@ -111,6 +111,7 @@ def animate_3d_poses(points, add_labels=False):
 
 
 def show_3d_pose(points, add_labels=False):
+    points = np.asarray(points)
     points = _mpl_reorder_pose(points)
 
     fig = plt.figure()

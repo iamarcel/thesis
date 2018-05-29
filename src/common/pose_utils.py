@@ -2,7 +2,11 @@ import os
 import json
 import logging
 import numpy as np
+import quaternion
 import scipy
+import math
+
+from . import vector
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +49,37 @@ KEY_OP_PEOPLE = 'people'
 KEY_OP_KEYPOINTS = 'pose_keypoints_2d'
 
 DEFAULT_OPENPOSE_OUTPUT_PATH = '/root/dev/output/'
+
+X_AXIS = np.array([1., 0., 0.])
+Y_AXIS = np.array([0., 1., 0.])
+Z_AXIS = np.array([0., 0., 1.])
+
+# In NAO's frame of reference, in meters
+# [[file:~/org/thesis.org::*NAO Skeleton]]
+NAO_ZERO_POSE = {
+    'Hip': [0., 0., -0.085],
+    'RHip': [0., -0.05, -0.085],
+    'RKnee': [0., -0.05, -0.185],
+    'RFoot': [0., -0.05, -0.333],
+    'LHip': [0., 0.05, -0.085],
+    'LKnee': [0., 0.05, -0.185],
+    'LFoot': [0., 0.05, -0.333],
+    'Spine': [0., 0., 0.05],
+    'Thorax': [0., 0., 0.1265],
+    'Neck/Nose': [.05, 0., 0.1765],
+    'Head': [0., 0., 0.2265],
+    'LShoulder': [0., 0.098, 0.1265],
+    'LElbow': [0.105, 0.113, 0.1265],
+    'LWrist': [0.2187, 0.113, 0.1265],
+    'RShoulder': [0., -0.098, 0.1265],
+    'RElbow': [0.105, -0.113, 0.1265],
+    'RWrist': [0.2187, -0.113, 0.1265],
+}
+
+# In NAO's reference frame
+ROLL_AXIS = [1., 0., 0.]
+PITCH_AXIS = [0., 1., 0.]
+YAW_AXIS = [0., 0., 1.]
 
 
 def load_clip_keypoints(clip,
@@ -404,40 +439,50 @@ def plot_3d_animation(poses, ax):
 
 
 def get_pose_angles(pose):
+    """Returns angles as understood by NAOqi from a H36M-formatted pose.
+    """
     pose = get_named_pose(pose)
+    pose = {k: np.asarray(v) for k, v in pose.iteritems()}
     angles = {}
 
     def norm_joint(name_a, name_b):
-        vec = np.asarray(pose[name_b]) - np.asarray(pose[name_a])
-        vec /= scipy.linalg.norm(vec)
+        vec = pose[name_b] - pose[name_a]
+        vec /= np.linalg.norm(vec)
         return vec
 
-    def angle_between(vec_a, vec_b):
-        return np.arccos(np.dot(np.asarray(vec_a), np.asarray(vec_b)))
 
     chest = norm_joint('Hip', 'Thorax')
 
     # Only Pepper has a hip
-    angles['HipRoll'] = angle_between(chest, [-1., 0., 0.]) - np.pi / 2
-    angles['HipPitch'] = angle_between(chest, [0., 0., -1.]) - np.pi / 2
+    angles['HipRoll'] = vector.angle_between(chest, -Y_AXIS, -Z_AXIS)
+    angles['HipPitch'] = vector.angle_between(chest, -Y_AXIS, X_AXIS)
 
+    r_shoulder = norm_joint('Thorax', 'RShoulder')
     r_upper_arm = norm_joint('RShoulder', 'RElbow')
-    angles['RShoulderPitch'] = angle_between(chest, r_upper_arm) - np.pi / 2
-    angles['RShoulderRoll'] = angle_between([0.0, 0.0, -1.0], r_upper_arm)
+    angles['RShoulderPitch'] = vector.angle_between(r_upper_arm, chest, X_AXIS) - np.pi/2
 
+    angles['RShoulderRoll'] = vector.angle_with_plane(r_upper_arm, X_AXIS) + np.pi/10
+
+
+    l_shoulder = norm_joint('Thorax', 'LShoulder')
     l_upper_arm = norm_joint('LShoulder', 'LElbow')
-    angles['LShoulderPitch'] = angle_between(chest, l_upper_arm) - np.pi / 2
-    angles['LShoulderRoll'] = - angle_between([0.0, 0.0, -1.0], l_upper_arm)
+    angles['LShoulderPitch'] = vector.angle_between(chest, l_upper_arm, X_AXIS) - np.pi/2
+
+    angles['LShoulderRoll'] = vector.angle_with_plane(l_upper_arm, X_AXIS) - np.pi/10
+
 
     r_elbow = norm_joint('RElbow', 'RWrist')
-    angles['RElbowRoll'] = angle_between(r_upper_arm, r_elbow)
+    r_elbow_roll_axis = np.cross(r_upper_arm, r_elbow)
+    angles['RElbowRoll'] = vector.shortest_angle_between(r_upper_arm, r_elbow)
 
     l_elbow = norm_joint('LElbow', 'LWrist')
-    angles['LElbowRoll'] = - angle_between(l_upper_arm, l_elbow)
+    l_elbow_roll_axis = np.cross(l_upper_arm, l_elbow)
+    angles['LElbowRoll'] = - (vector.shortest_angle_between(l_upper_arm, l_elbow))
 
+    nose = norm_joint('Thorax', 'Neck/Nose')
     head = norm_joint('Thorax', 'Head')
-    angles['HeadPitch'] = angle_between([0., 0., -1.], head) - np.pi / 2
-    angles['HeadYaw'] = angle_between([-1., 0., 0.], head) - np.pi / 2
+    angles['HeadPitch'] = vector.angle_between(nose, head, X_AXIS) - np.pi/4
+    angles['HeadYaw'] = vector.angle_between(-Z_AXIS, nose, -Y_AXIS)
 
     return angles
 
@@ -449,3 +494,100 @@ def get_pose_angle_list(pose):
 
 def get_named_angles(angle_list):
     return {ANGLE_NAMES_ORDER[i]: v for i, v in enumerate(angle_list)}
+
+
+def get_pose_from_angles(angles):
+    """Returns a dict of 3d joint positions, with NAO's skeleton and in his frame
+    of reference.
+
+    Params:
+      angles: dict of angles
+    Returns:
+      pose: dict of np.array([x, y, z]) coordinates
+    """
+
+    pose = NAO_ZERO_POSE.copy()
+    pose = {k: np.asarray(v) for k, v in pose.iteritems()}
+
+    def rotate_joints(joint_names, origin, angles):
+        for joint_name in joint_names:
+            position = pose[joint_name]
+
+            rel_position = position - origin
+            for axis, angle in angles:
+                rel_position = np.matmul(
+                    rel_position,
+                    rotation_matrix(axis, angle))
+
+            pose[joint_name] = rel_position + origin
+
+    # Hip
+    rotate_joints(
+        joint_names=['Spine', 'Thorax', 'Neck/Nose', 'Head', 'LShoulder',
+                      'LElbow', 'LWrist', 'RShoulder', 'RElbow', 'RWrist'],
+        origin=pose['Hip'],
+        angles=[(ROLL_AXIS, angles['HipRoll']), (PITCH_AXIS, angles['HipPitch'])])
+
+    # Right Arm
+    rotate_joints(
+        joint_names=['RElbow', 'RWrist'],
+        origin=pose['RShoulder'],
+        angles=[(PITCH_AXIS, -angles['RShoulderPitch'])])
+
+    right_shoulder_roll_axis = np.cross(
+        pose['RShoulder'] - pose['Thorax'],
+        pose['RElbow'] - pose['RShoulder'])
+    rotate_joints(
+        joint_names=['RElbow', 'RWrist'],
+        origin=pose['RShoulder'],
+        angles=[(right_shoulder_roll_axis, angles['RShoulderRoll'])])
+
+    # Right Wrist
+    rotate_joints(
+        joint_names=['RWrist'],
+        origin=pose['RElbow'],
+        angles=[(ROLL_AXIS, angles['RElbowRoll'])])
+
+    # Left Arm
+    rotate_joints(
+        joint_names=['LElbow', 'LWrist'],
+        origin=pose['LShoulder'],
+        angles=[(PITCH_AXIS, -angles['LShoulderPitch'])])
+
+    left_shoulder_roll_axis = np.cross(
+        pose['LElbow'] - pose['LShoulder'],
+        pose['LShoulder'] - pose['Thorax'])
+    rotate_joints(
+        joint_names=['LElbow', 'LWrist'],
+        origin=pose['LShoulder'],
+        angles=[(left_shoulder_roll_axis, angles['LShoulderRoll'])])
+
+    # Left Wrist
+    rotate_joints(
+        joint_names=['LWrist'],
+        origin=pose['LElbow'],
+        angles=[(ROLL_AXIS, angles['LElbowRoll'])])
+
+    # Head
+    rotate_joints(
+        joint_names=['Neck/Nose', 'Head'],
+        origin=pose['Thorax'],
+        angles=[(PITCH_AXIS, angles['HeadPitch']), (YAW_AXIS, angles['HeadYaw'])])
+
+    return pose
+
+
+def rotation_matrix(axis, theta):
+    """
+    Return the rotation matrix associated with counterclockwise rotation about
+    the given axis by theta radians.
+    """
+    axis = np.asarray(axis)
+    axis = axis/math.sqrt(np.dot(axis, axis))
+    a = math.cos(theta/2.0)
+    b, c, d = -axis*math.sin(theta/2.0)
+    aa, bb, cc, dd = a*a, b*b, c*c, d*d
+    bc, ad, ac, ab, bd, cd = b*c, a*d, a*c, a*b, b*d, c*d
+    return np.array([[aa+bb-cc-dd, 2*(bc+ad), 2*(bd-ac)],
+                     [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
+                     [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
