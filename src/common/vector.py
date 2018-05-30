@@ -13,9 +13,6 @@ def shortest_angle_between(a, b):
     a_norm = a / np.linalg.norm(a)
     b_norm = b / np.linalg.norm(b)
 
-    print(a_norm, b_norm)
-    print(np.dot(a, b))
-
     return np.arccos(np.dot(a_norm, b_norm))
 
 def angle_between(a, b, n):

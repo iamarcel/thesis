@@ -1,6 +1,7 @@
 import os
 import json
 import random
+import itertools
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -11,6 +12,19 @@ import numpy as np
 
 from common.pose_utils import load_clip_keypoints, openpose_to_baseline, get_confidences, get_positions
 from . import data_utils, pose_utils
+
+
+def create_plot_grid(ny, nx):
+    fig = plt.figure()
+
+    axes = []
+    for y in range(ny):
+        row_axes = []
+        for x in range(nx):
+            i = y*nx + x + 1
+            row_axes.append(fig.add_subplot(ny, nx, i, projection='3d'))
+        axes.append(row_axes)
+    return axes
 
 
 def plot_skeleton(points, points_2d, image_paths, confidences=None):
@@ -86,15 +100,18 @@ def preview_clip(n=-1):
             n = random.randint(0, len(clips))
 
 
-def animate_3d_poses(points, add_labels=False):
+def animate_3d_poses(points, add_labels=False, ax=None):
     # Swap y and z axes because mpl shows z as height instead of depth
     # points[:, :, 1], points[:, :, 2] = (
     #     points[:, :, 2].copy(), points[:, :, 1].copy())
     points = np.asarray(points)
     # points = _mpl_reorder_poses(points)
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+    fig = ax.get_figure()
 
     show3Dpose(points[0], ax, add_labels=add_labels)
 
@@ -104,7 +121,12 @@ def animate_3d_poses(points, add_labels=False):
         ax.clear()
         show3Dpose(frame, ax, add_labels=add_labels)
 
-    ani = FuncAnimation(fig, update, frames=enumerate(points), interval=17)
+    ani = FuncAnimation(
+        fig,
+        update,
+        frames=itertools.cycle(enumerate(points)),
+        interval=17,
+        repeat=True)
     # ani.save('viz.mp4')
 
     plt.show()

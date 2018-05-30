@@ -27,7 +27,7 @@ if __name__ == '__main__':
         'normalize',
         'add-angles',
         'sample',
-        'test-angle-conversion-bot',
+        'test-angle-conversion',
         'bot-play',
         'plot-nao-zero',
         'test-plot-angles'
@@ -60,18 +60,22 @@ if __name__ == '__main__':
         common.data_utils.normalize_clips(*args.args)
     elif command_name == 'add-angles':
         common.data_utils.add_clip_angles(*args.args)
-    elif command_name == 'test-angle-conversion-bot':
-        bot = common.bot.BotController(35343)
-
+    elif command_name == 'test-angle-conversion':
         clips = common.data_utils.get_clips()
-        clip = clips[randint(0, len(clips))]
+
+        clip = None
+        while clip is None or 'points_3d' not in clip or len(clip['points_3d']) == 0:
+            logger.info('Getting a random clip')
+            clip = clips[randint(0, len(clips))]
+
         poses = clip['points_3d']
-        angles = list(map(common.pose_utils.get_pose_angles, poses))
-        print json.dumps(angles[0], indent=4, sort_keys=True)
 
-        common.visualize.animate_3d_poses(clip['points_3d'])
+        angles = map(common.pose_utils.get_pose_angles, poses)
+        new_poses = map(common.pose_utils.get_pose_from_angles, angles)
+        h36m_poses = map(common.pose_utils.format_joint_dict, new_poses)
 
-        bot.play_angles(angles)
+        common.visualize.animate_3d_poses(poses)
+        common.visualize.animate_3d_poses(list(h36m_poses))
     elif command_name == 'bot-play':
         bot = common.bot.BotController(33115)
 

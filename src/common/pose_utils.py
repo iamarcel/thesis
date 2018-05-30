@@ -2,7 +2,6 @@ import os
 import json
 import logging
 import numpy as np
-import quaternion
 import scipy
 import math
 
@@ -44,6 +43,25 @@ ANGLE_NAMES_ORDER = [
     'RElbowRoll', 'LElbowRoll',
     'HeadPitch', 'HeadYaw'
 ]
+
+JOINTS = np.array([
+    ['Hip', 'RHip'],
+    ['RHip', 'RKnee'],
+    ['RKnee', 'RFoot'],
+    ['Hip', 'LHip'],
+    ['LHip', 'LKnee'],
+    ['LKnee', 'LFoot'],
+    ['Hip', 'Spine'],
+    ['Spine', 'Thorax'],
+    ['Thorax', 'Neck/Nose'],
+    ['Neck/Nose', 'Head'],
+    ['Thorax', 'LShoulder'],
+    ['LShoulder', 'LElbow'],
+    ['LElbow', 'LWrist'],
+    ['Thorax', 'RShoulder'],
+    ['RShoulder', 'RElbow'],
+    ['RElbow', 'RWrist']
+])
 
 KEY_OP_PEOPLE = 'people'
 KEY_OP_KEYPOINTS = 'pose_keypoints_2d'
@@ -522,57 +540,65 @@ def get_pose_from_angles(angles):
             pose[joint_name] = rel_position + origin
 
     # Hip
-    rotate_joints(
-        joint_names=['Spine', 'Thorax', 'Neck/Nose', 'Head', 'LShoulder',
-                      'LElbow', 'LWrist', 'RShoulder', 'RElbow', 'RWrist'],
-        origin=pose['Hip'],
-        angles=[(ROLL_AXIS, angles['HipRoll']), (PITCH_AXIS, angles['HipPitch'])])
+    if 'HipRoll' in angles and 'HipPitch' in angles:
+        rotate_joints(
+            joint_names=['Spine', 'Thorax', 'Neck/Nose', 'Head', 'LShoulder',
+                        'LElbow', 'LWrist', 'RShoulder', 'RElbow', 'RWrist'],
+            origin=pose['Hip'],
+            angles=[(ROLL_AXIS, -angles['HipRoll']), (PITCH_AXIS, -angles['HipPitch'])])
 
     # Right Arm
-    rotate_joints(
-        joint_names=['RElbow', 'RWrist'],
-        origin=pose['RShoulder'],
-        angles=[(PITCH_AXIS, -angles['RShoulderPitch'])])
+    if 'RShoulderPitch' in angles:
+        rotate_joints(
+            joint_names=['RElbow', 'RWrist'],
+            origin=pose['RShoulder'],
+            angles=[(PITCH_AXIS, -angles['RShoulderPitch'])])
 
     right_shoulder_roll_axis = np.cross(
         pose['RShoulder'] - pose['Thorax'],
         pose['RElbow'] - pose['RShoulder'])
-    rotate_joints(
-        joint_names=['RElbow', 'RWrist'],
-        origin=pose['RShoulder'],
-        angles=[(right_shoulder_roll_axis, angles['RShoulderRoll'])])
+    if 'RShoulderRoll' in angles:
+        rotate_joints(
+            joint_names=['RElbow', 'RWrist'],
+            origin=pose['RShoulder'],
+            angles=[(right_shoulder_roll_axis, -angles['RShoulderRoll'])])
 
     # Right Wrist
-    rotate_joints(
-        joint_names=['RWrist'],
-        origin=pose['RElbow'],
-        angles=[(ROLL_AXIS, angles['RElbowRoll'])])
+    if 'RElbowRoll' in angles:
+        rotate_joints(
+            joint_names=['RWrist'],
+            origin=pose['RElbow'],
+            angles=[(right_shoulder_roll_axis, -angles['RElbowRoll'])])
 
     # Left Arm
-    rotate_joints(
-        joint_names=['LElbow', 'LWrist'],
-        origin=pose['LShoulder'],
-        angles=[(PITCH_AXIS, -angles['LShoulderPitch'])])
+    if 'LShoulderPitch' in angles:
+        rotate_joints(
+            joint_names=['LElbow', 'LWrist'],
+            origin=pose['LShoulder'],
+            angles=[(PITCH_AXIS, -angles['LShoulderPitch'])])
 
     left_shoulder_roll_axis = np.cross(
         pose['LElbow'] - pose['LShoulder'],
         pose['LShoulder'] - pose['Thorax'])
-    rotate_joints(
-        joint_names=['LElbow', 'LWrist'],
-        origin=pose['LShoulder'],
-        angles=[(left_shoulder_roll_axis, angles['LShoulderRoll'])])
+    if 'LShoulderRoll' in angles:
+        rotate_joints(
+            joint_names=['LElbow', 'LWrist'],
+            origin=pose['LShoulder'],
+            angles=[(left_shoulder_roll_axis, -angles['LShoulderRoll'])])
 
     # Left Wrist
-    rotate_joints(
-        joint_names=['LWrist'],
-        origin=pose['LElbow'],
-        angles=[(ROLL_AXIS, angles['LElbowRoll'])])
+    if 'LElbowRoll' in angles:
+        rotate_joints(
+            joint_names=['LWrist'],
+            origin=pose['LElbow'],
+            angles=[(left_shoulder_roll_axis, -angles['LElbowRoll'])])
 
     # Head
-    rotate_joints(
-        joint_names=['Neck/Nose', 'Head'],
-        origin=pose['Thorax'],
-        angles=[(PITCH_AXIS, angles['HeadPitch']), (YAW_AXIS, angles['HeadYaw'])])
+    if 'HeadPitch' in angles and 'HeadYaw' in angles:
+        rotate_joints(
+            joint_names=['Neck/Nose', 'Head'],
+            origin=pose['Thorax'],
+            angles=[(PITCH_AXIS, -angles['HeadPitch']), (YAW_AXIS, -angles['HeadYaw'])])
 
     return pose
 
@@ -591,3 +617,22 @@ def rotation_matrix(axis, theta):
     return np.array([[aa+bb-cc-dd, 2*(bc+ad), 2*(bd-ac)],
                      [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
                      [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
+
+
+def format_joint_dict(joint_dict, format_type='h36m'):
+    format_template = None
+    if format_type == 'h36m':
+        format_template = H36M_NAMES
+    else:
+        raise NotImplementedError()
+
+    pose = np.zeros((len(format_template), 3))
+    for i, joint_name in enumerate(format_template):
+        if joint_name == '':
+            continue
+        if joint_name not in joint_dict:
+            logger.warn('Joint {} is not in this dict'
+                        .format(joint_name))
+        pose[i, :] = np.asarray(joint_dict[joint_name])
+
+    return pose

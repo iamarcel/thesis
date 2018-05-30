@@ -20,7 +20,10 @@ tensorflow-gpu = "*"
 tensorflow-hub = "*"
 opencv-python = "*"
 imageio = "*"
-"html5lib" = "==0.999999999"
+numpy-quaternion = "*"
+nose = "*"
+plotly = "*"
+jupyterlab = "*"
 
 [requires]
 python_version = "2.7"
