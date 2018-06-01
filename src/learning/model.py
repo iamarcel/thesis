@@ -1,5 +1,6 @@
-from __future__ import print_function
-from __future__ import division
+from __future__ import print_function, division
+from future.builtins import *
+from future.builtins.disabled import *
 
 import os
 import itertools
@@ -41,23 +42,7 @@ def rnn_model_fn(features, labels, mode, params):
         logging.info("Labels: {}".format(labels.keys()))
     logging.info("Params: {}".format(params.values()))
 
-    with tf.variable_scope('encoding'):
-        # Use this when you have word ids:
-        # embedder = SequenceEmbedder(
-        #     params.vocab_size,
-        #     params.embedding_size,
-        #     params.hidden_size,
-        #     params.batch_size,
-        #     data.POSE_DTYPE
-        # )
-        # embed = embedder.embed
-        # hidden_state = embed(features['characters'], features['characters_lengths'])
-
-        # Use this when you have subtitles:
-        embed = hub.Module("https://tfhub.dev/google/universal-sentence-encoder/1")
-        input_shape = features['subtitles'].get_shape()
-        flat_input = tf.reshape(features['subtitles'], [-1])
-        hidden_state = tf.reshape(embed(flat_input), [params.batch_size, params.hidden_size])
+    hidden_state = tf.feature_column.input_layer(features, params.feature_columns)
 
     train_op = None
     loss = None
@@ -99,6 +84,7 @@ def rnn_model_fn(features, labels, mode, params):
                 logits=logits)
 
         predictions = tf.argmax(input=logits, axis=1)
+        tf.summary.histogram("class", predictions)
     else:
         raise NotImplementedError()
 
@@ -130,16 +116,22 @@ if __name__ == '__main__':
     #     batch_size=batch_size,
     #     n_epochs=8192)
 
+    feature_columns = [
+        hub.text_embedding_column(
+            'subtitle',
+            'https://tfhub.dev/google/universal-sentence-encoder/1',
+            trainable=False)
+    ]
+
     # Use this if you want plain sentences:
-    input_fn, feature_columns, vocab_size, vocab, n_labels = data.get_input_sentences(
-        batch_size=batch_size,
-        n_epochs=8192)
+    # input_fn, feature_columns, vocab_size, vocab, n_labels = data.get_input_sentences(
+    #     batch_size=batch_size,
+    #     n_epochs=8192)
 
     model_params = tf.contrib.training.HParams(
-        vocab_size=vocab_size,
+        feature_columns=feature_columns,
         output_type='classes',
-        embedding_size=8,
-        n_labels=n_labels,
+        n_labels=8,
         hidden_size=512,
         batch_size=batch_size,
         learning_rate=0.001)
@@ -154,11 +146,11 @@ if __name__ == '__main__':
         config=run_config,
         params=model_params)
 
-    do_train = False
+    do_train = True
     if do_train:
         # profiler_hook = tf.train.ProfilerHook(save_steps=200, output_dir='profile')
         debug_hook = tf_debug.TensorBoardDebugHook("f9f267322738:7000")
-        estimator.train(input_fn, hooks=[])
+        estimator.train(lambda: data.input_fn('../clips.tfrecords'), hooks=[])
 
     do_predict = True
     if do_predict:
@@ -176,6 +168,9 @@ if __name__ == '__main__':
             shuffle=False)
         preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
         n_frames = 100
+
+        logging.info(preds)
+        pass
 
         frames = preds[0, :n_frames, :-1].tolist() # Cut off the mask
         angles = list(map(common.pose_utils.get_named_angles, frames))

@@ -2,13 +2,13 @@ FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
   apt-get update && apt-get install -y \
-	python3 \
-	python3-cairo \
-	python3-dev \
-	python3-pip \
-	python3-gi \
-	python3-gi-cairo \
-	python3-tk \
+	python \
+	python-cairo \
+	python-dev \
+	python-pip \
+	python-gi \
+	python-gi-cairo \
+	python-tk \
 	python-pil \
 	gir1.2-gtk-3.0 \
 	gir1.2-gstreamer-1.0 \
@@ -23,20 +23,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 	ffmpeg \
 	unzip \
   tmux
-  # libav-tools \
-  # libfreeimage3 \
-  # libgl1-mesa-dev \
-  # libjpeg8-dev \
-  # libpci3 \
-  # libxaw7 \
-  # libzzip-0-13 \
-  # libssh-dev \
-  # libzip-dev \
-  # mesa-common-dev \
-  # xserver-xorg-core \
-  # libx11-dev \
-  # libxslt1.1 \
-  # libpulse-mainloop-glib0
 
 # Install correct Protobuf version for TensorFlow
 RUN curl -OL https://github.com/google/protobuf/releases/download/v3.5.1/protoc-3.5.1-linux-x86_64.zip && \
@@ -51,27 +37,16 @@ RUN curl -OL https://github.com/google/protobuf/releases/download/v3.5.1/protoc-
 #   rm /root/webots_2018a-rev2_amd64.deb && \
 #   echo 'export PYTHONPATH=${PYTHONPATH}:/root/pynaoqi-python2.7-2.5.5.5-linux64'
 
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
-  pip3 install --upgrade 'pip<10.0.0' && pip3 install \
-	  h5py \
-	  jsonlines \
-	  jupyter \
-	  matplotlib \
-	  numpy \
-	  pandas \
-	  scipy \
-	  sklearn \
-	  six \
-	  Pillow \
-	  tensorflow-gpu \
-	  tensorflow_hub \
-	  opencv-python \
-	  imageio \
-    html5lib==0.999999999 && \
-  mkdir -p /root/.jupyter/nbconfig && \
-	echo '{ "CodeCell": { "cm_config": { "indentUnit": 2 } } }' > /root/.jupyter/nbconfig/notebook.json
-
 ADD ./src /root/dev
 WORKDIR /root/dev
+
+RUN echo "export TFHUB_CACHE_DIR=/root/dev/tfhub" >> /root/.bashrc && \
+  pip install --upgrade 'pip<10.0.0' && \
+  pip install pipenv && \
+  mkdir -p /root/.jupyter/nbconfig && \
+	echo '{ "CodeCell": { "cm_config": { "indentUnit": 2 } } }' > /root/.jupyter/nbconfig/notebook.json && \
+  cd /root/dev && \
+  pipenv install --system --deploy --ignore-pipfile
+
 EXPOSE 8888
 EXPOSE 6006

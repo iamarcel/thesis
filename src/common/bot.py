@@ -12,6 +12,11 @@ EFFECTOR_MAP = {
     'RArm': 'RWrist'
 }
 
+def frange(x, y, jump):
+  while x < y:
+    yield x
+    x += jump
+
 
 class BotController:
     def __init__(self, port=43155):
@@ -58,8 +63,26 @@ class BotController:
                 first_pose = False
             time.sleep(interval)
 
-        # time.sleep(5)
-        # self.posture.goToPosture("StandZero", 1.0)
+    def play_angles_animation(self, angles_frames, interval=0.04):
+        joint_names = self.motion.getBodyNames('Body')
+        names = []
+        angle_lists = []
+
+        for frame in angles_frames:
+            supported_joints = {str(k): v for k, v in frame.iteritems() if k in joint_names}
+
+            for k, v in supported_joints.iteritems():
+                if k not in names:
+                    names.append(k)
+                    angle_lists.append([])
+
+                angle_lists[names.index(k)].append(v)
+
+        time_lists = list(map(lambda x: list(frange(interval, (len(x)+1)*interval, interval)), angle_lists))
+        print(time_lists)
+        is_absolute = True
+
+        self.motion.angleInterpolation(names, angle_lists, time_lists, is_absolute)
 
     def play_angles(self, angles_frames, interval=0.04):
         joint_names = self.motion.getBodyNames('Body')

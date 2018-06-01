@@ -488,3 +488,52 @@ def patch_poses(poses, max_out_of_bounds_joints=4.0/32, max_distance=0.3):
         pose[out_of_bounds_joints, :] = previous_pose[out_of_bounds_joints, :]
 
     return poses
+
+
+def is_usable_example(example):
+    """Checks whether this example is usable for training.
+
+    Arguments:
+      example: dict(feature: [Sparse]Tensor)
+    Returns
+      is_usable: boolean
+    """
+    pass
+
+
+def tensor_rotate(tensor, axis, angle):
+    """Rotates tensor by given angle along the axis.
+    This is an implementation of Ridrigues' rotation formula.
+
+    Arguments:
+      tensor: Tensor, input vector
+      axis: Tensor, axis around which to rotate
+      angle: float, angle around which to rotate
+    Returns:
+      tensor: Tensor, rotated vector
+    """
+    axis = axis / tf.norm(axis)
+    return (
+        tensor * tf.cos(angle)
+        + tf.cross(axis, tensor) * tf.sin(angle)
+        + axis * tf.dot(axis, tensor) * (1 - tf.cos(angle)))
+
+
+def preprocess_example(example):
+    """Preprocess an example.
+
+    Arguments:
+      example: dict(feature: [Sparse]Tensor)
+    Returns
+      processed_example: None if it should not be used, same format
+        as the example argument otherwise
+    """
+    try:
+        frames = example['points_3d']
+        frames = list(map(straighten_pose, frames))
+        frames = patch_poses(frames)
+        clip['points_3d'] = frames
+        writer.send(clip)
+        n_clips_out += 1
+    except ValueError as e:
+        logger.warn(e)

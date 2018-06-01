@@ -1,11 +1,12 @@
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(jsonlite, dtwclust, rgl, gdata, animation, ggplot)
+pacman::p_load(jsonlite, dtwclust, rgl, gdata, animation, ggplot2)
 
 data <- jsonlite::stream_in(file("clips.jsonl", open = "r"))
 
+angles <- data[, "angles"]
+data <- data[lapply(angles, length) > 0, ]
 poses3d <- data[, "points_3d"]
-data <- data[lapply(poses3d, length) > 0, ]
-poses3d <- poses3d[lapply(poses3d, length) > 0]
+angles <- angles[lapply(angles, length) > 0]
 
 
 
@@ -14,16 +15,31 @@ poses3d <- poses3d[lapply(poses3d, length) > 0]
 if (file.exists("model.RData")) {
   load(file = "model.RData")
 } else {
-  pc_dtw <- tsclust(poses3d, k = 8L,
-                    distance = "dtw_basic", centroid = "dba",
+  pc_dtw <- tsclust(angles, k = 8L,
+                    type = "partitional",
+                    distance = "gak", centroid = "pam",
                     trace = TRUE, seed = 8,
-                    norm = "L2", window.size = 20L,
+                    norm = "L2", window.size = 40L,
                     args = tsclust_args(cent = list(trace = TRUE)))
   save(pc_dtw, file = "model.RData")
 }
 
-data["cluster"] <- pc_dtw@cluster
-ggplot(data, aes(cluster)) + geom_histogram(stat = "count", bins = 8)
+data["class"] <- pc_dtw@cluster
+ggplot(data, aes(class)) + geom_histogram(stat = "count", bins = 8)
+
+con <- file("clips-clustered.jsonl", open = "w")
+data <- jsonlite::stream_out(data, con)
+close(con)
+
+
+                                        # Saving center angles
+
+centers <- pc_dtw@centroids
+for (i in 1:length(centers)) {
+  con <- file(paste("center-", i, ".jsonl", sep = ""), open = "w")
+  jsonlite::stream_out(data.frame(centers[[i]]), con)
+  close(con)
+}
 
 
 
@@ -52,7 +68,14 @@ plot_pose <- function(pose) {
 
 }
 
-centers <- pc_dtw@centroids
+                                        # For reading centers from a jsonl file
+
+con <- file("center-points.jsonl", open = "r")
+centers <- jsonlite::stream_in(con)[, "points_3d"]
+close(con)
+
+                                        # Plotting functions
+
 get_center <- function(centers, i) {
   center <- matrix(centers[[i]], byrow = TRUE)
   center_n_time <- dim(center)[[1]] / 32 / 3
@@ -88,12 +111,12 @@ for (v in 1:length(centers)) {
 
                                         # Plot cluster samples
 cluster_i <- 6
-cluster_poses <- match(cluster_i, pc_dtw@cluster)
-cluster_samples <- sample(cluster_poses, 4)
+cluster_poses <- unique(which(pc_dtw@cluster == cluster_i))
+str(cluster_poses)
+cluster_samples <- sample(cluster_poses, 8, replace = FALSE)
 str(cluster_samples)
 
 for (i in 1:length(cluster_samples)) {
   frames <- poses3d[[cluster_samples[[i]]]]
   save_animation(frames, i)
 }
-classifying decoder

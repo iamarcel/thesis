@@ -1,12 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function, division
+from future.builtins import *
+from future.builtins.disabled import *
+
 import itertools
 import math
 import logging
 
+# Itertools has a different name in Python 2/3
+try:
+    from itertools import zip_longest as zip_longest
+except:
+    from itertools import izip_longest as zip_longest
+
 import numpy as np
 import tensorflow as tf
+import tensorflow_hub as hub
 
 import common.config_utils
 import common.data_utils
@@ -146,16 +157,18 @@ def subtitle2subtitle(subtitle, vocab=None):
     return (subtitle, length)
 
 
-def poses2labels(poses):
+def clip2labels(clip):
     """Converts a list of poses to a list of labels.
 
     Args:
-      poses: list of (n_poses, n_indices, 3): 3D poses
+      clip
     Returns:
       ndarray (n_poses + 1, n_filtered_indices + 1): list of labels
         with terminator label + terminator pose added
         (i.e. time = n_poses + 1)
     """
+    poses = clip['points_3d']
+
     # Filter keypoints
     poses = np.array(poses)[:, FILTERED_INDICES, :]
 
@@ -173,16 +186,18 @@ def poses2labels(poses):
     return (poses, poses_length)
 
 
-def poses2angles(poses):
+def clip2angles(clip):
     """Converts a list of poses to a list of angles.
 
     Args:
-      poses: list of (n_poses, n_indices, 3): 3D poses
+      clip
     Returns:
       ndarray (n_poses + 1, n_joints + 1): list of angles
         with terminator label + terminator pose added
         (i.e. time = n_poses + 1)
     """
+    poses = clip['points_3d']
+
     angles = np.asarray(list(map(common.pose_utils.get_pose_angle_list, poses)))
 
     # Add mask indices (extra first "joint" with value 1)
@@ -193,7 +208,7 @@ def poses2angles(poses):
 
     angles_length = angles.shape[0]
 
-    return (angles, angles_length)
+    return (angles, angles_length, clip['cluster'])
 
 
 def pad_features(features, vocab, n):
@@ -218,14 +233,14 @@ def pad_labels(labels, n):
     return np.insert(labels, np.zeros((n, labels.shape[1])), axis=0)
 
 
-def clip2sample(clip, vocab, get_features=subtitle2features, get_labels=poses2labels):
+def clip2sample(clip, vocab, get_features=subtitle2features, get_labels=clip2labels):
     subtitle = clip['subtitle']
     poses_3d = clip['points_3d']
 
     features, features_length = get_features(subtitle, vocab)
-    labels, labels_length = get_labels(poses_3d)
+    labels, labels_length, cluster = get_labels(clip)
 
-    return (features, labels)
+    return (features, labels, cluster)
 
 
 def get_poses(path=common.data_utils.DEFAULT_CLIPS_PATH):
@@ -238,7 +253,7 @@ def get_poses(path=common.data_utils.DEFAULT_CLIPS_PATH):
     return poses
 
 
-def create_examples(clips, get_features=subtitle2features, get_labels=poses2labels):
+def create_examples(clips, get_features=subtitle2features, get_labels=clip2labels):
     """Creates a list of examples from given clips.
     Examples all have a different length.
     """
@@ -251,7 +266,7 @@ def create_examples(clips, get_features=subtitle2features, get_labels=poses2labe
 
 
 def create_examples_angles(clips):
-    return create_examples(clips, get_labels=poses2angles)
+    return create_examples(clips, get_labels=clip2angles)
 
 
 def create_batches(characters, poses, batch_size):
@@ -300,13 +315,13 @@ def create_batches(characters, poses, batch_size):
 
             padded_inputs = np.array(
                 list(
-                    itertools.zip_longest(
+                    zip_longest(
                         *batch_inputs, fillvalue=get_empty_input())))
             padded_inputs = np.swapaxes(padded_inputs, 0, 1)
 
             padded_outputs = np.array(
                 list(
-                    itertools.zip_longest(
+                    zip_longest(
                         *batch_outputs, fillvalue=get_empty_output(n_labels))))
             padded_outputs = np.swapaxes(padded_outputs, 0, 1)
 
@@ -344,7 +359,7 @@ def create_batches(characters, poses, batch_size):
     return generator
 
 
-def create_batches_sentences(sentences, poses, batch_size):
+def create_batches_sentences(sentences, poses, classes, batch_size):
     """Splits samples in batch_size batches and pads each batch as
     necessary.
 
@@ -358,8 +373,9 @@ def create_batches_sentences(sentences, poses, batch_size):
       batch_inputs[i].shape == (batch_size, max_input_time, n_features)
       batch_outputs[i].shape == (batch_size, max_output_time, n_labels)
     """
-    n_batches = math.ceil(len(sentences) / batch_size)
+    n_batches = int(math.ceil(len(sentences) / batch_size))
     logging.debug("Got {} samples in total".format(len(sentences)))
+    logging.info("Creating {} batches.".format(n_batches))
 
     n_labels = poses[0][0].shape[0]
 
@@ -390,7 +406,7 @@ def create_batches_sentences(sentences, poses, batch_size):
 
             padded_outputs = np.array(
                 list(
-                    itertools.zip_longest(
+                    zip_longest(
                         *batch_outputs, fillvalue=get_empty_output(n_labels))))
             padded_outputs = np.swapaxes(padded_outputs, 0, 1)
 
@@ -419,7 +435,8 @@ def create_batches_sentences(sentences, poses, batch_size):
                 'subtitle_lengths': batch_input_lengths
             }, {
                 'poses': padded_outputs,
-                'poses_lengths': batch_output_lengths
+                'poses_lengths': batch_output_lengths,
+                'class': classes[batch_start:batch_end]
             })
 
     return generator
@@ -472,9 +489,9 @@ def get_input_sentences(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
                         n_epochs=1):
 
     clips = common.data_utils.get_clips(path=clips_path)
-    samples, vocab = create_examples(clips, get_features=subtitle2subtitle, get_labels=poses2angles)
-    subtitles, poses = map(list, zip(*samples))
-    gen_batches = create_batches_sentences(subtitles, poses, batch_size)
+    samples, vocab = create_examples(clips, get_features=subtitle2subtitle, get_labels=clip2angles)
+    subtitles, poses, classes = map(list, zip(*samples))
+    gen_batches = create_batches_sentences(subtitles, poses, classes, batch_size)
     n_labels = poses[0][0].shape[0]
 
     feature_columns = [
@@ -489,16 +506,126 @@ def get_input_sentences(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
                 'subtitle_lengths': tf.int32
             }, {
                 'poses': POSE_DTYPE,
-                'poses_lengths': tf.int32
+                'poses_lengths': tf.int32,
+                'class': tf.int32
             }), ({
                 'subtitles': tf.TensorShape([batch_size]),
                 'subtitle_lengths': tf.TensorShape([batch_size])
             }, {
                 'poses': tf.TensorShape([batch_size, None, n_labels]),
-                'poses_lengths': tf.TensorShape([batch_size])
+                'poses_lengths': tf.TensorShape([batch_size]),
+                'class': tf.TensorShape([batch_size])
             }))
         dataset = dataset.repeat(n_epochs)
         iterator = dataset.make_one_shot_iterator()
         return iterator.get_next()
 
     return input_fn, feature_columns, len(vocab), vocab, n_labels
+
+
+def _str_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value.encode('utf-8')]))
+
+
+def _bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+
+def _int_feature(value):
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+
+def _float_feature(value):
+    return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+
+
+def _floats_feature(values):
+    return tf.train.Feature(float_list=tf.train.FloatList(value=values))
+
+
+def create_tfrecords(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
+                     tfrecords_path='clips.tfrecords'):
+    clips = common.data_utils.get_clips(clips_path)
+    writer = tf.python_io.TFRecordWriter(tfrecords_path)
+
+    for clip in clips:
+        points_3d = np.asarray(clip['points_3d'])
+        angles = np.asarray(list(map(common.pose_utils.get_angle_list, clip['angles'])))
+        n_frames = points_3d.shape[0]
+
+        context = {
+            'id': _str_feature(clip['id']),
+            'class': _int_feature(clip['class']),
+            'n_frames': _int_feature(n_frames)
+        }
+
+        sequence = {
+            'subtitle': _str_feature(clip['subtitle']),
+            'points_3d': _floats_feature(np.reshape(points_3d, (n_frames, -1)).tolist()),
+            'angles': _floats_feature(np.reshape(angles, (n_frames, -1)).tolist()),
+        }
+
+        example = tf.train.SequenceExample()
+        example.context.features = context_features
+        example.feature_lists.feature_list['subtitle'].feature.add().byte_list.value.append(sequence['subtitle'])
+
+        sequence_features = tf.train.FeatureLists(feature_list={
+            'subtitle': tf.train.FeatureList(feature=[sequence['subtitle']]),
+            'points_3d': tf.train.FeatureList(feature=[sequence['points_3d']]),
+            'angles': tf.train.FeatureList(feature=[sequence['angles']])
+        })
+
+        context_features = tf.train.Features(feature=context)
+        example = tf.train.SequenceExample(
+            context=context_features,
+            feature_lists=sequence_features
+        )
+
+        serialized = example.SerializeToString()
+        writer.write(serialized)
+
+
+def parse_tfrecord(serialized):
+    context_features = {
+        'class': tf.FixedLenFeature(shape=[], dtype=tf.int64),
+    }
+
+    sequence_features = {
+        'points_3d': tf.FixedLenSequenceFeature(shape=[32, 3], dtype=tf.float32),
+        'angles': tf.FixedLenSequenceFeature(shape=[len(common.pose_utils.ANGLE_NAMES_ORDER)], dtype=tf.float32),
+        'subtitle': tf.FixedLenSequenceFeature(shape=[], dtype=tf.string)
+    }
+
+    context, sequence = tf.parse_single_sequence_example(
+        serialized=serialized,
+        context_features=context_features,
+        sequence_features=sequence_features)
+
+    return context, sequence
+
+
+def create_feature_label_pair(context, sequence):
+    return (
+        {
+            'subtitle': sequence['subtitle']
+        }, {
+            'class': context['class'],
+            'angles': sequence['angles'],
+            'points': sequence['points_3d']
+        }
+    )
+
+
+def input_fn(filenames, batch_size=32, buffer_size=2048, n_epochs=None):
+    dataset = tf.data.TFRecordDataset(filenames=filenames)
+
+    dataset = dataset.map(parse_tfrecord)
+    dataset = dataset.map(create_feature_label_pair)
+    dataset = dataset.shuffle(buffer_size=buffer_size)
+    dataset = dataset.batch(batch_size)
+    dataset = dataset.repeat(n_epochs)
+
+    iterator = dataset.make_one_shot_iterator()
+    features, labels = iterator.get_next()
+
+    return features, labels
