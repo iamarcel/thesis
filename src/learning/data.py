@@ -524,7 +524,7 @@ def get_input_sentences(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
 
 
 def _str_feature(value):
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value.encode('utf-8')]))
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.compat.as_bytes(value)]))
 
 
 def _bytes_feature(value):
@@ -550,36 +550,36 @@ def create_tfrecords(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
 
     for clip in clips:
         points_3d = np.asarray(clip['points_3d'])
-        angles = np.asarray(list(map(common.pose_utils.get_angle_list, clip['angles'])))
+        angles = list(map(common.pose_utils.get_angle_list, clip['angles']))
         n_frames = points_3d.shape[0]
 
         context = {
             'id': _str_feature(clip['id']),
             'class': _int_feature(clip['class']),
-            'n_frames': _int_feature(n_frames)
+            'n_frames': _int_feature(n_frames),
+            'subtitle': _str_feature(clip['subtitle'])
         }
-
-        sequence = {
-            'subtitle': _str_feature(clip['subtitle']),
-            'points_3d': _floats_feature(np.reshape(points_3d, (n_frames, -1)).tolist()),
-            'angles': _floats_feature(np.reshape(angles, (n_frames, -1)).tolist()),
-        }
-
-        example = tf.train.SequenceExample()
-        example.context.features = context_features
-        example.feature_lists.feature_list['subtitle'].feature.add().byte_list.value.append(sequence['subtitle'])
-
-        sequence_features = tf.train.FeatureLists(feature_list={
-            'subtitle': tf.train.FeatureList(feature=[sequence['subtitle']]),
-            'points_3d': tf.train.FeatureList(feature=[sequence['points_3d']]),
-            'angles': tf.train.FeatureList(feature=[sequence['angles']])
-        })
-
         context_features = tf.train.Features(feature=context)
+
+        sequences = {
+            'points_3d': tf.train.FeatureList(feature=[
+                _floats_feature(np.array(frame).flatten().tolist()) for frame in clip['points_3d']
+            ]),
+            'angles': tf.train.FeatureList(feature=[
+                _floats_feature(frame) for frame in angles
+            ])
+        }
+        sequence_features = tf.train.FeatureLists(feature_list=sequences)
+
         example = tf.train.SequenceExample(
             context=context_features,
-            feature_lists=sequence_features
-        )
+            feature_lists=sequence_features)
+
+        # fl_points = example.feature_lists.feature_list['points_3d'].feature
+        # fl_angles = example.feature_lists.feature_list['angles'].feature
+        # for frame_angles, frame_points in zip(angles, points_3d):
+        #     fl_points.add().float_list.value.append(frame_points)
+        #     fl_angles.add().float_list.value.append(frame_angles)
 
         serialized = example.SerializeToString()
         writer.write(serialized)
@@ -588,12 +588,13 @@ def create_tfrecords(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
 def parse_tfrecord(serialized):
     context_features = {
         'class': tf.FixedLenFeature(shape=[], dtype=tf.int64),
+        'subtitle': tf.FixedLenFeature(shape=[], dtype=tf.string),
+        'n_frames': tf.FixedLenFeature(shape=[], dtype=tf.int64)
     }
 
     sequence_features = {
         'points_3d': tf.FixedLenSequenceFeature(shape=[32, 3], dtype=tf.float32),
-        'angles': tf.FixedLenSequenceFeature(shape=[len(common.pose_utils.ANGLE_NAMES_ORDER)], dtype=tf.float32),
-        'subtitle': tf.FixedLenSequenceFeature(shape=[], dtype=tf.string)
+        'angles': tf.FixedLenSequenceFeature(shape=[len(common.pose_utils.ANGLE_NAMES_ORDER)], dtype=tf.float32)
     }
 
     context, sequence = tf.parse_single_sequence_example(
@@ -607,9 +608,10 @@ def parse_tfrecord(serialized):
 def create_feature_label_pair(context, sequence):
     return (
         {
-            'subtitle': sequence['subtitle']
+            'subtitle': context['subtitle']
         }, {
             'class': context['class'],
+            'n_frames': context['n_frames'],
             'angles': sequence['angles'],
             'points': sequence['points_3d']
         }
@@ -622,7 +624,14 @@ def input_fn(filenames, batch_size=32, buffer_size=2048, n_epochs=None):
     dataset = dataset.map(parse_tfrecord)
     dataset = dataset.map(create_feature_label_pair)
     dataset = dataset.shuffle(buffer_size=buffer_size)
-    dataset = dataset.batch(batch_size)
+    dataset = dataset.padded_batch(batch_size, padded_shapes=({
+        'subtitle': []
+    }, {
+        'class': [],
+        'n_frames': [],
+        'angles': [None, len(common.pose_utils.ANGLE_NAMES_ORDER)],
+        'points': [None, len(common.pose_utils.H36M_NAMES), 3]
+    }))
     dataset = dataset.repeat(n_epochs)
 
     iterator = dataset.make_one_shot_iterator()

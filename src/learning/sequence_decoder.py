@@ -84,12 +84,13 @@ class ContinuousSamplingHelper(tf.contrib.seq2seq.GreedyEmbeddingHelper):
             start_tokens, name="start_tokens", dtype=data.POSE_DTYPE)
         self._end_token = tf.convert_to_tensor(
             end_token, name="end_token", dtype=data.POSE_DTYPE)
-        self._batch_size = tf.shape(start_tokens)[0]
+        self._batch_size = self._start_tokens.get_shape()[0]
         self._start_inputs = self._embedding_fn(self._start_tokens)
-        self._sample_ids_shape = tf.TensorShape([len(start_tokens[0])])
+        self._sample_ids_shape = tf.TensorShape([self._start_tokens.get_shape()[1]])
 
     def sample(self, time, outputs, state, name=None):
         del time, state
+        outputs.set_shape([self._batch_size, self._start_tokens.get_shape()[1]])
         return outputs
 
     def next_inputs(self, time, outputs, state, sample_ids, name=None):

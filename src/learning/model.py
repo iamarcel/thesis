@@ -19,7 +19,7 @@ import data
 from sequence_embedder import SequenceEmbedder
 from sequence_decoder import SequenceDecoder
 
-tf.logging.set_verbosity(tf.logging.INFO)
+# tf.logging.set_verbosity(tf.logging.INFO)
 
 
 def rnn_model_fn(features, labels, mode, params):
@@ -48,22 +48,24 @@ def rnn_model_fn(features, labels, mode, params):
     loss = None
     predictions = None
     if params.output_type == 'sequences':
-        decoder = SequenceDecoder(params.hidden_size, params.n_labels, hidden_state, params.batch_size)
+        n_labels = params.n_labels
+
+        decoder = SequenceDecoder(params.hidden_size, n_labels, hidden_state, params.batch_size)
 
         if mode != tf.estimator.ModeKeys.PREDICT:
-            outputs = decoder.decode_train(labels['poses'], labels['poses_lengths'])
+            seq_labels = labels['angles']
+            len_labels = tf.cast(labels['n_frames'], tf.int32)
+            outputs = decoder.decode_train(seq_labels, len_labels)
 
             for var in decoder.base_cell.trainable_weights:
                 tf.summary.histogram(var.name, var)
 
             loss = tf.losses.mean_squared_error(
                 outputs.rnn_output,
-                labels['poses'],
+                seq_labels,
                 weights=tf.tile(
-                    tf.stack(
-                        [tf.sequence_mask(labels['poses_lengths'])],
-                        axis=2),
-                    multiples=[1, 1, params.n_labels]))
+                    tf.stack([tf.sequence_mask(len_labels)], axis=2),
+                    multiples=[1, 1, n_labels]))
 
         prediction_output = decoder.decode_predict(reuse=True)
         predictions = prediction_output.rnn_output
@@ -130,8 +132,8 @@ if __name__ == '__main__':
 
     model_params = tf.contrib.training.HParams(
         feature_columns=feature_columns,
-        output_type='classes',
-        n_labels=8,
+        output_type='sequences',
+        n_labels=10,
         hidden_size=512,
         batch_size=batch_size,
         learning_rate=0.001)
@@ -146,7 +148,7 @@ if __name__ == '__main__':
         config=run_config,
         params=model_params)
 
-    do_train = True
+    do_train = False
     if do_train:
         # profiler_hook = tf.train.ProfilerHook(save_steps=200, output_dir='profile')
         debug_hook = tf_debug.TensorBoardDebugHook("f9f267322738:7000")
@@ -156,31 +158,29 @@ if __name__ == '__main__':
     if do_predict:
         import json
 
-        subtitle = 'we are creating a machine learning algorithm'
-        feature, feature_len = data.subtitle2subtitle(subtitle, vocab)
+        subtitle = 'as we learned yesterday'
 
         predict_input_fn = tf.estimator.inputs.numpy_input_fn(
             x={
-                'subtitles': np.array([feature]),
-                'subtitle_lengths': np.array([feature_len])
+                'subtitle': np.array([subtitle]),
             },
             num_epochs=1,
             shuffle=False)
         preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
         n_frames = 100
 
-        logging.info(preds)
-        pass
+        frames = preds[0, :n_frames, :].tolist()
+        pose = list(map(
+            common.pose_utils.format_joint_dict, map(
+                common.pose_utils.get_pose_from_angles, map(
+                    common.pose_utils.get_named_angles, frames))))
 
-        frames = preds[0, :n_frames, :-1].tolist() # Cut off the mask
-        angles = list(map(common.pose_utils.get_named_angles, frames))
-
-        with open("predicted_angles.json", "w") as write_file:
-            json.dump({'clip': angles}, write_file)
+        # with open("predicted_angles.json", "w") as write_file:
+        #     json.dump({'clip': angles}, write_file)
 
         # pose = preds[0, :n_frames, 0:30]
         # pose = np.reshape(pose, (n_frames, 10, 3))
         # pose_complete = np.tile(data.REFERENCE_POSE, (n_frames, 1, 1))
         # pose_complete[:, data.FILTERED_INDICES, :] = pose
 
-        # common.visualize.animate_3d_poses(pose_complete)
+        common.visualize.animate_3d_poses(pose)
