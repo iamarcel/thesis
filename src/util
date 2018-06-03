@@ -2,7 +2,7 @@
 
 import argparse
 import logging
-import naoqi  # Needs to be imported before random? Why? No clue.
+# import naoqi  # Needs to be imported before random? Why? No clue.
 from random import randint
 
 import json
@@ -10,7 +10,7 @@ import jsonlines
 
 import common.data_utils
 import common.pose_utils
-import common.bot
+# import common.bot
 import common.visualize
 
 logging.basicConfig(level=logging.INFO)
@@ -23,16 +23,18 @@ if __name__ == '__main__':
         'remove_duplicate_clips',
         'add_clips_to', 'merge',
         'move_2d_finished_images',
-        'clip_stats',
+        'stats',
         'normalize',
         'add-angles',
         'sample',
         'test-angle-conversion',
         'bot-play',
         'plot-nao-zero',
+        'test-normalization',
         'test-plot-angles',
         'angle-frame-lines-to-poses',
-        'bot-play-clusters'
+        'bot-play-clusters',
+        'create-tfrecords'
     ]
 
     parser = argparse.ArgumentParser(description='Manipulate clip data files.')
@@ -56,12 +58,23 @@ if __name__ == '__main__':
         common.data_utils.add_clips_to(*args.args)
     elif command_name == 'move_2d_finished_images':
         common.data_utils.move_2d_finished_images(*args.args)
-    elif command_name == 'clip_stats':
+    elif command_name == 'stats':
         common.data_utils.clip_stats(*args.args)
     elif command_name == 'normalize':
         common.data_utils.normalize_clips(*args.args)
     elif command_name == 'add-angles':
         common.data_utils.add_clip_angles(*args.args)
+    elif command_name == 'test-normalization':
+        clips = common.data_utils.get_clips()
+        clip = None
+        while clip is None or 'points_3d' not in clip or len(clip['points_3d']) == 0:
+            logger.info('Getting a random clip')
+            clip = clips[randint(0, len(clips))]
+        poses = clip['points_3d']
+
+        common.visualize.animate_3d_poses(poses)
+        new_poses = common.data_utils.straighten_frames(poses)
+        common.visualize.animate_3d_poses(list(new_poses))
     elif command_name == 'test-angle-conversion':
         clips = common.data_utils.get_clips()
 
@@ -134,5 +147,8 @@ if __name__ == '__main__':
 
         bot = common.bot.BotController(43333)
         bot.play_angles(all_angles)
+    elif command_name == 'create-tfrecords':
+        import learning.data
+        learning.data.create_tfrecords(*args.args)
     else:
         logger.error("Command {} not found.".format(command_name))

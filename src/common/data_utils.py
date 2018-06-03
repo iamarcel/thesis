@@ -1,15 +1,17 @@
 import argparse
 import logging
 import os
+import os.path
 import shutil
 import numpy as np
 import scipy
 import scipy.linalg
 import math
+import json
 
 import jsonlines
 
-from . import config_utils, pose_utils
+from . import config_utils, pose_utils, vector
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +104,20 @@ DIRECTION_NAMES = [
     'RCollar',
     'RUpperArm',
     'RLowerArm'
+]
+
+UPPER_BODY_PARTS = [
+    'Spine',
+    'Thorax',
+    'Neck/Nose',
+    'Head',
+    'LShoulder',
+    'LElbow',
+    'LElbow',
+    'LWrist',
+    'RShoulder',
+    'RElbow',
+    'RWrist'
 ]
 
 class ClipWriter():
@@ -245,41 +261,21 @@ def move_2d_finished_images(
 
 
 def clip_stats(clips_path=DEFAULT_CLIPS_PATH):
-    import matplotlib.pyplot as plt
-    from mpl_toolkits.mplot3d import Axes3D  # noqa:401
     import itertools
-    import numpy as np
-    import seaborn as sns
 
     clips = get_clips(clips_path)
-    clip_poses = map(lambda clip: clip['points_3d'], clips)
-    poses = itertools.chain.from_iterable(clip_poses)
-    poses = np.array(list(poses))
-    # poses = np.reshape(poses, (poses.shape[0] * poses.shape[1], poses.shape[2]))
-    n_poses = 1000
-    poses = poses[:1000, :, :]
-    xs = poses[:, :, 0]
-    ys = poses[:, :, 2]
-    zs = poses[:, :, 1]
+    angles = map(lambda clip: clip['angles'], clips)
+    all_angles = itertools.chain.from_iterable(angles)
+    all_angles = map(pose_utils.get_angle_list, all_angles)
+    all_angles = np.array(list(all_angles))
 
-    sns.boxplot(data=np.reshape(poses, (1000, -1)))
+    mean = np.mean(all_angles, axis=0)
+    std = np.std(all_angles, axis=0)
 
-    def stats(points):
-        return np.mean(points, axis=0), np.var(points, axis=0)
+    print("Mean: {}".format(mean))
+    print("STD:  {}".format(std))
 
-    mu_x, std_x = stats(xs)
-    mu_y, std_y = stats(ys)
-    mu_z, std_z = stats(zs)
-
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.set_aspect(1)
-    ax.set_xlim(-1, 1)
-    ax.set_ylim(-1, 1)
-    ax.set_zlim(-1, 1)
-    ax.scatter(mu_x, mu_y, -mu_z, s=(100000 / n_poses)*(std_x+std_y+std_z))
-    ax.invert_yaxis()
-    plt.show()
+    return mean, std
 
 
 def add_clip_angles(read_path=DEFAULT_CLIPS_PATH,
@@ -320,13 +316,30 @@ def normalize_clips(read_path=DEFAULT_CLIPS_PATH,
     n_clips_in = 0
     n_clips_out = 0
 
+    all_angles = None
+
     for clip in clips:
         n_clips_in += 1
         try:
+            if 'points_3d' not in clip:
+                raise ValueError('No 3D points in clip')
+
             points = np.asarray(clip['points_3d'])
+            if len(points.shape) < 2:
+                raise ValueError('Badly shaped 3D points, has shape {}'.format(points.shape))
+
             points = list(map(straighten_pose, points))
             points = patch_poses(points)
+            points = straighten_frames(points)
             clip['points_3d'] = points.tolist()
+            clip['angles'] = list(map(pose_utils.get_pose_angles, points.tolist()))
+
+            angle_list = np.array(list(map(pose_utils.get_angle_list, clip['angles'])))
+            if all_angles is None:
+                all_angles = angle_list
+            else:
+                all_angles = np.vstack((all_angles, angle_list))
+
             writer.send(clip)
             n_clips_out += 1
         except ValueError as e:
@@ -335,6 +348,23 @@ def normalize_clips(read_path=DEFAULT_CLIPS_PATH,
     writer.close()
 
     logger.info("Wrote {} out of {} clips.".format(n_clips_out, n_clips_in))
+
+    config_path = DEFAULT_CONFIG_PATH
+    if os.path.isfile(config_path):
+        with open(config_path) as config_file:
+            config = json.load(config_file)
+    else:
+        config = {}
+
+    config['angle_stats'] = {
+        'mean': np.mean(all_angles, axis=0).tolist(),
+        'std': np.std(all_angles, axis=0).tolist()
+    }
+
+    with open(config_path, 'w') as config_file:
+        json.dump(config, config_file)
+
+    logger.info("Saved statistics to {}".format(config_path))
 
 
 def oneliner_rotation_matrix(axis, theta):
@@ -358,13 +388,6 @@ def straighten_pose(points_3d):
     assert points_3d.shape[1] == 3
     normal_points = np.matmul(points_3d, M)
 
-    # if not abs(normal_points[1, 2]) < 1.0e-5:
-    #     logger.warn("RHip z is large before rescale")
-    #     print(normal_points[1, 2])
-    # else:
-    #     print("OK")
-
-    # Normalize size
     normal_points = normalize_pose_scale(normal_points)
 
     if np.any(np.abs(normal_points) > 1.0):
@@ -373,15 +396,26 @@ def straighten_pose(points_3d):
     if not abs(normal_points[1, 2]) < 1.0e-2:
         logging.warn("Right hip z is large: {}".format(normal_points[1, 2]))
 
-    # Move upper body points so that the neck is above the hip
-    # ...if he's leaning forward
-    # epsilon = 9001  # FIXME
-    # neck_z = points_3[14*3 + 2]
-    # if neck_z > epsilon:
-    #     delta = neck_z
-    #     points_3d[UPPER_BODY_POINTS_3D] -= delta
-
     return normal_points
+
+
+def straighten_frames(frames, epsilon=np.pi/12):
+    """Straightens a pose by correcting for a forward lean.
+    """
+    frames = np.asarray(frames)
+
+    spine = frames[:, H36M_NAMES.index('Thorax'), :] - frames[:, H36M_NAMES.index('Hip'), :]
+    alphas = vector.multi_angle_between(spine, [0, -1, 0], [1, 0, 0])
+    alphas_clamped = np.clip(alphas, -epsilon, epsilon)
+
+    patch_alphas = alphas_clamped - alphas
+    patch_alpha = np.mean(patch_alphas)
+    M = rotation_matrix([1, 0, 0], -patch_alpha)
+
+    upper_body_indices = [H36M_NAMES.index(i) for i in UPPER_BODY_PARTS]
+    frames[:, upper_body_indices] = np.matmul(frames[:, upper_body_indices], M)
+
+    return frames
 
 
 def pose_to_directions(pose):
@@ -532,6 +566,7 @@ def preprocess_example(example):
         frames = example['points_3d']
         frames = list(map(straighten_pose, frames))
         frames = patch_poses(frames)
+        frames = straighten_frames(frames)
         clip['points_3d'] = frames
         writer.send(clip)
         n_clips_out += 1

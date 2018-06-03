@@ -639,12 +639,12 @@ def format_joint_dict(joint_dict, format_type='h36m'):
                         .format(joint_name))
         pose[i, :] = np.asarray(joint_dict[joint_name])
 
-    if format_type == 'h36m':
-        # Reorder axes
-        reordered_pose = np.zeros((len(format_template), 3))
-        reordered_pose[:, 0] = pose[:, 1]
-        reordered_pose[:, 1] = -pose[:, 2]
-        reordered_pose[:, 2] = -pose[:, 0]
-        pose = reordered_pose
+    # if format_type == 'h36m':
+    #     # Reorder axes
+    #     reordered_pose = np.zeros((len(format_template), 3))
+    #     reordered_pose[:, 0] = pose[:, 1]
+    #     reordered_pose[:, 1] = -pose[:, 2]
+    #     reordered_pose[:, 2] = -pose[:, 0]
+    #     pose = reordered_pose
 
     return pose

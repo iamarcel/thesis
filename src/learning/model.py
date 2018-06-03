@@ -5,6 +5,8 @@ from future.builtins.disabled import *
 import os
 import itertools
 import logging
+import json
+import os.path
 
 import numpy as np
 import tensorflow as tf
@@ -19,7 +21,8 @@ import data
 from sequence_embedder import SequenceEmbedder
 from sequence_decoder import SequenceDecoder
 
-# tf.logging.set_verbosity(tf.logging.INFO)
+# logging.basicConfig(level=logging.INFO)
+tf.logging.set_verbosity(tf.logging.INFO)
 
 
 def rnn_model_fn(features, labels, mode, params):
@@ -49,26 +52,35 @@ def rnn_model_fn(features, labels, mode, params):
     predictions = None
     if params.output_type == 'sequences':
         n_labels = params.n_labels
+        hidden_state = tf.layers.dense(hidden_state, n_labels)
 
-        decoder = SequenceDecoder(params.hidden_size, n_labels, hidden_state, params.batch_size)
+        decoder = SequenceDecoder(n_labels, hidden_state)
+
+        if 'angles' in labels:
+            seq_labels = labels['angles'] if 'angles' in labels else None
+            len_labels = tf.cast(labels['n_frames'], tf.int32) if seq_labels is not None else None
+        else:
+            seq_labels = None
+            len_labels = None
+
+        output = decoder.decode(seq_labels, len_labels)
 
         if mode != tf.estimator.ModeKeys.PREDICT:
-            seq_labels = labels['angles']
-            len_labels = tf.cast(labels['n_frames'], tf.int32)
-            outputs = decoder.decode_train(seq_labels, len_labels)
-
-            for var in decoder.base_cell.trainable_weights:
+            for var in decoder.cell.trainable_weights:
                 tf.summary.histogram(var.name, var)
 
             loss = tf.losses.mean_squared_error(
-                outputs.rnn_output,
+                output,
                 seq_labels,
                 weights=tf.tile(
-                    tf.stack([tf.sequence_mask(len_labels)], axis=2),
-                    multiples=[1, 1, n_labels]))
+                    tf.transpose([tf.sequence_mask(len_labels)]),
+                    multiples=[1, 1, n_labels])) + \
+                tf.losses.mean_squared_error(
+                    output[1:, :, :], output[:-1, :, :]
+                ) * params.smoothness_penalty
 
-        prediction_output = decoder.decode_predict(reuse=True)
-        predictions = prediction_output.rnn_output
+        predictions = data.unnormalize(
+            output, params.labels_mean, params.labels_std)
     elif params.output_type == 'classes':
         dropout = tf.layers.dropout(
             inputs=hidden_state,
@@ -80,7 +92,9 @@ def rnn_model_fn(features, labels, mode, params):
             activation=tf.nn.relu)
 
         if mode != tf.estimator.ModeKeys.PREDICT:
-            onehot_labels = tf.one_hot(indices=tf.cast(labels['class'], tf.int32), depth=params.n_labels)
+            onehot_labels = tf.one_hot(
+                indices=tf.cast(labels['class'], tf.int32),
+                depth=params.n_labels)
             loss = tf.losses.softmax_cross_entropy(
                 onehot_labels=onehot_labels,
                 logits=logits)
@@ -89,7 +103,6 @@ def rnn_model_fn(features, labels, mode, params):
         tf.summary.histogram("class", predictions)
     else:
         raise NotImplementedError()
-
 
     if mode == tf.estimator.ModeKeys.PREDICT:
         return tf.estimator.EstimatorSpec(
@@ -111,12 +124,17 @@ def rnn_model_fn(features, labels, mode, params):
 
 if __name__ == '__main__':
     # Set up learning
-    batch_size = 1
+    batch_size = 8
 
-    # Use this if you want word ids:
-    # input_fn, feature_columns, vocab_size, vocab, n_labels = data.get_input_angles(
-    #     batch_size=batch_size,
-    #     n_epochs=8192)
+    config_path = common.data_utils.DEFAULT_CONFIG_PATH
+    if os.path.isfile(config_path):
+        with open(config_path) as config_file:
+            config = json.load(config_file)
+        mean = config['angle_stats']['mean']
+        std = config['angle_stats']['std']
+    else:
+        mean = 0
+        std = 1
 
     feature_columns = [
         hub.text_embedding_column(
@@ -125,21 +143,19 @@ if __name__ == '__main__':
             trainable=False)
     ]
 
-    # Use this if you want plain sentences:
-    # input_fn, feature_columns, vocab_size, vocab, n_labels = data.get_input_sentences(
-    #     batch_size=batch_size,
-    #     n_epochs=8192)
-
     model_params = tf.contrib.training.HParams(
         feature_columns=feature_columns,
         output_type='sequences',
         n_labels=10,
         hidden_size=512,
         batch_size=batch_size,
-        learning_rate=0.001)
+        learning_rate=0.001,
+        smoothness_penalty=0.3,
+        labels_mean=mean,
+        labels_std=std)
 
     run_config = tf.estimator.RunConfig(
-        model_dir='log',
+        model_dir='log/gru,keep=0.8',
         save_checkpoints_secs=60,
         save_summary_steps=100)
 
@@ -148,17 +164,17 @@ if __name__ == '__main__':
         config=run_config,
         params=model_params)
 
-    do_train = False
+    do_train = True
     if do_train:
         # profiler_hook = tf.train.ProfilerHook(save_steps=200, output_dir='profile')
         debug_hook = tf_debug.TensorBoardDebugHook("f9f267322738:7000")
-        estimator.train(lambda: data.input_fn('../clips.tfrecords'), hooks=[])
+        estimator.train(lambda: data.input_fn('../clips.tfrecords', batch_size=batch_size), hooks=[])
 
     do_predict = True
     if do_predict:
         import json
 
-        subtitle = 'as we learned yesterday'
+        subtitle = 'I can choose completely how I move'
 
         predict_input_fn = tf.estimator.inputs.numpy_input_fn(
             x={

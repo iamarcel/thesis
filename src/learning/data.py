@@ -8,6 +8,8 @@ from future.builtins.disabled import *
 import itertools
 import math
 import logging
+import os.path
+import json
 
 # Itertools has a different name in Python 2/3
 try:
@@ -23,7 +25,6 @@ import common.config_utils
 import common.data_utils
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 H36M_NAMES = [''] * 32
 H36M_NAMES[0] = 'Hip'
@@ -618,11 +619,55 @@ def create_feature_label_pair(context, sequence):
     )
 
 
+def normalize(data, mean, std):
+    return (data - mean) / std
+
+
+def unnormalize(normalized_data, mean, std):
+    return normalized_data * std + mean
+
+
+def normalize_angles(features, labels, mean, std):
+    return (
+        features, {
+            'class': labels['class'],
+            'n_frames': labels['n_frames'],
+            'angles': normalize(labels['angles'], mean, std),
+            'points': labels['points']
+        })
+
+
+def make_time_major(features, labels):
+    angles = tf.transpose(labels['angles'], [1, 0, 2])
+    points = tf.transpose(labels['points'], [1, 0, 2, 3])
+
+    return (
+        features, {
+            'class': labels['class'],
+            'n_frames': labels['n_frames'],
+            'angles': angles,
+            'points': points
+        })
+
+
 def input_fn(filenames, batch_size=32, buffer_size=2048, n_epochs=None):
     dataset = tf.data.TFRecordDataset(filenames=filenames)
 
+    config_path = common.data_utils.DEFAULT_CONFIG_PATH
+    if os.path.isfile(config_path):
+        with open(config_path) as config_file:
+            config = json.load(config_file)
+
+        mean = config['angle_stats']['mean']
+        std = config['angle_stats']['std']
+    else:
+        logger.warn('No angle mean or stddev found')
+        mean = 0
+        std = 1
+
     dataset = dataset.map(parse_tfrecord)
     dataset = dataset.map(create_feature_label_pair)
+    dataset = dataset.map(lambda x, y: normalize_angles(x, y, mean, std))
     dataset = dataset.shuffle(buffer_size=buffer_size)
     dataset = dataset.padded_batch(batch_size, padded_shapes=({
         'subtitle': []
@@ -632,6 +677,8 @@ def input_fn(filenames, batch_size=32, buffer_size=2048, n_epochs=None):
         'angles': [None, len(common.pose_utils.ANGLE_NAMES_ORDER)],
         'points': [None, len(common.pose_utils.H36M_NAMES), 3]
     }))
+    dataset = dataset.map(make_time_major)
+
     dataset = dataset.repeat(n_epochs)
 
     iterator = dataset.make_one_shot_iterator()

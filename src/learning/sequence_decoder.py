@@ -9,105 +9,95 @@ import rnn_helpers
 
 class SequenceDecoder():
 
-    def __init__(self, hidden_size, output_size, initial_state, batch_size):
-        self.hidden_size = hidden_size
-        self.output_size = output_size
+    def __init__(self, input_size, initial_state):
+        self.input_size = input_size
         self.initial_state = initial_state
-        self.batch_size = batch_size
+        self.batch_size = _best_effort_batch_size(self.initial_state)
 
         self._build_model()
 
-    def decode_train(self, labels, label_lengths, reuse=False, name='decode_train'):
-        helper = ContinuousTrainingHelper(
-            labels,
-            label_lengths,
-            tf.TensorShape([self.output_size]))
+    def decode(self, labels=None, label_lengths=None, name='decode'):
+        get_zero_input = lambda: tf.zeros([self.batch_size, self.input_size])
 
-        return self._decode(helper, reuse=reuse, name=name)
+        if labels is not None:
+            inputs_ta = tf.TensorArray(
+                dtype=tf.float32,
+                size=tf.shape(labels)[0],
+                element_shape=labels.get_shape()[1:])
+            inputs_ta = inputs_ta.unstack(labels)
 
-    def decode_predict(self, reuse=False, name='decode_predict'):
-        start_input = np.array(
-            [data.get_empty_output(self.output_size)] * self.batch_size,
-            dtype=np.float32)
+            def loop_fn(time, cell_output, cell_state, loop_state):
+                emit_output = cell_output
 
-        helper = ContinuousSamplingHelper(
-            start_input,
-            0)
+                elements_finished = (time >= label_lengths)
+                finished = tf.reduce_all(elements_finished)
 
-        return self._decode(helper, reuse=reuse, name=name)
+                if cell_output is None:
+                    next_cell_state = self.initial_state
+                    next_input = get_zero_input()
+                else:
+                    next_cell_state = cell_state
+                    next_input = tf.cond(
+                        finished,
+                        get_zero_input,
+                        lambda: inputs_ta.read(time))
+
+                next_loop_state = None
+                return (elements_finished, next_input, next_cell_state,
+                        emit_output, next_loop_state)
+
+        else:
+            def loop_fn(time, cell_output, cell_state, loop_state):
+                emit_output = cell_output
+
+                if cell_output is None:
+                    next_cell_state = self.initial_state
+                    next_input = get_zero_input()
+                else:
+                    next_cell_state = cell_state
+                    next_input = cell_output
+
+                elements_finished = (time >= 30)  # TODO Use cell_output
+
+                next_loop_state = None
+                return (elements_finished, next_input, next_cell_state,
+                        emit_output, next_loop_state)
+
+        output_ta, state, loop_state = tf.nn.raw_rnn(
+            cell=self.cell,
+            loop_fn=loop_fn)
+
+        return output_ta.stack()
 
     def _build_model(self):
-        self.base_cell, cell = rnn_helpers.create_rnn_cell(self.hidden_size, name='decoder_cell')
-        self.cell = tf.contrib.rnn.OutputProjectionWrapper(
-            cell,
-            output_size=self.output_size)
+        self.cell, cell = rnn_helpers.create_rnn_cell(self.input_size, name='decoder_cell')
 
-    def _decode(self, helper, reuse=False, name=None):
-        decoder = tf.contrib.seq2seq.BasicDecoder(
-            cell=self.cell,
-            helper=helper,
-            initial_state=self.initial_state)
-
-        return tf.contrib.seq2seq.dynamic_decode(
-            decoder=decoder,
-            maximum_iterations=1024)[0]
+        # Make correctly-shaped initial state if it's a tuple (LSTMCell)
+        if isinstance(self.cell.state_size, tuple):
+            self.initial_state = tf.nn.rnn_cell.LSTMStateTuple(
+                c=tf.zeros([self.batch_size, self.cell.state_size[1]]),
+                h=self.initial_state)
 
 
-class ContinuousTrainingHelper(tf.contrib.seq2seq.TrainingHelper):
-
-    def __init__(self, inputs, sequence_length, sample_ids_shape, time_major=False, name=None):
-        tf.contrib.seq2seq.TrainingHelper.__init__(
-            self, inputs, sequence_length, time_major, name)
-        # self._sample_ids_shape = tf.TensorShape([inputs.get_shape()[-1]])
-        self._sample_ids_shape = sample_ids_shape
-
-    def sample(self, time, outputs, name=None, **unused_kwargs):
-        with tf.name_scope(name, "TrainingHelperSample", [time, outputs]):
-            return outputs
-
-    @property
-    def sample_ids_shape(self):
-        return self._sample_ids_shape
-
-    @property
-    def sample_ids_dtype(self):
-        return data.POSE_DTYPE
-
-
-class ContinuousSamplingHelper(tf.contrib.seq2seq.GreedyEmbeddingHelper):
-
-    def __init__(self, start_tokens, end_token):
-        # NOTE End token will be checked at the first feature of a sample
-        self._embedding_fn = tf.identity
-
-        self._start_tokens = tf.convert_to_tensor(
-            start_tokens, name="start_tokens", dtype=data.POSE_DTYPE)
-        self._end_token = tf.convert_to_tensor(
-            end_token, name="end_token", dtype=data.POSE_DTYPE)
-        self._batch_size = self._start_tokens.get_shape()[0]
-        self._start_inputs = self._embedding_fn(self._start_tokens)
-        self._sample_ids_shape = tf.TensorShape([self._start_tokens.get_shape()[1]])
-
-    def sample(self, time, outputs, state, name=None):
-        del time, state
-        outputs.set_shape([self._batch_size, self._start_tokens.get_shape()[1]])
-        return outputs
-
-    def next_inputs(self, time, outputs, state, sample_ids, name=None):
-        del time, outputs
-        finished = tf.equal(sample_ids[:, 0], self._end_token)
-        all_finished = tf.reduce_all(finished)
-        logging.debug("Next inputs for sampling. Got sample shape {}".format(sample_ids.get_shape()))
-        next_inputs = tf.cond(
-            all_finished,
-            lambda: self._start_inputs,
-            lambda: sample_ids)
-        return (finished, next_inputs, state)
-
-    @property
-    def sample_ids_shape(self):
-        return self._sample_ids_shape
-
-    @property
-    def sample_ids_dtype(self):
-        return data.POSE_DTYPE
+def _best_effort_batch_size(input_):
+    """Get static input batch size if available, with fallback to the dynamic one.
+    Args:
+        input: An iterable of time major input Tensors of shape
+        `[batch_size, ...]`.
+        All inputs should have compatible batch sizes.
+    Returns:
+        The batch size in Python integer if available, or a scalar Tensor otherwise.
+    Raises:
+        ValueError: if there is any input with an invalid shape.
+    """
+    shape = input_.shape
+    if shape.ndims is None:
+        raise ValueError('No dimensions in shape')
+    if shape.ndims < 2:
+        raise ValueError(
+            "Expected state tensor %s to have rank at least 2" % input_)
+    batch_size = shape[0].value
+    if batch_size is not None:
+        return batch_size
+    # Fallback to the dynamic batch size of the first input.
+    return tf.shape(input_)[0]
