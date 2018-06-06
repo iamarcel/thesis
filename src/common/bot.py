@@ -21,6 +21,7 @@ def frange(x, y, jump):
 class BotController:
     def __init__(self, port=43155):
         host = 'localhost'
+        port = int(port)
         self.tts = ALProxy('ALTextToSpeech', host, port)
         self.motion = ALProxy('ALMotion', host, port)
         self.posture = ALProxy('ALRobotPosture', host, port)

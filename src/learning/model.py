@@ -56,12 +56,12 @@ def rnn_model_fn(features, labels, mode, params):
 
         decoder = SequenceDecoder(n_labels, hidden_state)
 
-        if 'angles' in labels:
+        seq_labels = None
+        len_labels = None
+
+        if mode != tf.estimator.ModeKeys.PREDICT:
             seq_labels = labels['angles'] if 'angles' in labels else None
             len_labels = tf.cast(labels['n_frames'], tf.int32) if seq_labels is not None else None
-        else:
-            seq_labels = None
-            len_labels = None
 
         output = decoder.decode(seq_labels, len_labels)
 
@@ -84,17 +84,17 @@ def rnn_model_fn(features, labels, mode, params):
     elif params.output_type == 'classes':
         dropout = tf.layers.dropout(
             inputs=hidden_state,
-            rate=0.4,
+            rate=params.dropout,
             training=mode == tf.estimator.ModeKeys.PREDICT)
         logits = tf.layers.dense(
             inputs=dropout,
-            units=params.n_labels,
+            units=params.n_classes,
             activation=tf.nn.relu)
 
         if mode != tf.estimator.ModeKeys.PREDICT:
             onehot_labels = tf.one_hot(
                 indices=tf.cast(labels['class'], tf.int32),
-                depth=params.n_labels)
+                depth=params.n_classes)
             loss = tf.losses.softmax_cross_entropy(
                 onehot_labels=onehot_labels,
                 logits=logits)
@@ -102,7 +102,7 @@ def rnn_model_fn(features, labels, mode, params):
         predictions = tf.argmax(input=logits, axis=1)
         tf.summary.histogram("class", predictions)
     else:
-        raise NotImplementedError()
+        raise NotImplementedError("Output type must be one of: sequences, classes")
 
     if mode == tf.estimator.ModeKeys.PREDICT:
         return tf.estimator.EstimatorSpec(
@@ -122,10 +122,34 @@ def rnn_model_fn(features, labels, mode, params):
             train_op=train_op)
 
 
-if __name__ == '__main__':
-    # Set up learning
-    batch_size = 8
+def generate_model_spec_name(params):
+    name = ''
+    name += 'output_type={},'.format(params.output_type)
 
+    if params.output_type == 'sequences':
+        name += 'hidden_size={},'.format(params.hidden_size)
+        name += 'cell={},'.format(params.rnn_cell.__name__)
+        name += 'smoothness_penalty={},'.format(params.smoothness_penalty)
+    elif params.output_type == 'classes':
+        name += 'n_classes={},'.format(params.n_classes)
+
+    name += 'dropout={},'.format(params.dropout)
+    name += 'learning_rate={},'.format(params.learning_rate)
+    name += 'batch_size={}'.format(params.batch_size)
+
+    return name
+
+
+def run_experiment(custom_params=dict()):
+    """Runs an experiment with parameters changed as specified.
+    The results are saved in log/xxx where xxx is specified by the
+    specific parameters.
+
+    Arguments:
+      params: dict parameters to override
+    """
+
+    # Load normalization parameters
     config_path = common.data_utils.DEFAULT_CONFIG_PATH
     if os.path.isfile(config_path):
         with open(config_path) as config_file:
@@ -143,19 +167,25 @@ if __name__ == '__main__':
             trainable=False)
     ]
 
-    model_params = tf.contrib.training.HParams(
+    default_params = tf.contrib.training.HParams(
         feature_columns=feature_columns,
         output_type='sequences',
+        rnn_cell=tf.nn.rnn_cell.GRUCell,
+        dropout=0.3,
         n_labels=10,
+        n_classes=8,
         hidden_size=512,
-        batch_size=batch_size,
+        batch_size=8,
         learning_rate=0.001,
-        smoothness_penalty=0.3,
+        smoothness_penalty=0.1,
         labels_mean=mean,
         labels_std=std)
 
+    model_params = default_params.override_from_dict(custom_params)
+
+    model_spec_name = generate_model_spec_name(model_params)
     run_config = tf.estimator.RunConfig(
-        model_dir='log/gru,keep=0.8',
+        model_dir='log/{}'.format(model_spec_name),
         save_checkpoints_secs=60,
         save_summary_steps=100)
 
@@ -164,17 +194,21 @@ if __name__ == '__main__':
         config=run_config,
         params=model_params)
 
+
+
     do_train = True
     if do_train:
         # profiler_hook = tf.train.ProfilerHook(save_steps=200, output_dir='profile')
         debug_hook = tf_debug.TensorBoardDebugHook("f9f267322738:7000")
-        estimator.train(lambda: data.input_fn('../clips.tfrecords', batch_size=batch_size), hooks=[])
+        estimator.train(lambda: data.input_fn(
+            '../clips.tfrecords',
+            batch_size=model_params.batch_size,
+            n_epochs=640
+        ), hooks=[])
 
     do_predict = True
     if do_predict:
-        import json
-
-        subtitle = 'I can choose completely how I move'
+        subtitle = 'parallel you\'re paralyzed I get it'
 
         predict_input_fn = tf.estimator.inputs.numpy_input_fn(
             x={
@@ -185,18 +219,24 @@ if __name__ == '__main__':
         preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
         n_frames = 100
 
-        frames = preds[0, :n_frames, :].tolist()
-        pose = list(map(
-            common.pose_utils.format_joint_dict, map(
-                common.pose_utils.get_pose_from_angles, map(
-                    common.pose_utils.get_named_angles, frames))))
+        if model_params.output_type == 'sequences':
+            frames = preds[:n_frames, 0, :].tolist()
+            angles = list(map(common.pose_utils.get_named_angles, frames))
 
-        # with open("predicted_angles.json", "w") as write_file:
-        #     json.dump({'clip': angles}, write_file)
+            with open("predicted_angles.json", "w") as write_file:
+                serialized = json.dumps({'clip': angles}).decode('utf-8')
+                write_file.write(serialized)
+                print("Wrote angles to predicted_angles.json")
 
-        # pose = preds[0, :n_frames, 0:30]
-        # pose = np.reshape(pose, (n_frames, 10, 3))
-        # pose_complete = np.tile(data.REFERENCE_POSE, (n_frames, 1, 1))
-        # pose_complete[:, data.FILTERED_INDICES, :] = pose
+            pose = list(map(
+                common.pose_utils.format_joint_dict, map(
+                    common.pose_utils.get_pose_from_angles, angles)))
+            common.visualize.animate_3d_poses(pose)
+        elif model_params.output_type == 'classes':
+            print("Prediction: {}".format(preds))
 
-        common.visualize.animate_3d_poses(pose)
+if __name__ == '__main__':
+    run_experiment(dict(
+        output_type='sequences',
+        smoothness_penalty=0.000
+    ))

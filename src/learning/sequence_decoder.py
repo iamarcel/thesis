@@ -9,10 +9,11 @@ import rnn_helpers
 
 class SequenceDecoder():
 
-    def __init__(self, input_size, initial_state):
+    def __init__(self, input_size, initial_state, dropout=0.5):
         self.input_size = input_size
         self.initial_state = initial_state
         self.batch_size = _best_effort_batch_size(self.initial_state)
+        self.dropout = dropout
 
         self._build_model()
 
@@ -57,7 +58,7 @@ class SequenceDecoder():
                     next_cell_state = cell_state
                     next_input = cell_output
 
-                elements_finished = (time >= 30)  # TODO Use cell_output
+                elements_finished = (time >= 300)  # TODO Use cell_output
 
                 next_loop_state = None
                 return (elements_finished, next_input, next_cell_state,
@@ -70,7 +71,10 @@ class SequenceDecoder():
         return output_ta.stack()
 
     def _build_model(self):
-        self.cell, cell = rnn_helpers.create_rnn_cell(self.input_size, name='decoder_cell')
+        self.cell, cell = rnn_helpers.create_rnn_cell(
+            self.input_size,
+            dropout=self.dropout,
+            name='decoder_cell')
 
         # Make correctly-shaped initial state if it's a tuple (LSTMCell)
         if isinstance(self.cell.state_size, tuple):
