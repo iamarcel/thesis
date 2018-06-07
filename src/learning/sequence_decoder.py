@@ -9,13 +9,13 @@ import rnn_helpers
 
 class SequenceDecoder():
 
-    def __init__(self, input_size, initial_state, dropout=0.5):
+    def __init__(self, input_size, initial_state, dropout=0.5, cell_type='BasicRNNCell'):
         self.input_size = input_size
         self.initial_state = initial_state
         self.batch_size = _best_effort_batch_size(self.initial_state)
         self.dropout = dropout
 
-        self._build_model()
+        self._build_model(cell_type)
 
     def decode(self, labels=None, label_lengths=None, name='decode'):
         get_zero_input = lambda: tf.zeros([self.batch_size, self.input_size])
@@ -70,11 +70,12 @@ class SequenceDecoder():
 
         return output_ta.stack()
 
-    def _build_model(self):
+    def _build_model(self, cell_type):
         self.cell, cell = rnn_helpers.create_rnn_cell(
             self.input_size,
             dropout=self.dropout,
-            name='decoder_cell')
+            name='decoder_cell',
+            cell_type=cell_type)
 
         # Make correctly-shaped initial state if it's a tuple (LSTMCell)
         if isinstance(self.cell.state_size, tuple):

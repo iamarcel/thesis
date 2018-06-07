@@ -1,10 +1,10 @@
 import tensorflow as tf
 
 
-def create_rnn_cell(cell_size, name=None, dropout=0.5):
+def create_rnn_cell(cell_size, name=None, dropout=0.5, cell_type='BasicRNNCell'):
     keep = 1.0 - dropout
 
-    base_cell = tf.nn.rnn_cell.GRUCell(cell_size, name=name)
+    base_cell = getattr(tf.nn.rnn_cell, cell_type)(cell_size, name=name)
     cell = tf.nn.rnn_cell.DropoutWrapper(
         base_cell,
         input_keep_prob=keep)

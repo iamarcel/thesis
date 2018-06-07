@@ -54,7 +54,7 @@ def rnn_model_fn(features, labels, mode, params):
         n_labels = params.n_labels
         hidden_state = tf.layers.dense(hidden_state, n_labels)
 
-        decoder = SequenceDecoder(n_labels, hidden_state)
+        decoder = SequenceDecoder(n_labels, hidden_state, cell_type=params.rnn_cell)
 
         seq_labels = None
         len_labels = None
@@ -69,15 +69,24 @@ def rnn_model_fn(features, labels, mode, params):
             for var in decoder.cell.trainable_weights:
                 tf.summary.histogram(var.name, var)
 
-            loss = tf.losses.mean_squared_error(
+            seq_weights = tf.tile(
+                tf.transpose([tf.sequence_mask(len_labels)]),
+                multiples=[1, 1, n_labels])
+
+            position_loss = tf.losses.mean_squared_error(
                 output,
                 seq_labels,
-                weights=tf.tile(
-                    tf.transpose([tf.sequence_mask(len_labels)]),
-                    multiples=[1, 1, n_labels])) + \
-                tf.losses.mean_squared_error(
-                    output[1:, :, :], output[:-1, :, :]
-                ) * params.smoothness_penalty
+                weights=seq_weights)
+
+            output_diff = tf.square(output[1:, :, :] - output[:-1, :, :])
+            label_diff = tf.square(seq_labels[1:, :, :] - seq_labels[:-1, :, :])
+            motion_loss = tf.losses.mean_squared_error(
+                output_diff,
+                label_diff,
+                weights=seq_weights[:-1, :, :])
+
+            loss = (1.0 - params.motion_loss_weight) * position_loss + \
+                   params.motion_loss_weight * motion_loss
 
         predictions = data.unnormalize(
             output, params.labels_mean, params.labels_std)
@@ -128,8 +137,8 @@ def generate_model_spec_name(params):
 
     if params.output_type == 'sequences':
         name += 'hidden_size={},'.format(params.hidden_size)
-        name += 'cell={},'.format(params.rnn_cell.__name__)
-        name += 'smoothness_penalty={},'.format(params.smoothness_penalty)
+        name += 'cell={},'.format(params.rnn_cell)
+        name += 'motion_loss_weight={},'.format(params.motion_loss_weight)
     elif params.output_type == 'classes':
         name += 'n_classes={},'.format(params.n_classes)
 
@@ -170,14 +179,14 @@ def run_experiment(custom_params=dict()):
     default_params = tf.contrib.training.HParams(
         feature_columns=feature_columns,
         output_type='sequences',
-        rnn_cell=tf.nn.rnn_cell.GRUCell,
+        rnn_cell='BasicRNNCell',
         dropout=0.3,
         n_labels=10,
         n_classes=8,
         hidden_size=512,
         batch_size=8,
         learning_rate=0.001,
-        smoothness_penalty=0.1,
+        motion_loss_weight=0.5,
         labels_mean=mean,
         labels_std=std)
 
@@ -208,7 +217,7 @@ def run_experiment(custom_params=dict()):
 
     do_predict = True
     if do_predict:
-        subtitle = 'parallel you\'re paralyzed I get it'
+        subtitle = 'passion thing from all the possible ways'
 
         predict_input_fn = tf.estimator.inputs.numpy_input_fn(
             x={
@@ -231,12 +240,13 @@ def run_experiment(custom_params=dict()):
             pose = list(map(
                 common.pose_utils.format_joint_dict, map(
                     common.pose_utils.get_pose_from_angles, angles)))
-            common.visualize.animate_3d_poses(pose)
+            common.visualize.animate_3d_poses(pose, save=True)
         elif model_params.output_type == 'classes':
             print("Prediction: {}".format(preds))
 
 if __name__ == '__main__':
-    run_experiment(dict(
-        output_type='sequences',
-        smoothness_penalty=0.000
-    ))
+    run_experiment({
+        'output_type': 'sequences',
+        'motion_loss_weight': 0.8,
+        'rnn_cell': 'BasicLSTMCell'
+    })

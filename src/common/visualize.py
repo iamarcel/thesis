@@ -100,7 +100,7 @@ def preview_clip(n=-1):
             n = random.randint(0, len(clips))
 
 
-def animate_3d_poses(points, add_labels=False, ax=None):
+def animate_3d_poses(points, add_labels=False, ax=None, save=False):
     # Swap y and z axes because mpl shows z as height instead of depth
     # points[:, :, 1], points[:, :, 2] = (
     #     points[:, :, 2].copy(), points[:, :, 1].copy())
@@ -125,9 +125,12 @@ def animate_3d_poses(points, add_labels=False, ax=None):
         fig,
         update,
         frames=itertools.cycle(enumerate(points)),
-        interval=17,
-        repeat=True)
-    # ani.save('viz.mp4')
+        interval=40,
+        repeat=True,
+        save_count=points.shape[0])
+
+    if save:
+        ani.save('viz.mp4')
 
     plt.show()
 
@@ -302,4 +305,4 @@ def _mpl_setup_ax_3d(ax, radius=0.5, add_labels=False):
 
     ax.set_aspect(1)
 
-    ax.invert_zaxis()
+    # ax.invert_zaxis()
