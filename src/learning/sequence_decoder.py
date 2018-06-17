@@ -1,4 +1,5 @@
 import logging
+import random
 
 import tensorflow as tf
 import numpy as np
@@ -41,7 +42,7 @@ class SequenceDecoder():
                     next_input = tf.cond(
                         finished,
                         get_zero_input,
-                        lambda: inputs_ta.read(time))
+                        lambda: cell_output if random.randint(0, 4) == 0 else inputs_ta.read(time))
 
                 next_loop_state = None
                 return (elements_finished, next_input, next_cell_state,

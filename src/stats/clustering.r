@@ -17,7 +17,7 @@ if (file.exists("model.RData")) {
 } else {
   pc_dtw <- tsclust(angles, k = 8L,
                     type = "partitional",
-                    distance = "gak", centroid = "pam",
+                    distance = "dtw", centroid = "pam",
                     trace = TRUE, seed = 8,
                     norm = "L2", window.size = 40L,
                     args = tsclust_args(cent = list(trace = TRUE)))
@@ -52,9 +52,17 @@ lapply(fasttext_data, write, "fasttext_examples.txt", append = TRUE)
 
                                         # Visualize clusters
 
+# User matrix for H36M reference frame
 userMatrix <- matrix(c(0.8785309, -0.03752132,  0.4761933,    0, -0.2034607,
                        -0.93134338,  0.3019763,    0, 0.4321747, -0.36218596,
                        -0.8258495, 0, 0.0000000,  0.00000000,  0.0000000,    1), ncol = 4, byrow = TRUE)
+
+# User matrix for NAO reference frame
+userMatrix <- matrix(c( 0.6609037,   0.7500464,  0.02490377, 0,
+                       -0.1723497,   0.1194006,  0.97775847, 0,
+                        0.7304008,  -0.6505048,  0.20818269, 0,
+                        0.0000000,   0.0000000,  0.00000000, 1),
+                     ncol = 4, byrow = TRUE)
 
 plot_pose <- function(pose) {
   line_start_indices <- c(1,2,3,1,7,8,1, 13,14,15,14,18,19,14,26,27)
@@ -110,7 +118,7 @@ for (v in 1:length(centers)) {
 }
 
                                         # Plot cluster samples
-cluster_i <- 6
+cluster_i <- 2
 cluster_poses <- unique(which(pc_dtw@cluster == cluster_i))
 str(cluster_poses)
 cluster_samples <- sample(cluster_poses, 8, replace = FALSE)
