@@ -1,8 +1,9 @@
 #!/usr/bin/env python
+# coding=utf-8
 
 import argparse
 import logging
-import naoqi  # Needs to be imported before random? Why? No clue.
+# import naoqi  # Needs to be imported before random? Why? No clue.
 from random import randint
 
 import json
@@ -10,7 +11,7 @@ import jsonlines
 
 import common.data_utils
 import common.pose_utils
-import common.bot
+# import common.bot
 import common.visualize
 
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +26,31 @@ def get_random_clip():
         clip = clips[randint(0, len(clips))]
 
     return clip
+
+def create_primitives():
+    from SFA_Python.src.timeseries.TimeSeries import TimeSeries
+    import numpy as np
+
+    clips = common.data_utils.get_clips()
+
+    dataset = {
+        "type": "MV",
+        "Samples": 50,
+        "Dimensions": len(clips[0]["angles"][0].keys()),
+        "Labels": [-1] * 50,
+    }
+
+    for i, clip in enumerate(clips):
+        frames = np.array(list(map(common.pose_utils.get_angle_list, clip["angles"])))
+        dataset[i] = {j: TimeSeries((frames[:, j]).tolist(), -1) for j in range(frames.shape[1])}
+        if i >= 50:
+            break
+
+    from SFA_Python.src.classification.MUSEClassifier import MUSEClassifier
+    classifier = MUSEClassifier(0)
+    output = classifier.fit(dataset)
+    print(output)
+    return output
 
 
 if __name__ == '__main__':
@@ -45,7 +71,8 @@ if __name__ == '__main__':
         'test-plot-angles',
         'angle-frame-lines-to-poses',
         'bot-play-clusters',
-        'create-tfrecords'
+        'create-tfrecords',
+        'create-primitives'
     ]
 
     parser = argparse.ArgumentParser(description='Manipulate clip data files.')
@@ -155,5 +182,7 @@ if __name__ == '__main__':
     elif command_name == 'create-tfrecords':
         import learning.data
         learning.data.create_tfrecords(*args.args)
+    elif command_name == 'create-primitives':
+        create_primitives()
     else:
         logger.error("Command {} not found.".format(command_name))

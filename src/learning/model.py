@@ -205,19 +205,19 @@ def run_experiment(custom_params=dict()):
 
 
 
-    do_train = True
+    do_train = False
     if do_train:
         # profiler_hook = tf.train.ProfilerHook(save_steps=200, output_dir='profile')
         debug_hook = tf_debug.TensorBoardDebugHook("f9f267322738:7000")
         estimator.train(lambda: data.input_fn(
             '../clips.tfrecords',
             batch_size=model_params.batch_size,
-            n_epochs=640
+            n_epochs=100
         ), hooks=[])
 
     do_predict = True
     if do_predict:
-        subtitle = 'passion thing from all the possible ways'
+        subtitle = 'up and down and up and down'
 
         predict_input_fn = tf.estimator.inputs.numpy_input_fn(
             x={
@@ -247,6 +247,6 @@ def run_experiment(custom_params=dict()):
 if __name__ == '__main__':
     run_experiment({
         'output_type': 'sequences',
-        'motion_loss_weight': 0.8,
+        'motion_loss_weight': 0.9,
         'rnn_cell': 'BasicLSTMCell'
     })
