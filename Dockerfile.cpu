@@ -29,7 +29,7 @@ RUN curl -OL https://github.com/google/protobuf/releases/download/v3.5.1/protoc-
   mv protoc3/bin/* /usr/local/bin/ && \
   mv protoc3/include/* /usr/local/include/
 
-ADD ./src /root/dev
+ADD ./ /root/dev
 WORKDIR /root/dev
 
 RUN echo "export TFHUB_CACHE_DIR=/root/dev/tfhub" >> /root/.bashrc && \
