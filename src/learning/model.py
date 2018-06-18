@@ -238,7 +238,7 @@ def run_experiment(custom_params=dict()):
                 print("Wrote angles to predicted_angles.json")
 
             pose = list(map(
-                common.pose_utils.format_joint_dict, map(
+                common.pose_utils.get_encoded_pose, map(
                     common.pose_utils.get_pose_from_angles, angles)))
             common.visualize.animate_3d_poses(pose, save=True)
         elif model_params.output_type == 'classes':

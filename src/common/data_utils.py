@@ -160,7 +160,7 @@ def move_2d_finished_images(clips_path=DEFAULT_CLIPS_PATH,
       n_clips_done, n_clips_all))
 
 
-def clip_stats(clips_path=DEFAULT_CLIPS_PATH):
+def get_clip_stats(clips_path=DEFAULT_CLIPS_PATH):
   import itertools
 
   clips = get_clips(clips_path)

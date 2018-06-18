@@ -2,7 +2,6 @@ import os
 import json
 import logging
 import numpy as np
-import scipy
 import math
 
 from . import vector
@@ -37,31 +36,17 @@ COCO_BODY_PARTS = [
 
 # To convert the dictionary to a list with consistent ordering
 ANGLE_NAMES_ORDER = [
-    'HipRoll', 'HipPitch',
-    'RShoulderPitch', 'RShoulderRoll',
-    'LShoulderPitch', 'LShoulderRoll',
-    'RElbowRoll', 'LElbowRoll',
-    'HeadPitch', 'HeadYaw'
+    'HipRoll', 'HipPitch', 'RShoulderPitch', 'RShoulderRoll', 'LShoulderPitch',
+    'LShoulderRoll', 'RElbowRoll', 'LElbowRoll', 'HeadPitch', 'HeadYaw'
 ]
 
 JOINTS = np.array([
-    ['Hip', 'RHip'],
-    ['RHip', 'RKnee'],
-    ['RKnee', 'RFoot'],
-    ['Hip', 'LHip'],
-    ['LHip', 'LKnee'],
-    ['LKnee', 'LFoot'],
-    ['Hip', 'Spine'],
-    ['Spine', 'Thorax'],
-    ['Thorax', 'Neck/Nose'],
-    ['Neck/Nose', 'Head'],
-    ['Thorax', 'LShoulder'],
-    ['LShoulder', 'LElbow'],
-    ['LElbow', 'LWrist'],
-    ['Thorax', 'RShoulder'],
-    ['RShoulder', 'RElbow'],
-    ['RElbow', 'RWrist']
-])
+  ['Hip', 'RHip'], ['RHip', 'RKnee'], ['RKnee', 'RFoot'],
+  ['Hip', 'LHip'], ['LHip', 'LKnee'], ['LKnee', 'LFoot'],
+  ['Hip', 'Spine'], ['Spine', 'Thorax'], ['Thorax', 'Neck/Nose'],
+  ['Neck/Nose', 'Head'], ['Thorax', 'LShoulder'], ['LShoulder', 'LElbow'],
+  ['LElbow', 'LWrist'], ['Thorax', 'RShoulder'], ['RShoulder', 'RElbow'],
+  ['RElbow', 'RWrist']])
 
 KEY_OP_PEOPLE = 'people'
 KEY_OP_KEYPOINTS = 'pose_keypoints_2d'
@@ -104,54 +89,52 @@ def load_clip_keypoints(clip,
                         openpose_output_dir=DEFAULT_OPENPOSE_OUTPUT_PATH,
                         min_confidence=0.6,
                         filenames=None):
-    if filenames is None:
-        filenames = get_outputs(openpose_output_dir)
-    keypoints = []
-    clip_files = list(get_clip_files(clip, filenames=filenames))
-    if len(clip_files) == 0:
-        raise ValueError("No keypoint data found")
+  if filenames is None:
+    filenames = get_outputs(openpose_output_dir)
+  keypoints = []
+  clip_files = list(get_clip_files(clip, filenames=filenames))
+  if len(clip_files) == 0:
+    raise ValueError("No keypoint data found")
 
-    for full_name in clip_files:
-        with open(full_name) as keypoint_file:
-            frame_keypoint_data = json.load(keypoint_file)
-            people = frame_keypoint_data[KEY_OP_PEOPLE]
-            if len(people) == 0:
-                raise ValueError("Clip has frame without people detected")
+  for full_name in clip_files:
+    with open(full_name) as keypoint_file:
+      frame_keypoint_data = json.load(keypoint_file)
+      people = frame_keypoint_data[KEY_OP_PEOPLE]
+      if len(people) == 0:
+        raise ValueError("Clip has frame without people detected")
 
-            person = closest_to_center_person(people, clip['center'])
-            if len(person[KEY_OP_KEYPOINTS]) == 0:
-                raise ValueError("No keypoints available")
+      person = closest_to_center_person(people, clip['center'])
+      if len(person[KEY_OP_KEYPOINTS]) == 0:
+        raise ValueError("No keypoints available")
 
-            mean_confidence = np.mean(
-                get_confidences(person[KEY_OP_KEYPOINTS]))
-            if np.any(mean_confidence < min_confidence):
-                raise ValueError("Clip has pose with confidence score" +
-                                 " lower than {}".format(min_confidence))
+      mean_confidence = np.mean(get_confidences(person[KEY_OP_KEYPOINTS]))
+      if np.any(mean_confidence < min_confidence):
+        raise ValueError("Clip has pose with confidence score" +
+                         " lower than {}".format(min_confidence))
 
-            keypoints.append(person[KEY_OP_KEYPOINTS])
+      keypoints.append(person[KEY_OP_KEYPOINTS])
 
-    return keypoints
+  return keypoints
 
 
 def get_clip_files(clip,
                    filenames=None,
                    openpose_output_dir=DEFAULT_OPENPOSE_OUTPUT_PATH):
 
-    if filenames is None:
-        filenames = get_outputs(openpose_output_dir)
+  if filenames is None:
+    filenames = get_outputs(openpose_output_dir)
 
-    return map(lambda f: os.path.join(openpose_output_dir, f),
-               sorted(
-                   filter(lambda f: f.startswith(clip['id'] + '-'),
-                          filenames)))
+  return map(
+      lambda f: os.path.join(openpose_output_dir, f),
+      sorted(filter(lambda f: f.startswith(clip['id'] + '-'), filenames)))
 
 
 def get_outputs(path=DEFAULT_OPENPOSE_OUTPUT_PATH):
-    return filter(lambda f: f.endswith('_keypoints.json'), os.listdir(path))
+  return filter(lambda f: f.endswith('_keypoints.json'), os.listdir(path))
 
 
 def closest_to_center_person(people, center):
-    """Returns the person whose hip is closest to the given center
+  """Returns the person whose hip is closest to the given center
 
     input:
         people: OpenPose detection (dict)
@@ -160,366 +143,187 @@ def closest_to_center_person(people, center):
         person: OpenPose detection of the person that is closest to the center
     """
 
-    best_person = people[0]
-    best_person_distance = 100000
-    for i, person in enumerate(people):
-        points = person[KEY_OP_KEYPOINTS]
-        hip = (float(points[COCO_BODY_PARTS.index('LHip') * 3] +
-                     points[COCO_BODY_PARTS.index('RHip') * 3]) / 2,
-               float(points[COCO_BODY_PARTS.index('LHip') * 3] +
-                     points[COCO_BODY_PARTS.index('RHip') * 3]) / 2)
+  best_person = people[0]
+  best_person_distance = 100000
+  for i, person in enumerate(people):
+    points = person[KEY_OP_KEYPOINTS]
+    hip = (float(points[COCO_BODY_PARTS.index('LHip') * 3] +
+                 points[COCO_BODY_PARTS.index('RHip') * 3]) / 2,
+           float(points[COCO_BODY_PARTS.index('LHip') * 3] +
+                 points[COCO_BODY_PARTS.index('RHip') * 3]) / 2)
 
-        distance = (hip[0] - center[0])**2 + (hip[1] - center[1])**2
-        if distance < best_person_distance:
-            best_person = person
-            best_person_distance = distance
+    distance = (hip[0] - center[0])**2 + (hip[1] - center[1])**2
+    if distance < best_person_distance:
+      best_person = person
+      best_person_distance = distance
 
-    return best_person
+  return best_person
 
 
 def get_positions(keypoints):
-    xy = []
-    # ignore confidence score
-    for o in range(0, len(keypoints), 3):
-        xy.append(keypoints[o])
-        xy.append(keypoints[o + 1])
+  xy = []
+  # ignore confidence score
+  for o in range(0, len(keypoints), 3):
+    xy.append(keypoints[o])
+    xy.append(keypoints[o + 1])
 
-    return xy
+  return xy
 
 
 def get_confidences(keypoints):
-    confidences = []
-    for o in range(0, len(keypoints), 3):
-        confidences.append(keypoints[o + 2])
+  confidences = []
+  for o in range(0, len(keypoints), 3):
+    confidences.append(keypoints[o + 2])
 
-    return confidences
+  return confidences
 
 
 def get_all_positions(keypoints_arr):
-    n_points = keypoints_arr.shape[1]
-    indices = np.sort(
-        np.hstack((np.arange(0, n_points, 3), np.arange(1, n_points, 3))))
+  n_points = keypoints_arr.shape[1]
+  indices = np.sort(
+      np.hstack((np.arange(0, n_points, 3), np.arange(1, n_points, 3))))
 
-    return np.array(keypoints_arr)[:, indices]
+  return np.array(keypoints_arr)[:, indices]
 
 
 def get_all_confidences(keypoints_arr):
-    return np.array(keypoints_arr)[:, 2::3]
+  return np.array(keypoints_arr)[:, 2::3]
 
 
 def openpose_to_baseline(coco_frames):
-    """Converts a list of OpenPose frames to Baseline-compatible format
+  """Converts a list of OpenPose frames to Baseline-compatible format
 
     Args:
       coco_frames: ndarray (?x, 18*3) - for every body part xi, yi, ci
     Returns:
       b36m_frames: ndarray (?x, 32*3) - for every H36M body part xi, yi, ci
     """
-    if coco_frames.shape[1] != len(COCO_BODY_PARTS) * 3:
-        raise ValueError(
-            "Expected predictions to be in OpenPose format, i.e. of shape (?, "
-            + str(len(COCO_BODY_PARTS) * 3) + "), but got " + str(
-                coco_frames.shape))
+  if coco_frames.shape[1] != len(COCO_BODY_PARTS) * 3:
+    raise ValueError(
+        "Expected predictions to be in OpenPose format, i.e. of shape (?, " +
+        str(len(COCO_BODY_PARTS) * 3) + "), but got " + str(coco_frames.shape))
 
-    # Store in flattened 2D coordinate array
-    h36m_frames = np.zeros((coco_frames.shape[0], len(H36M_NAMES) * 3))
+  # Store in flattened 2D coordinate array
+  h36m_frames = np.zeros((coco_frames.shape[0], len(H36M_NAMES) * 3))
 
-    # Corresponsing destination indices to map OpenPose data into H36M data
-    h36m_indices = [
-        np.where(np.array(H36M_NAMES) == name)[0] for name in COCO_BODY_PARTS
-    ]
-    coco_indices = np.where([len(i) != 0 for i in h36m_indices])[0]
-    h36m_indices = np.array(
-        [x[0] for x in list(filter(lambda x: len(x) != 0, h36m_indices))])
+  # Corresponsing destination indices to map OpenPose data into H36M data
+  h36m_indices = [
+      np.where(np.array(H36M_NAMES) == name)[0] for name in COCO_BODY_PARTS
+  ]
+  coco_indices = np.where([len(i) != 0 for i in h36m_indices])[0]
+  h36m_indices = np.array(
+      [x[0] for x in list(filter(lambda x: len(x) != 0, h36m_indices))])
 
-    # OpenPose format: xi, yi, ci (confidence)
-    h36m_frames[:, h36m_indices * 3] = coco_frames[:, coco_indices * 3]
-    h36m_frames[:, h36m_indices * 3 + 1] = coco_frames[:, coco_indices * 3 + 1]
-    h36m_frames[:, h36m_indices * 3 + 2] = coco_frames[:, coco_indices * 3 + 2]
+  # OpenPose format: xi, yi, ci (confidence)
+  h36m_frames[:, h36m_indices * 3] = coco_frames[:, coco_indices * 3]
+  h36m_frames[:, h36m_indices * 3 + 1] = coco_frames[:, coco_indices * 3 + 1]
+  h36m_frames[:, h36m_indices * 3 + 2] = coco_frames[:, coco_indices * 3 + 2]
 
-    def add_computed_point(dest_name, src1_name, src2_name, fn):
-        dest_index = np.where(np.array(H36M_NAMES) == dest_name)[0][0]
-        src1_index = np.where(np.array(H36M_NAMES) == src1_name)[0][0]
-        src2_index = np.where(np.array(H36M_NAMES) == src2_name)[0][0]
+  def add_computed_point(dest_name, src1_name, src2_name, fn):
+    dest_index = np.where(np.array(H36M_NAMES) == dest_name)[0][0]
+    src1_index = np.where(np.array(H36M_NAMES) == src1_name)[0][0]
+    src2_index = np.where(np.array(H36M_NAMES) == src2_name)[0][0]
 
-        for j in range(3):
-            di = dest_index * 3 + j
-            s1i = src1_index * 3 + j
-            s2i = src2_index * 3 + j
-            h36m_frames[:, di] = fn(h36m_frames[:, s1i], h36m_frames[:, s2i])
+    for j in range(3):
+      di = dest_index * 3 + j
+      s1i = src1_index * 3 + j
+      s2i = src2_index * 3 + j
+      h36m_frames[:, di] = fn(h36m_frames[:, s1i], h36m_frames[:, s2i])
 
-    # Hip is center of Left and Right Hip
-    add_computed_point('Hip', 'LHip', 'RHip', lambda i, j: (i + j) / 2)
+  # Hip is center of Left and Right Hip
+  add_computed_point('Hip', 'LHip', 'RHip', lambda i, j: (i + j) / 2)
 
-    # Take Head as half the distance between thorax & nose above the nose
-    add_computed_point('Head', 'Neck/Nose', 'Thorax',
-                       lambda i, j: i + (i - j) / 2)
+  # Take Head as half the distance between thorax & nose above the nose
+  add_computed_point('Head', 'Neck/Nose', 'Thorax',
+                     lambda i, j: i + (i - j) / 2)
 
-    # Spine is nead the neck base, between neck and hip
-    add_computed_point('Spine', 'Thorax', 'Hip', lambda i, j: i + (j - i) / 4)
+  # Spine is nead the neck base, between neck and hip
+  add_computed_point('Spine', 'Thorax', 'Hip', lambda i, j: i + (j - i) / 4)
 
-    return h36m_frames
+  return h36m_frames
 
 
 def get_named_pose(in_pose, fmt='h36m'):
-    names = []
-    if fmt == 'h36m':
-        names = H36M_NAMES
-    elif fmt == 'coco':
-        names = COCO_BODY_PARTS
-    elif fmt == 'sh':
-        raise NotImplementedError("Doesn't support SH yet")
-    else:
-        raise ValueError("Unrecognized pose format {}".format(fmt))
+  names = []
+  if fmt == 'h36m':
+    names = H36M_NAMES
+  elif fmt == 'coco':
+    names = COCO_BODY_PARTS
+  elif fmt == 'sh':
+    raise NotImplementedError("Doesn't support SH yet")
+  else:
+    raise ValueError("Unrecognized pose format {}".format(fmt))
 
-    out_pose = {}
-    for i, name in enumerate(names):
-        if name is None or name == '':
-            continue
-        out_pose[name] = in_pose[i]
+  out_pose = {}
+  for i, name in enumerate(names):
+    if name is None or name == '':
+      continue
+    out_pose[name] = in_pose[i]
 
-    return out_pose
-
-
-def get_lines_3d(pose):
-    pose = np.asarray(pose)
-    assert pose.shape == (len(H36M_NAMES), 3), \
-        ("pose should have shape ({}, 3), instead got {}"
-         .format(len(H36M_NAMES), pose.shape))
-
-    start_points = np.array([
-        1, 2, 3, 1, 7, 8, 1, 13, 14, 15, 14, 18, 19, 14, 26, 27
-    ]) - 1  # start points
-    end_points = np.array([
-        2, 3, 4, 7, 8, 9, 13, 14, 15, 16, 18, 19, 20, 26, 27, 28
-    ]) - 1  # end points
-
-    lines = []
-    for i in np.arange(len(start_points)):
-        x, y, z = [np.array([pose[start_points[i], j], pose[end_points[i], j]])
-                   for j in range(3)]
-        lines.append((x, y, z))
-
-    return lines
-
-
-def plot_lines_3d(lines, ax, lcolor="#3498db", rcolor="#e74c3c"):
-    is_left = np.array(
-        [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1], dtype=bool)
-
-    ax.set_aspect(1)
-    ax.set_xlim(-0.5, 0.5)
-    ax.set_ylim(-0.5, 0.5)
-    ax.set_zlim(-0.5, 0.5)
-    ax.invert_zaxis()
-
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_zticks([])
-
-    ax.get_xaxis().set_ticklabels([])
-    ax.get_yaxis().set_ticklabels([])
-    ax.set_zticklabels([])
-
-    # Get rid of the panes (actually, make them white)
-    white = (1.0, 1.0, 0.1, 0.0)
-    ax.w_xaxis.set_pane_color(white)
-    ax.w_yaxis.set_pane_color(white)
-
-    # Get rid of the lines in 3d
-    ax.w_xaxis.line.set_color(white)
-    ax.w_yaxis.line.set_color(white)
-    ax.w_zaxis.line.set_color(white)
-
-    plots = []
-    for i, (x, y, z) in enumerate(lines):
-        plot, = ax.plot(
-            x,
-            y,
-            z,
-            marker='o',
-            markersize=2,
-            lw=1,
-            c=lcolor if is_left[i] else rcolor)
-        plots.append(plot)
-
-    return plots
-
-
-def update_plots_3d(plots, lines):
-    for plot, line in zip(plots, lines):
-        plot.set_data(line[0], line[1])
-        plot.set_3d_properties(line[2])
-
-
-def plot_3d_pose(pose,
-                 ax,
-                 lcolor="#3498db",
-                 rcolor="#e74c3c",
-                 add_labels=False):
-    """
-    Visualize a 3d skeleton
-
-    Args
-        channels: 96x1 vector. The pose to plot.
-        ax: matplotlib 3d axis to draw on
-        lcolor: color for left part of the body
-        rcolor: color for right part of the body
-        add_labels: whether to add coordinate labels
-    Returns
-        Nothing. Draws on ax.
-    """
-
-    pose = np.asarray(pose)
-    assert pose.shape == (len(H36M_NAMES), 3), \
-        ("pose should have shape ({}, 3), instead got {}"
-         .format(len(H36M_NAMES), pose.shape))
-
-    start_points = np.array([
-        1, 2, 3, 1, 7, 8, 1, 13, 14, 15, 14, 18, 19, 14, 26, 27
-    ]) - 1  # start points
-    end_points = np.array([
-        2, 3, 4, 7, 8, 9, 13, 14, 15, 16, 18, 19, 20, 26, 27, 28
-    ]) - 1  # end points
-    is_left = np.array(
-        [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1], dtype=bool)
-
-    # Make connection matrix
-    for i in np.arange(len(start_points)):
-        x, y, z = [np.array([pose[start_points[i], j], pose[end_points[i], j]])
-                   for j in range(3)]
-        ax.plot(
-            x,
-            y,
-            z,
-            marker='o',
-            markersize=2,
-            lw=1,
-            c=lcolor if is_left[i] else rcolor)
-
-    RADIUS = 0.5  # space around the subject
-    xroot, yroot, zroot = pose[0, 0], pose[0, 1], pose[0, 2]
-    ax.set_xlim3d([-RADIUS + xroot, RADIUS + xroot])
-    ax.set_zlim3d([-RADIUS + zroot, RADIUS + zroot])
-    ax.set_ylim3d([-RADIUS + yroot, RADIUS + yroot])
-
-    if add_labels:
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
-        ax.set_zlabel("z")
-
-    # Get rid of the ticks and tick labels
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_zticks([])
-
-    ax.get_xaxis().set_ticklabels([])
-    ax.get_yaxis().set_ticklabels([])
-    ax.set_zticklabels([])
-    ax.set_aspect('equal')
-
-    # Get rid of the panes (actually, make them white)
-    white = (1.0, 1.0, 0.1, 0.0)
-    ax.w_xaxis.set_pane_color(white)
-    ax.w_yaxis.set_pane_color(white)
-    # Keep z pane
-
-    # Get rid of the lines in 3d
-    ax.w_xaxis.line.set_color(white)
-    ax.w_yaxis.line.set_color(white)
-    ax.w_zaxis.line.set_color(white)
-
-
-def plot_3d_animation(poses, ax):
-    if (poses.shape[1] != 32 or poses.shape[2] != 3):
-        raise ValueError(
-            "Expected poses.shape to be (?, 32, 3), got " + str(poses.shape))
-
-    # Swap y and z axes because mpl shows z as height instead of depth
-    poses[:, :, 1], poses[:, :, 2] = poses[:, :, 2].copy(), poses[:, :, 1].copy()
-
-    ax.set_aspect(1)
-    ax.set_xlim(-0.5, 0.5)
-    ax.set_ylim(-0.5, 0.5)
-    ax.set_zlim(-0.5, 0.5)
-    ax.invert_zaxis()
-
-    plot_3d_pose(poses[0], ax)
-    def update(pose):
-        ax.clear()
-        plot_3d_pose(pose, ax)
-        ax.invert_zaxis()
-
-    return update, poses
-
-    # ani = FuncAnimation(fig, update, frames=poses, interval=80)
-    # ani.save('viz.mp4')
+  return out_pose
 
 
 def get_pose_angles(pose):
-    """Returns angles as understood by NAOqi from a H36M-formatted pose.
+  """Returns angles as understood by NAOqi from a H36M-formatted pose.
     """
-    pose = get_named_pose(pose)
-    pose = {k: np.asarray(v) for k, v in pose.iteritems()}
-    angles = {}
+  pose = get_named_pose(pose)
+  pose = {k: np.asarray(v) for k, v in pose.iteritems()}
+  angles = {}
 
-    def norm_joint(name_a, name_b):
-        vec = pose[name_b] - pose[name_a]
-        vec /= np.linalg.norm(vec)
-        return vec
+  def norm_joint(name_a, name_b):
+    vec = pose[name_b] - pose[name_a]
+    vec /= np.linalg.norm(vec)
+    return vec
 
+  chest = norm_joint('Hip', 'Thorax')
 
-    chest = norm_joint('Hip', 'Thorax')
+  # Only Pepper has a hip
+  angles['HipRoll'] = vector.angle_between(chest, -Y_AXIS, -Z_AXIS)
+  angles['HipPitch'] = vector.angle_between(chest, -Y_AXIS, X_AXIS)
 
-    # Only Pepper has a hip
-    angles['HipRoll'] = vector.angle_between(chest, -Y_AXIS, -Z_AXIS)
-    angles['HipPitch'] = vector.angle_between(chest, -Y_AXIS, X_AXIS)
+  r_upper_arm = norm_joint('RShoulder', 'RElbow')
+  angles['RShoulderPitch'] = vector.angle_between(r_upper_arm, chest,
+                                                  X_AXIS) - np.pi / 2
 
-    r_shoulder = norm_joint('Thorax', 'RShoulder')
-    r_upper_arm = norm_joint('RShoulder', 'RElbow')
-    angles['RShoulderPitch'] = vector.angle_between(r_upper_arm, chest, X_AXIS) - np.pi/2
+  angles['RShoulderRoll'] = vector.angle_with_plane(r_upper_arm,
+                                                    X_AXIS) + np.pi / 10
 
-    angles['RShoulderRoll'] = vector.angle_with_plane(r_upper_arm, X_AXIS) + np.pi/10
+  l_upper_arm = norm_joint('LShoulder', 'LElbow')
+  angles['LShoulderPitch'] = vector.angle_between(chest, l_upper_arm,
+                                                  X_AXIS) - np.pi / 2
 
+  angles['LShoulderRoll'] = vector.angle_with_plane(l_upper_arm,
+                                                    X_AXIS) - np.pi / 10
 
-    l_shoulder = norm_joint('Thorax', 'LShoulder')
-    l_upper_arm = norm_joint('LShoulder', 'LElbow')
-    angles['LShoulderPitch'] = vector.angle_between(chest, l_upper_arm, X_AXIS) - np.pi/2
+  r_elbow = norm_joint('RElbow', 'RWrist')
+  angles['RElbowRoll'] = vector.shortest_angle_between(r_upper_arm, r_elbow)
 
-    angles['LShoulderRoll'] = vector.angle_with_plane(l_upper_arm, X_AXIS) - np.pi/10
+  l_elbow = norm_joint('LElbow', 'LWrist')
+  angles['LElbowRoll'] = -(vector.shortest_angle_between(l_upper_arm, l_elbow))
 
+  nose = norm_joint('Thorax', 'Neck/Nose')
+  head = norm_joint('Thorax', 'Head')
+  angles['HeadPitch'] = vector.angle_between(nose, head, X_AXIS) - np.pi / 4
+  angles['HeadYaw'] = vector.angle_between(-Z_AXIS, nose, -Y_AXIS)
 
-    r_elbow = norm_joint('RElbow', 'RWrist')
-    r_elbow_roll_axis = np.cross(r_upper_arm, r_elbow)
-    angles['RElbowRoll'] = vector.shortest_angle_between(r_upper_arm, r_elbow)
-
-    l_elbow = norm_joint('LElbow', 'LWrist')
-    l_elbow_roll_axis = np.cross(l_upper_arm, l_elbow)
-    angles['LElbowRoll'] = - (vector.shortest_angle_between(l_upper_arm, l_elbow))
-
-    nose = norm_joint('Thorax', 'Neck/Nose')
-    head = norm_joint('Thorax', 'Head')
-    angles['HeadPitch'] = vector.angle_between(nose, head, X_AXIS) - np.pi/4
-    angles['HeadYaw'] = vector.angle_between(-Z_AXIS, nose, -Y_AXIS)
-
-    return angles
+  return angles
 
 
 def get_angle_list(angles):
-    return [angles[k] for k in ANGLE_NAMES_ORDER]
+  return [angles[k] for k in ANGLE_NAMES_ORDER]
 
 
 def get_pose_angle_list(pose):
-    angles = get_pose_angles(pose)
-    return get_angle_list(angles)
+  angles = get_pose_angles(pose)
+  return get_angle_list(angles)
 
 
 def get_named_angles(angle_list):
-    return {ANGLE_NAMES_ORDER[i]: v for i, v in enumerate(angle_list)}
+  return {ANGLE_NAMES_ORDER[i]: v for i, v in enumerate(angle_list)}
 
 
 def get_pose_from_angles(angles):
-    """Returns a dict of 3d joint positions, with NAO's skeleton and in his frame
+  """Returns a dict of 3d joint positions, with NAO's skeleton and in his frame
     of reference.
 
     Params:
@@ -528,123 +332,114 @@ def get_pose_from_angles(angles):
       pose: dict of np.array([x, y, z]) coordinates
     """
 
-    pose = NAO_ZERO_POSE.copy()
-    pose = {k: np.asarray(v) for k, v in pose.iteritems()}
+  pose = NAO_ZERO_POSE.copy()
+  pose = {k: np.asarray(v) for k, v in pose.iteritems()}
 
-    def rotate_joints(joint_names, origin, angles):
-        for joint_name in joint_names:
-            position = pose[joint_name]
+  def rotate_joints(joint_names, origin, angles):
+    for joint_name in joint_names:
+      position = pose[joint_name]
 
-            rel_position = position - origin
-            for axis, angle in angles:
-                rel_position = np.matmul(
-                    rel_position,
-                    rotation_matrix(axis, angle))
+      rel_position = position - origin
+      for axis, angle in angles:
+        rel_position = np.matmul(rel_position, rotation_matrix(axis, angle))
 
-            pose[joint_name] = rel_position + origin
+      pose[joint_name] = rel_position + origin
 
-    # Hip
-    if 'HipRoll' in angles and 'HipPitch' in angles:
-        rotate_joints(
-            joint_names=['Spine', 'Thorax', 'Neck/Nose', 'Head', 'LShoulder',
-                        'LElbow', 'LWrist', 'RShoulder', 'RElbow', 'RWrist'],
-            origin=pose['Hip'],
-            angles=[(ROLL_AXIS, -angles['HipRoll']), (PITCH_AXIS, -angles['HipPitch'])])
+  # Hip
+  if 'HipRoll' in angles and 'HipPitch' in angles:
+    rotate_joints(
+        joint_names=[
+            'Spine', 'Thorax', 'Neck/Nose', 'Head', 'LShoulder', 'LElbow',
+            'LWrist', 'RShoulder', 'RElbow', 'RWrist'
+        ],
+        origin=pose['Hip'],
+        angles=[(ROLL_AXIS, -angles['HipRoll']), (PITCH_AXIS,
+                                                  -angles['HipPitch'])])
 
-    # Right Arm
-    if 'RShoulderPitch' in angles:
-        rotate_joints(
-            joint_names=['RElbow', 'RWrist'],
-            origin=pose['RShoulder'],
-            angles=[(PITCH_AXIS, -angles['RShoulderPitch'])])
+  # Right Arm
+  if 'RShoulderPitch' in angles:
+    rotate_joints(
+        joint_names=['RElbow', 'RWrist'],
+        origin=pose['RShoulder'],
+        angles=[(PITCH_AXIS, -angles['RShoulderPitch'])])
 
-    right_shoulder_roll_axis = np.cross(
-        pose['RShoulder'] - pose['Thorax'],
-        pose['RElbow'] - pose['RShoulder'])
-    if 'RShoulderRoll' in angles:
-        rotate_joints(
-            joint_names=['RElbow', 'RWrist'],
-            origin=pose['RShoulder'],
-            angles=[(right_shoulder_roll_axis, -angles['RShoulderRoll'])])
+  right_shoulder_roll_axis = np.cross(pose['RShoulder'] - pose['Thorax'],
+                                      pose['RElbow'] - pose['RShoulder'])
+  if 'RShoulderRoll' in angles:
+    rotate_joints(
+        joint_names=['RElbow', 'RWrist'],
+        origin=pose['RShoulder'],
+        angles=[(right_shoulder_roll_axis, -angles['RShoulderRoll'])])
 
-    # Right Wrist
-    if 'RElbowRoll' in angles:
-        rotate_joints(
-            joint_names=['RWrist'],
-            origin=pose['RElbow'],
-            angles=[(right_shoulder_roll_axis, -angles['RElbowRoll'])])
+  # Right Wrist
+  if 'RElbowRoll' in angles:
+    rotate_joints(
+        joint_names=['RWrist'],
+        origin=pose['RElbow'],
+        angles=[(right_shoulder_roll_axis, -angles['RElbowRoll'])])
 
-    # Left Arm
-    if 'LShoulderPitch' in angles:
-        rotate_joints(
-            joint_names=['LElbow', 'LWrist'],
-            origin=pose['LShoulder'],
-            angles=[(PITCH_AXIS, -angles['LShoulderPitch'])])
+  # Left Arm
+  if 'LShoulderPitch' in angles:
+    rotate_joints(
+        joint_names=['LElbow', 'LWrist'],
+        origin=pose['LShoulder'],
+        angles=[(PITCH_AXIS, -angles['LShoulderPitch'])])
 
-    left_shoulder_roll_axis = np.cross(
-        pose['LElbow'] - pose['LShoulder'],
-        pose['LShoulder'] - pose['Thorax'])
-    if 'LShoulderRoll' in angles:
-        rotate_joints(
-            joint_names=['LElbow', 'LWrist'],
-            origin=pose['LShoulder'],
-            angles=[(left_shoulder_roll_axis, -angles['LShoulderRoll'])])
+  left_shoulder_roll_axis = np.cross(pose['LElbow'] - pose['LShoulder'],
+                                     pose['LShoulder'] - pose['Thorax'])
+  if 'LShoulderRoll' in angles:
+    rotate_joints(
+        joint_names=['LElbow', 'LWrist'],
+        origin=pose['LShoulder'],
+        angles=[(left_shoulder_roll_axis, -angles['LShoulderRoll'])])
 
-    # Left Wrist
-    if 'LElbowRoll' in angles:
-        rotate_joints(
-            joint_names=['LWrist'],
-            origin=pose['LElbow'],
-            angles=[(left_shoulder_roll_axis, -angles['LElbowRoll'])])
+  # Left Wrist
+  if 'LElbowRoll' in angles:
+    rotate_joints(
+        joint_names=['LWrist'],
+        origin=pose['LElbow'],
+        angles=[(left_shoulder_roll_axis, -angles['LElbowRoll'])])
 
-    # Head
-    if 'HeadPitch' in angles and 'HeadYaw' in angles:
-        rotate_joints(
-            joint_names=['Neck/Nose', 'Head'],
-            origin=pose['Thorax'],
-            angles=[(PITCH_AXIS, -angles['HeadPitch']), (YAW_AXIS, -angles['HeadYaw'])])
+  # Head
+  if 'HeadPitch' in angles and 'HeadYaw' in angles:
+    rotate_joints(
+        joint_names=['Neck/Nose', 'Head'],
+        origin=pose['Thorax'],
+        angles=[(PITCH_AXIS, -angles['HeadPitch']), (YAW_AXIS,
+                                                     -angles['HeadYaw'])])
 
-    return pose
+  return pose
 
 
 def rotation_matrix(axis, theta):
-    """
+  """
     Return the rotation matrix associated with counterclockwise rotation about
     the given axis by theta radians.
     """
-    axis = np.asarray(axis)
-    axis = axis/math.sqrt(np.dot(axis, axis))
-    a = math.cos(theta/2.0)
-    b, c, d = -axis*math.sin(theta/2.0)
-    aa, bb, cc, dd = a*a, b*b, c*c, d*d
-    bc, ad, ac, ab, bd, cd = b*c, a*d, a*c, a*b, b*d, c*d
-    return np.array([[aa+bb-cc-dd, 2*(bc+ad), 2*(bd-ac)],
-                     [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
-                     [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
+  axis = np.asarray(axis)
+  axis = axis / math.sqrt(np.dot(axis, axis))
+  a = math.cos(theta / 2.0)
+  b, c, d = -axis * math.sin(theta / 2.0)
+  aa, bb, cc, dd = a * a, b * b, c * c, d * d
+  bc, ad, ac, ab, bd, cd = b * c, a * d, a * c, a * b, b * d, c * d
+  return np.array([[aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
+                   [2 * (bc - ad), aa + cc - bb - dd, 2 * (cd + ab)],
+                   [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
 
 
-def format_joint_dict(joint_dict, format_type='h36m'):
-    format_template = None
-    if format_type == 'h36m':
-        format_template = H36M_NAMES
-    else:
-        raise NotImplementedError()
+def get_encoded_pose(joint_dict, format_type='h36m'):
+  format_template = None
+  if format_type == 'h36m':
+    format_template = H36M_NAMES
+  else:
+    raise NotImplementedError()
 
-    pose = np.zeros((len(format_template), 3))
-    for i, joint_name in enumerate(format_template):
-        if joint_name == '':
-            continue
-        if joint_name not in joint_dict:
-            logger.warn('Joint {} is not in this dict'
-                        .format(joint_name))
-        pose[i, :] = np.asarray(joint_dict[joint_name])
+  pose = np.zeros((len(format_template), 3))
+  for i, joint_name in enumerate(format_template):
+    if joint_name == '':
+      continue
+    if joint_name not in joint_dict:
+      logger.warn('Joint {} is not in this dict'.format(joint_name))
+    pose[i, :] = np.asarray(joint_dict[joint_name])
 
-    # if format_type == 'h36m':
-    #     # Reorder axes
-    #     reordered_pose = np.zeros((len(format_template), 3))
-    #     reordered_pose[:, 0] = pose[:, 1]
-    #     reordered_pose[:, 1] = -pose[:, 2]
-    #     reordered_pose[:, 2] = -pose[:, 0]
-    #     pose = reordered_pose
-
-    return pose
+  return pose
