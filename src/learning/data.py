@@ -13,9 +13,9 @@ import json
 
 # Itertools has a different name in Python 2/3
 try:
-    from itertools import zip_longest as zip_longest
+  from itertools import zip_longest as zip_longest
 except:
-    from itertools import izip_longest as zip_longest
+  from itertools import izip_longest as zip_longest
 
 import numpy as np
 import tensorflow as tf
@@ -95,41 +95,41 @@ REFERENCE_POSE = np.asarray([[0.0, 0.0, 0.0], [
 
 
 def create_vocab(clips):
-    subtitles = map(lambda clip: clip['subtitle'], clips)
+  subtitles = map(lambda clip: clip['subtitle'], clips)
 
-    unique_chars = set()
-    for sentence in subtitles:
-        unique_chars = unique_chars | set(sentence)
+  unique_chars = set()
+  for sentence in subtitles:
+    unique_chars = unique_chars | set(sentence)
 
-    unique_chars = list(unique_chars)
-    vocab_size = len(unique_chars)
-    vocab_index_dict = {'¶': TERMINATOR_INDEX}  # Terminator character
-    index_vocab_dict = {0: TERMINATOR_CHAR}
+  unique_chars = list(unique_chars)
+  vocab_size = len(unique_chars)
+  vocab_index_dict = {'¶': TERMINATOR_INDEX}  # Terminator character
+  index_vocab_dict = {0: TERMINATOR_CHAR}
 
-    for i, char in enumerate(unique_chars):
-        vocab_index_dict[char] = i
-        index_vocab_dict[i] = char
-    return vocab_index_dict, index_vocab_dict, vocab_size
+  for i, char in enumerate(unique_chars):
+    vocab_index_dict[char] = i
+    index_vocab_dict[i] = char
+  return vocab_index_dict, index_vocab_dict, vocab_size
 
 
 def get_empty_input():
-    return TERMINATOR_INDEX
+  return TERMINATOR_INDEX
 
 
 def get_empty_output(n_labels):
-    return np.zeros((n_labels, ))
+  return np.zeros((n_labels,))
 
 
 def char2feature(char, vocab):
-    return vocab[char]
+  return vocab[char]
 
 
 def features2chars(ids, vocab):
-    return [vocab[i] for i in ids]
+  return [vocab[i] for i in ids]
 
 
 def subtitle2features(subtitle, vocab):
-    """Converts a subtitle text to a list of features.
+  """Converts a subtitle text to a list of features.
 
     Args:
       subtitle: string of subtitle
@@ -138,13 +138,14 @@ def subtitle2features(subtitle, vocab):
       ndarray (subtitle_length + 1, vocab_size): converted subtitle with
         terminator symbol added (i.e. time = subtitle_length + 1)
     """
-    features = [vocab[char] for char in subtitle] + [TERMINATOR_INDEX]
-    length = len(subtitle)
+  features = [vocab[char] for char in subtitle] + [TERMINATOR_INDEX]
+  length = len(subtitle)
 
-    return (features, length)
+  return (features, length)
+
 
 def subtitle2subtitle(subtitle, vocab=None):
-    """Converts a subtitle text to a list of features.
+  """Converts a subtitle text to a list of features.
 
     Args:
       subtitle: string of subtitle
@@ -153,13 +154,13 @@ def subtitle2subtitle(subtitle, vocab=None):
       ndarray (subtitle_length + 1, vocab_size): converted subtitle with
         terminator symbol added (i.e. time = subtitle_length + 1)
     """
-    length = len(subtitle)
+  length = len(subtitle)
 
-    return (subtitle, length)
+  return (subtitle, length)
 
 
 def clip2labels(clip):
-    """Converts a list of poses to a list of labels.
+  """Converts a list of poses to a list of labels.
 
     Args:
       clip
@@ -168,27 +169,27 @@ def clip2labels(clip):
         with terminator label + terminator pose added
         (i.e. time = n_poses + 1)
     """
-    poses = clip['points_3d']
+  poses = clip['points_3d']
 
-    # Filter keypoints
-    poses = np.array(poses)[:, FILTERED_INDICES, :]
+  # Filter keypoints
+  poses = np.array(poses)[:, FILTERED_INDICES, :]
 
-    # Flatten array
-    poses = np.reshape(poses, (-1, len(FILTERED_INDICES) * 3))
+  # Flatten array
+  poses = np.reshape(poses, (-1, len(FILTERED_INDICES) * 3))
 
-    # Add mask indices (extra first "keypoint" with value 1)
-    poses = np.concatenate((np.ones((poses.shape[0], 1)), poses), axis=1)
+  # Add mask indices (extra first "keypoint" with value 1)
+  poses = np.concatenate((np.ones((poses.shape[0], 1)), poses), axis=1)
 
-    # Append terminator pose (all indices 0)
-    poses = np.concatenate((poses, np.zeros((1, poses.shape[1]))), axis=0)
+  # Append terminator pose (all indices 0)
+  poses = np.concatenate((poses, np.zeros((1, poses.shape[1]))), axis=0)
 
-    poses_length = poses.shape[0]
+  poses_length = poses.shape[0]
 
-    return (poses, poses_length)
+  return (poses, poses_length)
 
 
 def clip2angles(clip):
-    """Converts a list of poses to a list of angles.
+  """Converts a list of poses to a list of angles.
 
     Args:
       clip
@@ -197,81 +198,82 @@ def clip2angles(clip):
         with terminator label + terminator pose added
         (i.e. time = n_poses + 1)
     """
-    poses = clip['points_3d']
+  poses = clip['points_3d']
 
-    angles = np.asarray(list(map(common.pose_utils.get_pose_angle_list, poses)))
+  angles = np.asarray(list(map(common.pose_utils.get_pose_angle_list, poses)))
 
-    # Add mask indices (extra first "joint" with value 1)
-    angles = np.concatenate((np.ones((angles.shape[0], 1)), angles), axis=1)
+  # Add mask indices (extra first "joint" with value 1)
+  angles = np.concatenate((np.ones((angles.shape[0], 1)), angles), axis=1)
 
-    # Append terminator pose (all indices 0)
-    angles = np.concatenate((angles, np.zeros((1, angles.shape[1]))), axis=0)
+  # Append terminator pose (all indices 0)
+  angles = np.concatenate((angles, np.zeros((1, angles.shape[1]))), axis=0)
 
-    angles_length = angles.shape[0]
+  angles_length = angles.shape[0]
 
-    return (angles, angles_length, clip['cluster'])
+  return (angles, angles_length, clip['cluster'])
 
 
 def pad_features(features, vocab, n):
-    return np.append(
-        features, np.repeat([TERMINATOR_INDEX], n, axis=0), axis=0)
+  return np.append(features, np.repeat([TERMINATOR_INDEX], n, axis=0), axis=0)
 
 
 def get_label_masks(labels, n):
-    #    n * [0] ("not started")
-    # ++ len(labels) * [1] ("look at me")
-    # ++ 1 * [0] ("terminated")
-    return np.append(
-        np.zeros((n, 1)),
-        np.ones((labels.shape[0], 1)),
-        np.zeros((1, 1)),
-        axis=0)
+  #    n * [0] ("not started")
+  # ++ len(labels) * [1] ("look at me")
+  # ++ 1 * [0] ("terminated")
+  return np.append(
+      np.zeros((n, 1)), np.ones((labels.shape[0], 1)), np.zeros((1, 1)), axis=0)
 
 
 def pad_labels(labels, n):
-    # This will set the terminator label to 0
-    # The rest of the values don't matter then
-    return np.insert(labels, np.zeros((n, labels.shape[1])), axis=0)
+  # This will set the terminator label to 0
+  # The rest of the values don't matter then
+  return np.insert(labels, np.zeros((n, labels.shape[1])), axis=0)
 
 
-def clip2sample(clip, vocab, get_features=subtitle2features, get_labels=clip2labels):
-    subtitle = clip['subtitle']
-    poses_3d = clip['points_3d']
+def clip2sample(clip,
+                vocab,
+                get_features=subtitle2features,
+                get_labels=clip2labels):
+  subtitle = clip['subtitle']
+  poses_3d = clip['points_3d']
 
-    features, features_length = get_features(subtitle, vocab)
-    labels, labels_length, cluster = get_labels(clip)
+  features, features_length = get_features(subtitle, vocab)
+  labels, labels_length, cluster = get_labels(clip)
 
-    return (features, labels, cluster)
+  return (features, labels, cluster)
 
 
 def get_poses(path=common.data_utils.DEFAULT_CLIPS_PATH):
-    clips = common.data_utils.get_clips(path)
-    poses = list(
-        map(lambda c: c['points_3d'],
-            filter(lambda c: 'points_3d' in c and len(c['points_3d']) > 0,
-                   clips)))
-    poses = np.vstack(poses)[:, FILTERED_INDICES, :]
-    return poses
+  clips = common.data_utils.get_clips(path)
+  poses = list(
+      map(lambda c: c['points_3d'],
+          filter(lambda c: 'points_3d' in c and len(c['points_3d']) > 0,
+                 clips)))
+  poses = np.vstack(poses)[:, FILTERED_INDICES, :]
+  return poses
 
 
-def create_examples(clips, get_features=subtitle2features, get_labels=clip2labels):
-    """Creates a list of examples from given clips.
+def create_examples(clips,
+                    get_features=subtitle2features,
+                    get_labels=clip2labels):
+  """Creates a list of examples from given clips.
     Examples all have a different length.
     """
-    vocab, _, _ = create_vocab(clips)
-    return (list(
-        map(lambda clip: clip2sample(clip, vocab, get_features=get_features, get_labels=get_labels),
-            filter(
-                lambda clip: 'points_3d' in clip and len(clip['points_3d']) > 0,
-                clips))), vocab)
+  vocab, _, _ = create_vocab(clips)
+  return (list(
+      map(lambda clip: clip2sample(clip, vocab, get_features=get_features, get_labels=get_labels),
+          filter(
+              lambda clip: 'points_3d' in clip and len(clip['points_3d']) > 0,
+              clips))), vocab)
 
 
 def create_examples_angles(clips):
-    return create_examples(clips, get_labels=clip2angles)
+  return create_examples(clips, get_labels=clip2angles)
 
 
 def create_batches(characters, poses, batch_size):
-    """Splits samples in batch_size batches and pads each batch as
+  """Splits samples in batch_size batches and pads each batch as
     necessary.
 
     Args:
@@ -284,84 +286,82 @@ def create_batches(characters, poses, batch_size):
       batch_inputs[i].shape == (batch_size, max_input_time, n_features)
       batch_outputs[i].shape == (batch_size, max_output_time, n_labels)
     """
-    n_batches = math.ceil(len(characters) / batch_size)
-    logging.debug("Got {} samples in total".format(len(characters)))
+  n_batches = math.ceil(len(characters) / batch_size)
+  logging.debug("Got {} samples in total".format(len(characters)))
 
-    n_labels = poses[0][0].shape[0]
+  n_labels = poses[0][0].shape[0]
 
-    logging.info("Total poses: {}".format(sum(len(i) for i in poses)))
+  logging.info("Total poses: {}".format(sum(len(i) for i in poses)))
 
-    # inputs = characters + ([get_empty_input()] * n_padding_samples)
-    # outputs = poses + ([get_empty_output()] * n_padding_samples)
-    inputs = characters
-    outputs = poses
-    logging.debug("Batching inputs {} and outputs {} with batch size {}"
-                  .format(len(inputs), len(outputs), batch_size))
+  # inputs = characters + ([get_empty_input()] * n_padding_samples)
+  # outputs = poses + ([get_empty_output()] * n_padding_samples)
+  inputs = characters
+  outputs = poses
+  logging.debug("Batching inputs {} and outputs {} with batch size {}".format(
+      len(inputs), len(outputs), batch_size))
 
-    def generator():
-        for i in range(n_batches):
-            batch_start = i * batch_size
-            batch_end = min((i + 1) * batch_size, len(characters))
-            this_batch_size = batch_end - batch_start
+  def generator():
+    for i in range(n_batches):
+      batch_start = i * batch_size
+      batch_end = min((i + 1) * batch_size, len(characters))
+      this_batch_size = batch_end - batch_start
 
-            batch_inputs = inputs[batch_start:batch_end]
-            batch_outputs = outputs[batch_start:batch_end]
+      batch_inputs = inputs[batch_start:batch_end]
+      batch_outputs = outputs[batch_start:batch_end]
 
-            batch_input_lengths = np.array(
-                [len(i) for i in batch_inputs], dtype=np.int32)
-            logging.debug("Input lengths: {}".format(batch_input_lengths))
-            batch_output_lengths = np.array(
-                [len(o) for o in batch_outputs], dtype=np.int32)
-            logging.debug("Output lengths: {}".format(batch_output_lengths))
+      batch_input_lengths = np.array(
+          [len(i) for i in batch_inputs], dtype=np.int32)
+      logging.debug("Input lengths: {}".format(batch_input_lengths))
+      batch_output_lengths = np.array(
+          [len(o) for o in batch_outputs], dtype=np.int32)
+      logging.debug("Output lengths: {}".format(batch_output_lengths))
 
-            padded_inputs = np.array(
-                list(
-                    zip_longest(
-                        *batch_inputs, fillvalue=get_empty_input())))
-            padded_inputs = np.swapaxes(padded_inputs, 0, 1)
+      padded_inputs = np.array(
+          list(zip_longest(*batch_inputs, fillvalue=get_empty_input())))
+      padded_inputs = np.swapaxes(padded_inputs, 0, 1)
 
-            padded_outputs = np.array(
-                list(
-                    zip_longest(
-                        *batch_outputs, fillvalue=get_empty_output(n_labels))))
-            padded_outputs = np.swapaxes(padded_outputs, 0, 1)
+      padded_outputs = np.array(
+          list(
+              zip_longest(*batch_outputs,
+                          fillvalue=get_empty_output(n_labels))))
+      padded_outputs = np.swapaxes(padded_outputs, 0, 1)
 
-            if this_batch_size < batch_size:
-                n_padding_samples = batch_size - this_batch_size
-                max_input_time = padded_inputs.shape[1]
-                max_output_time = padded_outputs.shape[1]
+      if this_batch_size < batch_size:
+        n_padding_samples = batch_size - this_batch_size
+        max_input_time = padded_inputs.shape[1]
+        max_output_time = padded_outputs.shape[1]
 
-                padded_inputs = np.concatenate(
-                    (padded_inputs,
-                     np.tile([get_empty_input()] * max_input_time,
-                             (n_padding_samples, 1))))
-                padded_outputs = np.concatenate(
-                    (padded_outputs,
-                     np.tile(get_empty_output(n_labels),
-                             (n_padding_samples, max_output_time, 1))))
+        padded_inputs = np.concatenate(
+            (padded_inputs,
+             np.tile([get_empty_input()] * max_input_time,
+                     (n_padding_samples, 1))))
+        padded_outputs = np.concatenate(
+            (padded_outputs,
+             np.tile(
+                 get_empty_output(n_labels),
+                 (n_padding_samples, max_output_time, 1))))
 
-                batch_input_lengths = np.append(batch_input_lengths,
-                                                [0] * n_padding_samples)
-                batch_output_lengths = np.append(batch_output_lengths,
-                                                 [0] * n_padding_samples)
+        batch_input_lengths = np.append(batch_input_lengths,
+                                        [0] * n_padding_samples)
+        batch_output_lengths = np.append(batch_output_lengths,
+                                         [0] * n_padding_samples)
 
-            logging.debug("Padded input shape {}".format(padded_inputs.shape))
-            logging.debug("Padded outputs shape {}".format(
-                padded_outputs.shape))
+      logging.debug("Padded input shape {}".format(padded_inputs.shape))
+      logging.debug("Padded outputs shape {}".format(padded_outputs.shape))
 
-            yield ({
-                'characters': padded_inputs,
-                'characters_lengths': batch_input_lengths
-            }, {
-                'poses': padded_outputs,
-                'poses_lengths': batch_output_lengths
-            })
+      yield ({
+          'characters': padded_inputs,
+          'characters_lengths': batch_input_lengths
+      }, {
+          'poses': padded_outputs,
+          'poses_lengths': batch_output_lengths
+      })
 
-    return generator
+  return generator
 
 
 def create_batches_sentences(sentences, poses, classes, batch_size):
-    """Splits samples in batch_size batches and pads each batch as
+  """Splits samples in batch_size batches and pads each batch as
     necessary.
 
     Args:
@@ -374,73 +374,72 @@ def create_batches_sentences(sentences, poses, classes, batch_size):
       batch_inputs[i].shape == (batch_size, max_input_time, n_features)
       batch_outputs[i].shape == (batch_size, max_output_time, n_labels)
     """
-    n_batches = int(math.ceil(len(sentences) / batch_size))
-    logging.debug("Got {} samples in total".format(len(sentences)))
-    logging.info("Creating {} batches.".format(n_batches))
+  n_batches = int(math.ceil(len(sentences) / batch_size))
+  logging.debug("Got {} samples in total".format(len(sentences)))
+  logging.info("Creating {} batches.".format(n_batches))
 
-    n_labels = poses[0][0].shape[0]
+  n_labels = poses[0][0].shape[0]
 
-    logging.info("Total poses: {}".format(sum(len(i) for i in poses)))
+  logging.info("Total poses: {}".format(sum(len(i) for i in poses)))
 
-    inputs = sentences
-    outputs = poses
-    logging.debug("Batching inputs {} and outputs {} with batch size {}"
-                  .format(len(inputs), len(outputs), batch_size))
+  inputs = sentences
+  outputs = poses
+  logging.debug("Batching inputs {} and outputs {} with batch size {}".format(
+      len(inputs), len(outputs), batch_size))
 
-    def generator():
-        for i in range(n_batches):
-            batch_start = i * batch_size
-            batch_end = min((i + 1) * batch_size, len(sentences))
-            this_batch_size = batch_end - batch_start
+  def generator():
+    for i in range(n_batches):
+      batch_start = i * batch_size
+      batch_end = min((i + 1) * batch_size, len(sentences))
+      this_batch_size = batch_end - batch_start
 
-            batch_inputs = inputs[batch_start:batch_end]
-            batch_outputs = outputs[batch_start:batch_end]
+      batch_inputs = inputs[batch_start:batch_end]
+      batch_outputs = outputs[batch_start:batch_end]
 
-            batch_input_lengths = np.array(
-                [len(i) for i in batch_inputs], dtype=np.int32)
-            logging.debug("Input lengths: {}".format(batch_input_lengths))
-            batch_output_lengths = np.array(
-                [len(o) for o in batch_outputs], dtype=np.int32)
-            logging.debug("Output lengths: {}".format(batch_output_lengths))
+      batch_input_lengths = np.array(
+          [len(i) for i in batch_inputs], dtype=np.int32)
+      logging.debug("Input lengths: {}".format(batch_input_lengths))
+      batch_output_lengths = np.array(
+          [len(o) for o in batch_outputs], dtype=np.int32)
+      logging.debug("Output lengths: {}".format(batch_output_lengths))
 
-            padded_inputs = batch_inputs
+      padded_inputs = batch_inputs
 
-            padded_outputs = np.array(
-                list(
-                    zip_longest(
-                        *batch_outputs, fillvalue=get_empty_output(n_labels))))
-            padded_outputs = np.swapaxes(padded_outputs, 0, 1)
+      padded_outputs = np.array(
+          list(
+              zip_longest(*batch_outputs,
+                          fillvalue=get_empty_output(n_labels))))
+      padded_outputs = np.swapaxes(padded_outputs, 0, 1)
 
-            if this_batch_size < batch_size:
-                n_padding_samples = batch_size - this_batch_size
-                max_output_time = padded_outputs.shape[1]
+      if this_batch_size < batch_size:
+        n_padding_samples = batch_size - this_batch_size
+        max_output_time = padded_outputs.shape[1]
 
-                padded_inputs = np.concatenate(
-                    (padded_inputs,
-                     np.asarray([''] * n_padding_samples)))
-                padded_outputs = np.concatenate(
-                    (padded_outputs,
-                     np.tile(get_empty_output(n_labels),
-                             (n_padding_samples, max_output_time, 1))))
+        padded_inputs = np.concatenate((padded_inputs,
+                                        np.asarray([''] * n_padding_samples)))
+        padded_outputs = np.concatenate(
+            (padded_outputs,
+             np.tile(
+                 get_empty_output(n_labels),
+                 (n_padding_samples, max_output_time, 1))))
 
-                batch_input_lengths = np.append(batch_input_lengths,
-                                                [0] * n_padding_samples)
-                batch_output_lengths = np.append(batch_output_lengths,
-                                                 [0] * n_padding_samples)
+        batch_input_lengths = np.append(batch_input_lengths,
+                                        [0] * n_padding_samples)
+        batch_output_lengths = np.append(batch_output_lengths,
+                                         [0] * n_padding_samples)
 
-            logging.debug("Padded outputs shape {}".format(
-                padded_outputs.shape))
+      logging.debug("Padded outputs shape {}".format(padded_outputs.shape))
 
-            yield ({
-                'subtitles': padded_inputs,
-                'subtitle_lengths': batch_input_lengths
-            }, {
-                'poses': padded_outputs,
-                'poses_lengths': batch_output_lengths,
-                'class': classes[batch_start:batch_end]
-            })
+      yield ({
+          'subtitles': padded_inputs,
+          'subtitle_lengths': batch_input_lengths
+      }, {
+          'poses': padded_outputs,
+          'poses_lengths': batch_output_lengths,
+          'class': classes[batch_start:batch_end]
+      })
 
-    return generator
+  return generator
 
 
 def get_input(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
@@ -448,240 +447,245 @@ def get_input(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
               n_epochs=1,
               get_examples=create_examples):
 
-    clips = common.data_utils.get_clips(path=clips_path)
-    samples, vocab = get_examples(clips)
-    characters, poses = map(list, zip(*samples))
-    gen_batches = create_batches(characters, poses, batch_size)
+  clips = common.data_utils.get_clips(path=clips_path)
+  samples, vocab = get_examples(clips)
+  characters, poses = map(list, zip(*samples))
+  gen_batches = create_batches(characters, poses, batch_size)
 
-    feature_columns = [
-        tf.feature_column.categorical_column_with_identity(
-            key='characters', num_buckets=len(vocab))
-    ]
+  feature_columns = [
+      tf.feature_column.categorical_column_with_identity(
+          key='characters', num_buckets=len(vocab))
+  ]
 
-    n_labels = poses[0][0].shape[0]
+  n_labels = poses[0][0].shape[0]
 
-    def input_fn():
-        dataset = tf.data.Dataset.from_generator(
-            gen_batches, ({
-                'characters': tf.int32,
-                'characters_lengths': tf.int32
-            }, {
-                'poses': POSE_DTYPE,
-                'poses_lengths': tf.int32
-            }), ({
-                'characters': tf.TensorShape([batch_size, None]),
-                'characters_lengths': tf.TensorShape([batch_size])
-            }, {
-                'poses': tf.TensorShape([batch_size, None, n_labels]),
-                'poses_lengths': tf.TensorShape([batch_size])
-            }))
-        dataset = dataset.repeat(n_epochs)
-        iterator = dataset.make_one_shot_iterator()
-        return iterator.get_next()
+  def input_fn():
+    dataset = tf.data.Dataset.from_generator(
+        gen_batches, ({
+            'characters': tf.int32,
+            'characters_lengths': tf.int32
+        }, {
+            'poses': POSE_DTYPE,
+            'poses_lengths': tf.int32
+        }), ({
+            'characters': tf.TensorShape([batch_size, None]),
+            'characters_lengths': tf.TensorShape([batch_size])
+        }, {
+            'poses': tf.TensorShape([batch_size, None, n_labels]),
+            'poses_lengths': tf.TensorShape([batch_size])
+        }))
+    dataset = dataset.repeat(n_epochs)
+    iterator = dataset.make_one_shot_iterator()
+    return iterator.get_next()
 
-    return input_fn, feature_columns, len(vocab), vocab, n_labels
+  return input_fn, feature_columns, len(vocab), vocab, n_labels
 
 
 def get_input_angles(**kwargs):
-    return get_input(get_examples=create_examples_angles, **kwargs)
+  return get_input(get_examples=create_examples_angles, **kwargs)
+
 
 def get_input_sentences(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
                         batch_size=16,
                         n_epochs=1):
 
-    clips = common.data_utils.get_clips(path=clips_path)
-    samples, vocab = create_examples(clips, get_features=subtitle2subtitle, get_labels=clip2angles)
-    subtitles, poses, classes = map(list, zip(*samples))
-    gen_batches = create_batches_sentences(subtitles, poses, classes, batch_size)
-    n_labels = poses[0][0].shape[0]
+  clips = common.data_utils.get_clips(path=clips_path)
+  samples, vocab = create_examples(
+      clips, get_features=subtitle2subtitle, get_labels=clip2angles)
+  subtitles, poses, classes = map(list, zip(*samples))
+  gen_batches = create_batches_sentences(subtitles, poses, classes, batch_size)
+  n_labels = poses[0][0].shape[0]
 
-    feature_columns = [
-        tf.feature_column.categorical_column_with_identity(
-            key='characters', num_buckets=len(vocab))
-    ]
+  feature_columns = [
+      tf.feature_column.categorical_column_with_identity(
+          key='characters', num_buckets=len(vocab))
+  ]
 
-    def input_fn():
-        dataset = tf.data.Dataset.from_generator(
-            gen_batches, ({
-                'subtitles': tf.string,
-                'subtitle_lengths': tf.int32
-            }, {
-                'poses': POSE_DTYPE,
-                'poses_lengths': tf.int32,
-                'class': tf.int32
-            }), ({
-                'subtitles': tf.TensorShape([batch_size]),
-                'subtitle_lengths': tf.TensorShape([batch_size])
-            }, {
-                'poses': tf.TensorShape([batch_size, None, n_labels]),
-                'poses_lengths': tf.TensorShape([batch_size]),
-                'class': tf.TensorShape([batch_size])
-            }))
-        dataset = dataset.repeat(n_epochs)
-        iterator = dataset.make_one_shot_iterator()
-        return iterator.get_next()
+  def input_fn():
+    dataset = tf.data.Dataset.from_generator(
+        gen_batches, ({
+            'subtitles': tf.string,
+            'subtitle_lengths': tf.int32
+        }, {
+            'poses': POSE_DTYPE,
+            'poses_lengths': tf.int32,
+            'class': tf.int32
+        }), ({
+            'subtitles': tf.TensorShape([batch_size]),
+            'subtitle_lengths': tf.TensorShape([batch_size])
+        }, {
+            'poses': tf.TensorShape([batch_size, None, n_labels]),
+            'poses_lengths': tf.TensorShape([batch_size]),
+            'class': tf.TensorShape([batch_size])
+        }))
+    dataset = dataset.repeat(n_epochs)
+    iterator = dataset.make_one_shot_iterator()
+    return iterator.get_next()
 
-    return input_fn, feature_columns, len(vocab), vocab, n_labels
+  return input_fn, feature_columns, len(vocab), vocab, n_labels
 
 
 def _str_feature(value):
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[tf.compat.as_bytes(value)]))
+  return tf.train.Feature(
+      bytes_list=tf.train.BytesList(value=[tf.compat.as_bytes(value)]))
 
 
 def _bytes_feature(value):
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+  return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 
 def _int_feature(value):
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+  return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
 
 def _float_feature(value):
-    return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+  return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
 
 
 def _floats_feature(values):
-    return tf.train.Feature(float_list=tf.train.FloatList(value=values))
+  return tf.train.Feature(float_list=tf.train.FloatList(value=values))
 
 
 def create_tfrecords(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
                      tfrecords_path='clips.tfrecords'):
-    clips = common.data_utils.get_clips(clips_path)
-    writer = tf.python_io.TFRecordWriter(tfrecords_path)
+  clips = common.data_utils.get_clips(clips_path)
+  writer = tf.python_io.TFRecordWriter(tfrecords_path)
 
-    for clip in clips:
-        points_3d = np.asarray(clip['points_3d'])
-        angles = list(map(common.pose_utils.get_angle_list, clip['angles']))
-        n_frames = points_3d.shape[0]
+  for clip in clips:
+    points_3d = np.asarray(clip['points_3d'])
+    angles = list(map(common.pose_utils.get_angle_list, clip['angles']))
+    n_frames = points_3d.shape[0]
 
-        context = {
-            'id': _str_feature(clip['id']),
-            'class': _int_feature(clip['class']),
-            'n_frames': _int_feature(n_frames),
-            'subtitle': _str_feature(clip['subtitle'])
-        }
-        context_features = tf.train.Features(feature=context)
+    context = {
+        'id': _str_feature(clip['id']),
+        'class': _int_feature(clip['class']),
+        'n_frames': _int_feature(n_frames),
+        'subtitle': _str_feature(clip['subtitle'])
+    }
+    context_features = tf.train.Features(feature=context)
 
-        sequences = {
-            'points_3d': tf.train.FeatureList(feature=[
-                _floats_feature(np.array(frame).flatten().tolist()) for frame in clip['points_3d']
-            ]),
-            'angles': tf.train.FeatureList(feature=[
-                _floats_feature(frame) for frame in angles
-            ])
-        }
-        sequence_features = tf.train.FeatureLists(feature_list=sequences)
+    sequences = {
+        'points_3d':
+        tf.train.FeatureList(feature=[
+            _floats_feature(np.array(frame).flatten().tolist())
+            for frame in clip['points_3d']
+        ]),
+        'angles':
+        tf.train.FeatureList(
+            feature=[_floats_feature(frame) for frame in angles])
+    }
+    sequence_features = tf.train.FeatureLists(feature_list=sequences)
 
-        example = tf.train.SequenceExample(
-            context=context_features,
-            feature_lists=sequence_features)
+    example = tf.train.SequenceExample(
+        context=context_features, feature_lists=sequence_features)
 
-        # fl_points = example.feature_lists.feature_list['points_3d'].feature
-        # fl_angles = example.feature_lists.feature_list['angles'].feature
-        # for frame_angles, frame_points in zip(angles, points_3d):
-        #     fl_points.add().float_list.value.append(frame_points)
-        #     fl_angles.add().float_list.value.append(frame_angles)
+    # fl_points = example.feature_lists.feature_list['points_3d'].feature
+    # fl_angles = example.feature_lists.feature_list['angles'].feature
+    # for frame_angles, frame_points in zip(angles, points_3d):
+    #     fl_points.add().float_list.value.append(frame_points)
+    #     fl_angles.add().float_list.value.append(frame_angles)
 
-        serialized = example.SerializeToString()
-        writer.write(serialized)
+    serialized = example.SerializeToString()
+    writer.write(serialized)
 
 
 def parse_tfrecord(serialized):
-    context_features = {
-        'class': tf.FixedLenFeature(shape=[], dtype=tf.int64),
-        'subtitle': tf.FixedLenFeature(shape=[], dtype=tf.string),
-        'n_frames': tf.FixedLenFeature(shape=[], dtype=tf.int64)
-    }
+  context_features = {
+      'class': tf.FixedLenFeature(shape=[], dtype=tf.int64),
+      'subtitle': tf.FixedLenFeature(shape=[], dtype=tf.string),
+      'n_frames': tf.FixedLenFeature(shape=[], dtype=tf.int64)
+  }
 
-    sequence_features = {
-        'points_3d': tf.FixedLenSequenceFeature(shape=[32, 3], dtype=tf.float32),
-        'angles': tf.FixedLenSequenceFeature(shape=[len(common.pose_utils.ANGLE_NAMES_ORDER)], dtype=tf.float32)
-    }
+  sequence_features = {
+      'points_3d':
+      tf.FixedLenSequenceFeature(shape=[32, 3], dtype=tf.float32),
+      'angles':
+      tf.FixedLenSequenceFeature(
+          shape=[len(common.pose_utils.ANGLE_NAMES_ORDER)], dtype=tf.float32)
+  }
 
-    context, sequence = tf.parse_single_sequence_example(
-        serialized=serialized,
-        context_features=context_features,
-        sequence_features=sequence_features)
+  context, sequence = tf.parse_single_sequence_example(
+      serialized=serialized,
+      context_features=context_features,
+      sequence_features=sequence_features)
 
-    return context, sequence
+  return context, sequence
 
 
 def create_feature_label_pair(context, sequence):
-    return (
-        {
-            'subtitle': context['subtitle']
-        }, {
-            'class': context['class'],
-            'n_frames': context['n_frames'],
-            'angles': sequence['angles'],
-            'points': sequence['points_3d']
-        }
-    )
+  return ({
+      'subtitle': context['subtitle']
+  }, {
+      'class': context['class'],
+      'n_frames': context['n_frames'],
+      'angles': sequence['angles'],
+      'points': sequence['points_3d']
+  })
 
 
 def normalize(data, mean, std):
-    return (data - mean) / std
+  return (data - mean) / std
 
 
 def unnormalize(normalized_data, mean, std):
-    return normalized_data * std + mean
+  return normalized_data * std + mean
 
 
 def normalize_angles(features, labels, mean, std):
-    return (
-        features, {
-            'class': labels['class'],
-            'n_frames': labels['n_frames'],
-            'angles': normalize(labels['angles'], mean, std),
-            'points': labels['points']
-        })
+  return (features, {
+      'class': labels['class'],
+      'n_frames': labels['n_frames'],
+      'angles': normalize(labels['angles'], mean, std),
+      'points': labels['points']
+  })
 
 
 def make_time_major(features, labels):
-    angles = tf.transpose(labels['angles'], [1, 0, 2])
-    points = tf.transpose(labels['points'], [1, 0, 2, 3])
+  angles = tf.transpose(labels['angles'], [1, 0, 2])
+  points = tf.transpose(labels['points'], [1, 0, 2, 3])
 
-    return (
-        features, {
-            'class': labels['class'],
-            'n_frames': labels['n_frames'],
-            'angles': angles,
-            'points': points
-        })
+  return (features, {
+      'class': labels['class'],
+      'n_frames': labels['n_frames'],
+      'angles': angles,
+      'points': points
+  })
 
 
 def input_fn(filenames, batch_size=32, buffer_size=2048, n_epochs=None):
-    dataset = tf.data.TFRecordDataset(filenames=filenames)
+  dataset = tf.data.TFRecordDataset(filenames=filenames)
 
-    config_path = common.data_utils.DEFAULT_CONFIG_PATH
-    if os.path.isfile(config_path):
-        with open(config_path) as config_file:
-            config = json.load(config_file)
+  config_path = common.data_utils.DEFAULT_CONFIG_PATH
+  if os.path.isfile(config_path):
+    with open(config_path) as config_file:
+      config = json.load(config_file)
 
-        mean = config['angle_stats']['mean']
-        std = config['angle_stats']['std']
-    else:
-        logger.warn('No angle mean or stddev found')
-        mean = 0
-        std = 1
+    mean = config['angle_stats']['mean']
+    std = config['angle_stats']['std']
+  else:
+    logger.warn('No angle mean or stddev found')
+    mean = 0
+    std = 1
 
-    dataset = dataset.map(parse_tfrecord)
-    dataset = dataset.map(create_feature_label_pair)
-    dataset = dataset.map(lambda x, y: normalize_angles(x, y, mean, std))
-    dataset = dataset.shuffle(buffer_size=buffer_size)
-    dataset = dataset.padded_batch(batch_size, padded_shapes=({
-        'subtitle': []
-    }, {
-        'class': [],
-        'n_frames': [],
-        'angles': [None, len(common.pose_utils.ANGLE_NAMES_ORDER)],
-        'points': [None, len(common.pose_utils.H36M_NAMES), 3]
-    }))
-    dataset = dataset.map(make_time_major)
+  dataset = dataset.map(parse_tfrecord)
+  dataset = dataset.map(create_feature_label_pair)
+  dataset = dataset.map(lambda x, y: normalize_angles(x, y, mean, std))
+  dataset = dataset.shuffle(buffer_size=buffer_size)
+  dataset = dataset.padded_batch(
+      batch_size,
+      padded_shapes=({
+          'subtitle': []
+      }, {
+          'class': [],
+          'n_frames': [],
+          'angles': [None, len(common.pose_utils.ANGLE_NAMES_ORDER)],
+          'points': [None, len(common.pose_utils.H36M_NAMES), 3]
+      }))
+  dataset = dataset.map(make_time_major)
 
-    dataset = dataset.repeat(n_epochs)
+  dataset = dataset.repeat(n_epochs)
 
-    iterator = dataset.make_one_shot_iterator()
-    features, labels = iterator.get_next()
+  iterator = dataset.make_one_shot_iterator()
+  features, labels = iterator.get_next()
 
-    return features, labels
+  return features, labels
