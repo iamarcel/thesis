@@ -21,13 +21,14 @@ def add_rnn_layers(inputs, cell_size, batch_size, input_lengths=None, name=None,
     """
     # cell = tf.nn.rnn_cell.BasicRNNCell(cell_size, name=name)
     base_cell, cell = create_rnn_cell(cell_size, name=name)
-    output, state = tf.nn.dynamic_rnn(
+    outputs, state = tf.nn.dynamic_rnn(
         cell,
         inputs,
         sequence_length=input_lengths,
-        dtype=dtype)
+        dtype=dtype,
+        time_major=True)
 
     for var in base_cell.trainable_weights:
         tf.summary.histogram(var.name, var)
 
-    return output, state
+    return outputs, state

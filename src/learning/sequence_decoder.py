@@ -1,4 +1,3 @@
-import random
 
 import tensorflow as tf
 
@@ -11,13 +10,14 @@ class SequenceDecoder():
                input_size,
                initial_state,
                dropout=0.5,
-               cell_type='BasicRNNCell'):
+               cell_type='BasicRNNCell',
+               memory=None):
     self.input_size = input_size
     self.initial_state = initial_state
     self.batch_size = _best_effort_batch_size(self.initial_state)
     self.dropout = dropout
 
-    self._build_model(cell_type)
+    self._build_model(cell_type, memory=memory)
 
   def decode(self, labels=None, label_lengths=None, name='decode'):
     get_zero_input = lambda: tf.zeros([self.batch_size, self.input_size])
@@ -42,7 +42,7 @@ class SequenceDecoder():
           next_cell_state = cell_state
           next_input = tf.cond(
               finished, get_zero_input,
-              lambda: cell_output if random.randint(0, 4) == 0 else inputs_ta.read(time)
+              lambda: inputs_ta.read(time)
           )
 
         next_loop_state = None
@@ -72,7 +72,7 @@ class SequenceDecoder():
 
     return output_ta.stack()
 
-  def _build_model(self, cell_type):
+  def _build_model(self, cell_type, memory=None):
     self.cell, cell = rnn_helpers.create_rnn_cell(
         self.input_size,
         dropout=self.dropout,
@@ -84,6 +84,17 @@ class SequenceDecoder():
       self.initial_state = tf.nn.rnn_cell.LSTMStateTuple(
           c=tf.zeros([self.batch_size, self.cell.state_size[1]]),
           h=self.initial_state)
+
+    if memory is not None:
+      self.cell = tf.contrib.seq2seq.AttentionWrapper(
+          self.cell,
+          tf.contrib.seq2seq.LuongAttention(
+              num_units=self.cell.state_size[1],
+              memory=memory),
+          initial_cell_state=self.initial_state,
+          attention_layer_size=self.cell.state_size[1])
+
+      self.initial_state = self.cell.zero_state(self.batch_size, tf.float32)
 
 
 def _best_effort_batch_size(input_):

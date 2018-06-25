@@ -5,7 +5,6 @@ from __future__ import print_function, division
 from future.builtins import *
 from future.builtins.disabled import *
 
-import itertools
 import math
 import logging
 import os.path
@@ -19,9 +18,7 @@ except:
 
 import numpy as np
 import tensorflow as tf
-import tensorflow_hub as hub
 
-import common.config_utils
 import common.data_utils
 
 logger = logging.getLogger(__name__)
@@ -623,6 +620,23 @@ def create_feature_label_pair(context, sequence):
   })
 
 
+def tf_clean_word(word):
+  return tf.regex_replace(
+      word,
+      '[ 0123456789\.\,;:\?!\(\)\[\]\{\}"\'\<\>%]',
+      '')
+
+
+def split_subtitle(features, labels):
+  words = tf.string_split([features['subtitle']])
+  clean_words = tf.SparseTensor(words.indices, tf.map_fn(tf_clean_word, words.values), words.dense_shape)
+  clean_words = tf.sparse_tensor_to_dense(clean_words, default_value='')[0]
+
+  return ({
+      'subtitle': clean_words,
+  }, labels)
+
+
 def normalize(data, mean, std):
   return (data - mean) / std
 
@@ -652,7 +666,8 @@ def make_time_major(features, labels):
   })
 
 
-def input_fn(filenames, batch_size=32, buffer_size=2048, n_epochs=None):
+def input_fn(filenames, batch_size=32, buffer_size=2048, n_epochs=None,
+             split_sentences=False):
   dataset = tf.data.TFRecordDataset(filenames=filenames)
 
   config_path = common.data_utils.DEFAULT_CONFIG_PATH
@@ -669,12 +684,14 @@ def input_fn(filenames, batch_size=32, buffer_size=2048, n_epochs=None):
 
   dataset = dataset.map(parse_tfrecord)
   dataset = dataset.map(create_feature_label_pair)
+  if split_sentences:
+    dataset = dataset.map(split_subtitle)
   dataset = dataset.map(lambda x, y: normalize_angles(x, y, mean, std))
   dataset = dataset.shuffle(buffer_size=buffer_size)
   dataset = dataset.padded_batch(
       batch_size,
       padded_shapes=({
-          'subtitle': []
+          'subtitle': [None] if split_sentences else []
       }, {
           'class': [],
           'n_frames': [],

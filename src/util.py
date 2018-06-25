@@ -18,16 +18,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def get_random_clip():
-  clips = common.data_utils.get_clips()
-  clip = None
-  while clip is None or 'points_3d' not in clip or len(clip['points_3d']) == 0:
-    logger.info('Getting a random clip')
-    clip = clips[randint(0, len(clips))]
-
-  return clip
-
-
 def create_primitives():
   from SFA_Python.src.timeseries.TimeSeries import TimeSeries
   import numpy as np
@@ -65,7 +55,7 @@ if __name__ == '__main__':
       'test-angle-conversion', 'bot-play', 'bot-play-random-clip',
       'test-zero-pose', 'test-normalization', 'test-plot-angles',
       'get-poses-from-angle-files', 'bot-play-clusters', 'create-tfrecords',
-      'create-primitives'
+      'create-primitives', 'create-vocabulary'
   ]
 
   parser = argparse.ArgumentParser(description='Manipulate clip data files.')
@@ -99,14 +89,14 @@ if __name__ == '__main__':
   elif command_name == 'add-angles':
     common.data_utils.add_clip_angles(*args.args)
   elif command_name == 'test-normalization':
-    clip = get_random_clip()
+    clip = common.data_utils.get_random_clip()
     poses = clip['points_3d']
 
     common.visualize.animate_3d_poses(poses)
     new_poses = common.data_utils.straighten_frames(poses)
     common.visualize.animate_3d_poses(list(new_poses))
   elif command_name == 'test-angle-conversion':
-    clip = get_random_clip()
+    clip = common.data_utils.get_random_clip()
     poses = clip['points_3d']
 
     angles = map(common.pose_utils.get_pose_angles, poses)
@@ -117,7 +107,7 @@ if __name__ == '__main__':
     common.visualize.animate_3d_poses(list(h36m_poses))
   elif command_name == 'bot-play-random-clip':
     bot = common.bot.BotController(*args.args)
-    clip = get_random_clip()
+    clip = common.data_utils.get_random_clip()
     print(clip['subtitle'])
     bot.play_angles(clip['angles'])
   elif command_name == 'bot-play':
@@ -180,5 +170,7 @@ if __name__ == '__main__':
     learning.data.create_tfrecords(*args.args)
   elif command_name == 'create-primitives':
     create_primitives()
+  elif command_name == 'create-vocabulary':
+    common.data_utils.create_vocabulary()
   else:
     logger.error("Command {} not found.".format(command_name))

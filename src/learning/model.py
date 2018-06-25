@@ -3,7 +3,6 @@ from future.builtins import *
 from future.builtins.disabled import *
 
 import os
-import itertools
 import logging
 import json
 import os.path
@@ -12,12 +11,11 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_hub as hub
 from tensorflow.python import debug as tf_debug
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 import common.visualize
 
 import data
+from sequence_encoder import SequenceEncoder
 from sequence_embedder import SequenceEmbedder
 from sequence_decoder import SequenceDecoder
 
@@ -45,7 +43,20 @@ def rnn_model_fn(features, labels, mode, params):
     logging.info("Labels: {}".format(labels.keys()))
   logging.info("Params: {}".format(params.values()))
 
-  hidden_state = tf.feature_column.input_layer(features, params.feature_columns)
+  with tf.variable_scope('text_embedding'):
+    if params.use_pretrained_encoder:
+      hidden_state = tf.feature_column.input_layer(features, params.feature_columns)
+      embedding_outputs = None
+    else:
+      batch_major_hidden_state, sequence_length = tf.contrib.feature_column.sequence_input_layer(features, params.feature_columns)
+      real_batch_size = tf.shape(batch_major_hidden_state)[0]
+      # Make time major
+      hidden_state = tf.transpose(batch_major_hidden_state, [1, 0, 2])
+
+      with tf.variable_scope('sequence_encoder'):
+        encoder = SequenceEncoder(hidden_size=params.hidden_size, dtype=tf.float32,
+                                  batch_size=real_batch_size)
+        embedding_outputs, hidden_state = encoder.encode(hidden_state)
 
   train_op = None
   loss = None
@@ -54,7 +65,11 @@ def rnn_model_fn(features, labels, mode, params):
     n_labels = params.n_labels
     hidden_state = tf.layers.dense(hidden_state, n_labels)
 
-    decoder = SequenceDecoder(n_labels, hidden_state, cell_type=params.rnn_cell)
+    decoder = SequenceDecoder(
+        n_labels,
+        hidden_state,
+        cell_type=params.rnn_cell,
+        memory=None)
 
     seq_labels = None
     len_labels = None
@@ -74,16 +89,18 @@ def rnn_model_fn(features, labels, mode, params):
           tf.transpose([tf.sequence_mask(len_labels)]),
           multiples=[1, 1, n_labels])
 
-      position_loss = tf.losses.mean_squared_error(
-          output, seq_labels, weights=seq_weights)
+      with tf.variable_scope('position_loss'):
+        position_loss = tf.losses.mean_squared_error(
+            output, seq_labels, weights=seq_weights)
 
-      output_diff = tf.square(output[1:, :, :] - output[:-1, :, :])
-      label_diff = tf.square(seq_labels[1:, :, :] - seq_labels[:-1, :, :])
-      motion_loss = tf.losses.mean_squared_error(
-          output_diff, label_diff, weights=seq_weights[:-1, :, :])
+      with tf.variable_scope('motion_loss'):
+        output_diff = output[1:, :, :] - output[:-1, :, :]
+        label_diff = seq_labels[1:, :, :] - seq_labels[:-1, :, :]
+        motion_loss = tf.losses.mean_squared_error(
+            output_diff, label_diff, weights=seq_weights[:-1, :, :])
 
-      loss = (1.0 - params.motion_loss_weight) * position_loss + \
-             params.motion_loss_weight * motion_loss
+      loss = ((1.0 - params.motion_loss_weight) * position_loss +
+              params.motion_loss_weight * motion_loss)
 
     predictions = data.unnormalize(output, params.labels_mean,
                                    params.labels_std)
@@ -128,6 +145,7 @@ def generate_model_spec_name(params):
   elif params.output_type == 'classes':
     name += 'n_classes={},'.format(params.n_classes)
 
+  name += 'use_pretrained_encoder={},'.format(params.use_pretrained_encoder)
   name += 'dropout={},'.format(params.dropout)
   name += 'learning_rate={},'.format(params.learning_rate)
   name += 'batch_size={}'.format(params.batch_size)
@@ -135,15 +153,7 @@ def generate_model_spec_name(params):
   return name
 
 
-def run_experiment(custom_params=dict()):
-  """Runs an experiment with parameters changed as specified.
-    The results are saved in log/xxx where xxx is specified by the
-    specific parameters.
-
-    Arguments:
-      params: dict parameters to override
-    """
-
+def setup_estimator():
   # Load normalization parameters
   config_path = common.data_utils.DEFAULT_CONFIG_PATH
   if os.path.isfile(config_path):
@@ -155,15 +165,8 @@ def run_experiment(custom_params=dict()):
     mean = 0
     std = 1
 
-  feature_columns = [
-      hub.text_embedding_column(
-          'subtitle',
-          'https://tfhub.dev/google/universal-sentence-encoder/1',
-          trainable=False)
-  ]
-
   default_params = tf.contrib.training.HParams(
-      feature_columns=feature_columns,
+      feature_columns=[None],
       output_type='sequences',
       rnn_cell='BasicRNNCell',
       dropout=0.3,
@@ -174,9 +177,30 @@ def run_experiment(custom_params=dict()):
       learning_rate=0.001,
       motion_loss_weight=0.5,
       labels_mean=mean,
-      labels_std=std)
+      labels_std=std,
+      use_pretrained_encoder=False)
 
   model_params = default_params.override_from_dict(custom_params)
+
+  if model_params.use_pretrained_encoder:
+    feature_columns = [
+        hub.text_embedding_column(
+            'subtitle',
+            'https://tfhub.dev/google/universal-sentence-encoder/1',
+            trainable=False)
+    ]
+  else:
+    feature_columns = [
+        tf.feature_column.embedding_column(
+            tf.contrib.feature_column.sequence_categorical_column_with_vocabulary_file(
+                key='subtitle',
+                vocabulary_file='vocab.txt',
+                vocabulary_size=512),
+            32)
+    ]
+
+  model_params = model_params.override_from_dict(dict(
+      feature_columns=feature_columns))
 
   model_spec_name = generate_model_spec_name(model_params)
   run_config = tf.estimator.RunConfig(
@@ -187,19 +211,45 @@ def run_experiment(custom_params=dict()):
   estimator = tf.estimator.Estimator(
       model_fn=rnn_model_fn, config=run_config, params=model_params)
 
-  do_train = False
+  return estimator, model_params
+
+
+def predict_class(subtitle):
+    estimator, model_params = setup_estimator()
+    predict_input_fn = tf.estimator.inputs.numpy_input_fn(
+        x={
+            'subtitle': np.array([subtitle]),
+        }, num_epochs=1, shuffle=False)
+    preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
+    return preds[0]
+
+
+def run_experiment(custom_params=dict()):
+  """Runs an experiment with parameters changed as specified.
+    The results are saved in log/xxx where xxx is specified by the
+    specific parameters.
+
+    Arguments:
+      params: dict parameters to override
+    """
+
+  estimator, model_params = setup_estimator()
+
+  do_train = True
   if do_train:
     # profiler_hook = tf.train.ProfilerHook(save_steps=200, output_dir='profile')
-    debug_hook = tf_debug.TensorBoardDebugHook("f9f267322738:7000")
+    debug_hook = tf_debug.TensorBoardDebugHook("localhost:7000")
+    # debug_hook = tf_debug.LocalCLIDebugHook()
     estimator.train(lambda: data.input_fn(
         '../clips.tfrecords',
         batch_size=model_params.batch_size,
-        n_epochs=100
+        n_epochs=1000,
+        split_sentences=(model_params.use_pretrained_encoder is False)
     ), hooks=[])
 
   do_predict = True
   if do_predict:
-    subtitle = 'up and down and up and down'
+    subtitle = 'this is why you and i should be friends'
 
     predict_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={
@@ -227,7 +277,9 @@ def run_experiment(custom_params=dict()):
 
 if __name__ == '__main__':
   run_experiment({
-      'output_type': 'sequences',
-      'motion_loss_weight': 0.9,
-      'rnn_cell': 'BasicLSTMCell'
+      'output_type': 'classes',
+      'motion_loss_weight': 0.8,
+      'rnn_cell': 'BasicLSTMCell',
+      'batch_size': 32,
+      'use_pretrained_encoder': True
   })
