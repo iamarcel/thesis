@@ -9,6 +9,7 @@
 /src/openpose/src/images
 /src/openpose/src/output
 /src/openpose/src/output-images
+/src/learning/log
 /shell
 *.jsonl
 *.json

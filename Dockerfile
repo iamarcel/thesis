@@ -37,7 +37,7 @@ RUN curl -OL https://github.com/google/protobuf/releases/download/v3.5.1/protoc-
 #   rm /root/webots_2018a-rev2_amd64.deb && \
 #   echo 'export PYTHONPATH=${PYTHONPATH}:/root/pynaoqi-python2.7-2.5.5.5-linux64'
 
-ADD ./ /root/dev
+ADD ./Pipfile.lock /root/dev/Pipfile.lock
 WORKDIR /root/dev
 
 RUN echo "export TFHUB_CACHE_DIR=/root/dev/tfhub" >> /root/.bashrc && \
