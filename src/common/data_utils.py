@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_CLIPS_PATH = 'clips.jsonl'
 DEFAULT_CONFIG_PATH = 'config.json'
 DEFAULT_IMAGES_PATH = 'images/'
-DEFAULT_TTS_PATH = os.path.join(__file__, '..', 'tts-clips')
-DEFAULT_VIDEO_PATH = os.path.join(__file__, '..', 'video-clips')
+DEFAULT_TTS_PATH = os.path.join('tts-clips')
+DEFAULT_VIDEO_PATH = os.path.join('video-clips')
 
 # Joints in H3.6M -- data has 32 joints, but only 17 that move;
 # these are the indices.
@@ -428,77 +428,21 @@ def get_random_clip():
 
 
 def get_clusters():
-  raise NotImplementedError()
+  with open("cluster-centers.json") as centers_file:
+    centers = json.load(centers_file)['clusters']
+
+  return centers
 
 
-def create_question(bot_port):
-  # Write question data
-  clip = get_random_clip()
-  with jsonlines.open('questions.jsonl', mode='a') as writer:
-    question = dict(
-        id=clip['id'],
-        subtitle=clip['subtitle'],
-        angles_expected=clip['angles'],
-        class_expected=clip['class'])
-    writer.write(question)
+def create_sfa_dataset(file_name='clips_sfa.txt'):
+  clips = get_clips();
+  with open(file_name, 'w') as f:
+    for i, clip in enumerate(clips):
+      for j, frame in enumerate(clip['angles']):
+        f.write(str(i) + " ")  # Example ID
+        f.write(str(j) + " ")  # Time index
+        f.write("1 ")          # Label
 
-  # Generate TTS audio clip
-  from . import watson
-  file_name_speech = os.path.join(DEFAULT_TTS_PATH, clip['id'] + '.wav')
-  watson.write_tts_clip(file_name_speech, clip['subtitle'])
-
-  # Record clips
-  # Define some functions
-  from subprocess import Popen
-  from bot import BotController
-  bot = BotController(bot_port)
-
-  def record_screen(tag, time):
-    file_name = os.path.join(DEFAULT_VIDEO_PATH, clip['id'] + '--' + tag + '.mp4')
-    p_recording = Popen([
-        'ffmpeg',
-        '-f', 'x11grab',
-        '-framerate', '25',
-        '-t', time,
-        file_name
-    ])
-
-    return p_recording, file_name
-
-  def record_pose_animation(frames, tag):
-    time = int(math.ceil(len(frames))) + 1  # Extra second for margin
-    proc, file_name = record_screen(tag, time)
-    bot.play_angles(frames)
-    output = proc.check_output()
-    print(output)
-
-    return file_name
-
-  # Now, use them
-  file_name_expected = record_pose_animation(clip['angles'], 'expected')
-
-  from .. import learning
-  predicted_class = learning.model.predict_class(clip['subtitle'])
-  file_name_predicted = record_pose_animation(get_clusters()[predicted_class], 'predicted')
-
-  time_expected = int(math.ceil(len(clip['angles']))) + 1
-  proc, file_name_nao = record_screen('nao', time_expected)
-  bot.say(clip['subtitle'])
-  output = proc.check_output()
-  print(output)
-
-  # Merge it all
-  proc = Popen([
-      'ffmpeg',
-      '-i', file_name_expected,
-      '-i', file_name_predicted,
-      '-i', file_name_nao,
-      '-i', file_name_speech,
-      '-filter_complex', ('[0:v][1:v][2:v]hstack=inputs=3[v];' +
-                          "[v]drawtext=text='" + clip['subtitle'] + "':x=(main_w/2-text_w/2)" +
-                          ':y=(main_h-(text_h*2))'),
-      '-map', '[v]',
-      '-map', '3:a:0',
-      os.path.join(DEFAULT_VIDEO_PATH, clip['id'] + '--merged.mp4')
-  ])
-  print("Recorded. Saved merged video file.")
+        frame_arr = pose_utils.get_angle_list(frame)
+        f.write(" ".join(str(x) for x in frame_arr))
+        f.write("\n")
