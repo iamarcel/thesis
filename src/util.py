@@ -5,6 +5,10 @@ import argparse
 import logging
 import naoqi  # Needs to be imported before random? Why? No clue.
 from random import randint
+import os
+import os.path
+import math
+import random
 
 import json
 import jsonlines
@@ -48,6 +52,94 @@ def create_primitives():
   return output
 
 
+def create_question(bot_port):
+  import learning.model
+  import common.watson
+
+  # Write question data
+  clip = common.data_utils.get_random_clip()
+  video_order = [0, 1, 2]
+  random.shuffle(video_order)
+  with jsonlines.open('questions.jsonl', mode='a') as writer:
+    question = dict(
+        id=clip['id'],
+        subtitle=clip['subtitle'],
+        angles_expected=clip['angles'],
+        class_expected=clip['class'],
+        video_order=video_order)
+    writer.write(question)
+
+  # Generate TTS audio clip
+  file_name_speech = os.path.join(common.data_utils.DEFAULT_TTS_PATH, clip['id'] + '.wav')
+  common.watson.write_tts_clip(file_name_speech, clip['subtitle'])
+
+  # Record clips
+  # Define some functions
+  from subprocess import Popen
+  from common.bot import BotController
+  bot = BotController(bot_port)
+
+  def record_screen(tag, time):
+    file_name = os.path.join(common.data_utils.DEFAULT_VIDEO_PATH, clip['id'] + '--' + tag + '.mp4')
+    p_recording = Popen([
+        'ffmpeg',
+        '-framerate', '25',
+        '-f', 'x11grab',
+        '-s', '560x752',
+        '-i', ':1+1280,270',
+        '-t', str(time),
+        file_name
+    ])
+
+    return p_recording, file_name
+
+  def record_pose_animation(frames, tag):
+    time = int(math.ceil(len(frames) / 25)) + 1  # Extra second for margin
+    proc, file_name = record_screen(tag, time)
+    bot.play_angles(frames)
+    output = proc.wait()
+    print(output)
+
+    return file_name
+
+  # Now, use them
+  bot.reset_pose()
+  file_name_expected = record_pose_animation(clip['angles'], 'expected')
+
+  bot.reset_pose()
+  predicted_class = learning.model.predict_class(clip['subtitle'])
+  clusters = common.data_utils.get_clusters()
+  cluster = common.data_utils.get_clusters()[predicted_class]
+  file_name_predicted = record_pose_animation(cluster, 'predicted')
+
+  bot.reset_pose()
+  time_expected = int(math.ceil(len(clip['angles']) / 25)) + 1
+  proc, file_name_nao = record_screen('nao', time_expected)
+  bot.say(clip['subtitle'])
+  output = proc.wait()
+  print(output)
+
+  # Merge it all
+  video_file_names = [file_name_expected, file_name_predicted, file_name_nao]
+  proc = Popen([
+      'ffmpeg',
+      '-i', video_file_names[video_order[0]],
+      '-i', video_file_names[video_order[1]],
+      '-i', video_file_names[video_order[2]],
+      '-i', file_name_speech,
+      '-filter_complex', ('[0:v][1:v][2:v]hstack=inputs=3[v];' +
+                          "[v]drawtext=text=" + clip['subtitle'] + ":fontfile=DejaVuSans\\\:style=Bold" + 
+                          ":x=(main_w/2-text_w/2)" +
+                          ":y=(main_h-(text_h*2)):fontsize=48:fontcolor=white" +
+                          ":borderw=2 [v]"),
+      '-map', '[v]',
+      '-map', '3:a:0',
+      os.path.join(common.data_utils.DEFAULT_VIDEO_PATH, clip['id'] + '--merged.mp4')
+  ])
+  proc.wait()
+  print("Recorded. Saved merged video file.")
+
+
 if __name__ == '__main__':
   command_choices = [
       'remove-duplicate-clips', 'add-clips-to', 'merge',
@@ -55,7 +147,8 @@ if __name__ == '__main__':
       'test-angle-conversion', 'bot-play', 'bot-play-random-clip',
       'test-zero-pose', 'test-normalization', 'test-plot-angles',
       'get-poses-from-angle-files', 'bot-play-clusters', 'create-tfrecords',
-      'create-primitives', 'create-vocabulary'
+      'create-primitives', 'create-vocabulary', 'create-question',
+      'create-sfa-dataset'
   ]
 
   parser = argparse.ArgumentParser(description='Manipulate clip data files.')
@@ -139,6 +232,8 @@ if __name__ == '__main__':
 
     common.visualize.show_3d_pose(nao_h36m)
   elif command_name == 'write-poses-from-angle-files':
+    """Reads a list of files with frames (angle dict on each line)
+    and saves those to a file with a pose animation on each line."""
     output_file_name = args.args[0]
     file_names = args.args[1:]
 
@@ -154,14 +249,11 @@ if __name__ == '__main__':
                     common.pose_utils.get_pose_from_angles(angles)).tolist())
         writer.write(dict(points_3d=poses, angles=frames))
   elif command_name == 'bot-play-clusters':
-    clusters = []
-    with jsonlines.open('stats/center-points.jsonl', 'r') as reader:
-      for cluster in reader:
-        clusters.append(cluster)
+    clusters = common.data_utils.get_clusters()
 
     all_angles = []
     for i in args.args[1:]:
-      all_angles += clusters[int(i)]['angles']
+      all_angles += clusters[int(i)]
 
     bot = common.bot.BotController(args.args[0])
     bot.play_angles(all_angles)
@@ -172,5 +264,9 @@ if __name__ == '__main__':
     create_primitives()
   elif command_name == 'create-vocabulary':
     common.data_utils.create_vocabulary()
+  elif command_name == 'create-question':
+    create_question(args.args[0]);
+  elif command_name == 'create-sfa-dataset':
+    common.data_utils.create_sfa_dataset(*args.args)
   else:
     logger.error("Command {} not found.".format(command_name))

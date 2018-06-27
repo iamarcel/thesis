@@ -31,8 +31,9 @@ class BotController:
         self.posture.goToPosture("StandInit", 0.5)
 
     def say(self, text):
-        configuration = {"bodyLanguageMode": "contextual"}
-        self.tts.say(text, configuration)
+        print(text)
+        configuration = {"bodyLanguageMode": "random"}
+        self.tts.say(str(text), configuration)
 
     def move(self, effector, position):
         frame = motion.FRAME_TORSO
@@ -95,6 +96,10 @@ class BotController:
             angles = supported_joints.values()
             self.motion.setAngles(names, angles, 0.5)
             time.sleep(interval)
+
+    def reset_pose(self):
+        self.motion.wakeUp()
+        self.posture.goToPosture("StandInit", 0.5)
 
 
 def map_pose_to_nao_frame(pose):

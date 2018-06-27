@@ -35,11 +35,15 @@ close(con)
                                         # Saving center angles
 
 centers <- pc_dtw@centroids
+
 for (i in 1:length(centers)) {
   con <- file(paste("center-", i, ".jsonl", sep = ""), open = "w")
   jsonlite::stream_out(data.frame(centers[[i]]), con)
   close(con)
 }
+
+list_of_centers <- lapply(pc_dtw@centroids, data.frame)
+jsonlite::write_json(list(clusters=list_of_centers), "../cluster-centers.json")
 
 
 

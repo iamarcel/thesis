@@ -22,6 +22,8 @@ from sequence_decoder import SequenceDecoder
 # logging.basicConfig(level=logging.INFO)
 tf.logging.set_verbosity(tf.logging.INFO)
 
+LEARNING_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
+
 
 def rnn_model_fn(features, labels, mode, params):
   """TensorFlow model function for an RNN
@@ -153,7 +155,7 @@ def generate_model_spec_name(params):
   return name
 
 
-def setup_estimator():
+def setup_estimator(custom_params=dict()):
   # Load normalization parameters
   config_path = common.data_utils.DEFAULT_CONFIG_PATH
   if os.path.isfile(config_path):
@@ -204,7 +206,7 @@ def setup_estimator():
 
   model_spec_name = generate_model_spec_name(model_params)
   run_config = tf.estimator.RunConfig(
-      model_dir='log/{}'.format(model_spec_name),
+      model_dir=os.path.join(LEARNING_DIRECTORY, 'log', model_spec_name),
       save_checkpoints_secs=60,
       save_summary_steps=100)
 
@@ -215,7 +217,14 @@ def setup_estimator():
 
 
 def predict_class(subtitle):
-    estimator, model_params = setup_estimator()
+    estimator, model_params = setup_estimator({
+       'output_type': 'classes',
+       'motion_loss_weight': 0.8,
+       'rnn_cell': 'BasicLSTMCell',
+       'batch_size': 32,
+       'use_pretrained_encoder': True
+    })
+
     predict_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={
             'subtitle': np.array([subtitle]),
@@ -233,7 +242,7 @@ def run_experiment(custom_params=dict()):
       params: dict parameters to override
     """
 
-  estimator, model_params = setup_estimator()
+  estimator, model_params = setup_estimator(custom_params)
 
   do_train = True
   if do_train:
