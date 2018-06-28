@@ -11,11 +11,13 @@ class SequenceDecoder():
                initial_state,
                dropout=0.5,
                cell_type='BasicRNNCell',
-               memory=None):
+               memory=None,
+               attention_size=8):
     self.input_size = input_size
     self.initial_state = initial_state
     self.batch_size = _best_effort_batch_size(self.initial_state)
     self.dropout = dropout
+    self.attention_size = attention_size
 
     self._build_model(cell_type, memory=memory)
 
@@ -39,7 +41,7 @@ class SequenceDecoder():
           next_cell_state = self.initial_state
           next_input = get_zero_input()
         else:
-          next_cell_state = cell_state
+          next_cell_state = self.initial_state
           next_input = tf.cond(
               finished, get_zero_input,
               lambda: inputs_ta.read(time)
@@ -58,10 +60,10 @@ class SequenceDecoder():
           next_cell_state = self.initial_state
           next_input = get_zero_input()
         else:
-          next_cell_state = cell_state
+          next_cell_state = self.initial_state
           next_input = cell_output
 
-        elements_finished = (time >= 300)  # TODO Use cell_output
+        elements_finished = (time >= 200)  # TODO Use cell_output
 
         next_loop_state = None
         return (elements_finished, next_input, next_cell_state, emit_output,
@@ -86,13 +88,9 @@ class SequenceDecoder():
           h=self.initial_state)
 
     if memory is not None:
-      self.cell = tf.contrib.seq2seq.AttentionWrapper(
+      self.cell = tf.contrib.rnn.AttentionCellWrapper(
           self.cell,
-          tf.contrib.seq2seq.LuongAttention(
-              num_units=self.cell.state_size[1],
-              memory=memory),
-          initial_cell_state=self.initial_state,
-          attention_layer_size=self.cell.state_size[1])
+          attn_length=self.attention_size)
 
       self.initial_state = self.cell.zero_state(self.batch_size, tf.float32)
 

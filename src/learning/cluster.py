@@ -44,15 +44,14 @@ def model_fn(features, labels, mode, params):
     for var in decoder.cell.trainable_weights:
       tf.summary.histogram(var.name, var)
 
-    with tf.variable_scope('loss'):
-      seq_weights = tf.tile(
-          tf.transpose([tf.sequence_mask(lengths)]),
-          multiples=[1, 1, input_dims])
+    seq_weights = tf.tile(
+        tf.transpose([tf.sequence_mask(lengths)]),
+        multiples=[1, 1, input_dims])
 
-      loss = tf.losses.mean_squared_error(
-          output,
-          input_layer,
-          weights=seq_weights)
+    loss = tf.losses.mean_squared_error(
+        output,
+        input_layer,
+        weights=seq_weights)
 
   predictions = output
 

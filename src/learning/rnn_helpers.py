@@ -7,7 +7,8 @@ def create_rnn_cell(cell_size, name=None, dropout=0.5, cell_type='BasicRNNCell')
     base_cell = getattr(tf.nn.rnn_cell, cell_type)(cell_size, name=name)
     cell = tf.nn.rnn_cell.DropoutWrapper(
         base_cell,
-        input_keep_prob=keep)
+        input_keep_prob=keep,
+        state_keep_prob=keep)
     return base_cell, cell
 
 

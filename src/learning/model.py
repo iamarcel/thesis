@@ -71,7 +71,8 @@ def rnn_model_fn(features, labels, mode, params):
         n_labels,
         hidden_state,
         cell_type=params.rnn_cell,
-        memory=None)
+        memory=embedding_outputs,
+        attention_size=params.attention_size)
 
     seq_labels = None
     len_labels = None
@@ -80,32 +81,34 @@ def rnn_model_fn(features, labels, mode, params):
       seq_labels = labels['angles'] if 'angles' in labels else None
       len_labels = tf.cast(labels['n_frames'],
                            tf.int32) if seq_labels is not None else None
+      tf.summary.histogram('n_frames', len_labels)
 
     output = decoder.decode(seq_labels, len_labels)
 
     if mode != tf.estimator.ModeKeys.PREDICT:
-      for var in decoder.cell.trainable_weights:
-        tf.summary.histogram(var.name, var)
+      with tf.variable_scope('loss_parts'):
+        seq_weights = tf.tile(
+            tf.transpose([tf.sequence_mask(len_labels)]),
+            multiples=[1, 1, n_labels])
 
-      seq_weights = tf.tile(
-          tf.transpose([tf.sequence_mask(len_labels)]),
-          multiples=[1, 1, n_labels])
+        with tf.variable_scope('position'):
+          position_loss = tf.losses.mean_squared_error(
+              output, seq_labels, weights=seq_weights)
+        tf.summary.scalar('position', position_loss)
 
-      with tf.variable_scope('position_loss'):
-        position_loss = tf.losses.mean_squared_error(
-            output, seq_labels, weights=seq_weights)
-
-      with tf.variable_scope('motion_loss'):
-        output_diff = output[1:, :, :] - output[:-1, :, :]
-        label_diff = seq_labels[1:, :, :] - seq_labels[:-1, :, :]
-        motion_loss = tf.losses.mean_squared_error(
-            output_diff, label_diff, weights=seq_weights[:-1, :, :])
+        with tf.variable_scope('motion'):
+          output_diff = output[1:, :, :] - output[:-1, :, :]
+          label_diff = seq_labels[1:, :, :] - seq_labels[:-1, :, :]
+          motion_loss = tf.losses.mean_squared_error(
+              output_diff, label_diff, weights=seq_weights[:-1, :, :])
+        tf.summary.scalar('motion', motion_loss)
 
       loss = ((1.0 - params.motion_loss_weight) * position_loss +
               params.motion_loss_weight * motion_loss)
 
     predictions = data.unnormalize(output, params.labels_mean,
                                    params.labels_std)
+    tf.summary.histogram('predictions', predictions)
   elif params.output_type == 'classes':
     dropout = tf.layers.dropout(
         inputs=hidden_state,
@@ -128,7 +131,9 @@ def rnn_model_fn(features, labels, mode, params):
   if mode == tf.estimator.ModeKeys.PREDICT:
     return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
   else:
-    optimizer = tf.train.AdamOptimizer(learning_rate=params.learning_rate)
+    optimizer = tf.train.RMSPropOptimizer(
+      learning_rate=params.learning_rate,
+      momentum=0.5)
     train_op = optimizer.minimize(
         loss=loss, global_step=tf.train.get_global_step())
 
@@ -150,7 +155,11 @@ def generate_model_spec_name(params):
   name += 'use_pretrained_encoder={},'.format(params.use_pretrained_encoder)
   name += 'dropout={},'.format(params.dropout)
   name += 'learning_rate={},'.format(params.learning_rate)
-  name += 'batch_size={}'.format(params.batch_size)
+  name += 'batch_size={},'.format(params.batch_size)
+  name += 'attention_size={}'.format(params.attention_size)
+
+  if params.note is not None:
+    name += ',note={}'.format(params.note)
 
   return name
 
@@ -180,7 +189,9 @@ def setup_estimator(custom_params=dict()):
       motion_loss_weight=0.5,
       labels_mean=mean,
       labels_std=std,
-      use_pretrained_encoder=False)
+      use_pretrained_encoder=False,
+      attention_size=8,
+      note=None)
 
   model_params = default_params.override_from_dict(custom_params)
 
@@ -252,20 +263,20 @@ def run_experiment(custom_params=dict()):
     estimator.train(lambda: data.input_fn(
         '../clips.tfrecords',
         batch_size=model_params.batch_size,
-        n_epochs=1000,
+        n_epochs=128,
         split_sentences=(model_params.use_pretrained_encoder is False)
     ), hooks=[])
 
   do_predict = True
   if do_predict:
-    subtitle = 'this is why you and i should be friends'
+    subtitle = 'I am telling you the truth'
 
     predict_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={
             'subtitle': np.array([subtitle]),
         }, num_epochs=1, shuffle=False)
     preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
-    n_frames = 100
+    n_frames = 55
 
     if model_params.output_type == 'sequences':
       frames = preds[:n_frames, 0, :].tolist()
@@ -286,9 +297,13 @@ def run_experiment(custom_params=dict()):
 
 if __name__ == '__main__':
   run_experiment({
-      'output_type': 'classes',
-      'motion_loss_weight': 0.8,
-      'rnn_cell': 'BasicLSTMCell',
+      'output_type': 'sequences',
+      'motion_loss_weight': 0.1,
+      'rnn_cell': 'GRUCell',
       'batch_size': 32,
-      'use_pretrained_encoder': True
+      'use_pretrained_encoder': False,
+      'hidden_size': 16,
+      'learning_rate': 0.01,
+      'dropout': 0.5,
+      'note': 'always_initial_state'
   })
