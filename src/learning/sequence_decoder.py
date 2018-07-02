@@ -75,11 +75,12 @@ class SequenceDecoder():
     return output_ta.stack()
 
   def _build_model(self, cell_type, memory=None):
-    self.cell, cell = rnn_helpers.create_rnn_cell(
+    self.cell = rnn_helpers.create_rnn_cell(
         self.input_size,
         dropout=self.dropout,
         name='decoder_cell',
         cell_type=cell_type)
+    self.cell = rnn_helpers.add_dropout(self.cell, self.dropout)
 
     # Make correctly-shaped initial state if it's a tuple (LSTMCell)
     if isinstance(self.cell.state_size, tuple):
@@ -88,9 +89,17 @@ class SequenceDecoder():
           h=self.initial_state)
 
     if memory is not None:
-      self.cell = tf.contrib.rnn.AttentionCellWrapper(
+      self.cell = tf.contrib.seq2seq.AttentionWrapper(
           self.cell,
-          attn_length=self.attention_size)
+          tf.contrib.seq2seq.LuongAttention(
+              num_units=self.input_size,
+              memory=tf.transpose(memory, [1, 0, 2])),
+          initial_cell_state=self.initial_state,
+          attention_layer_size=self.input_size)
+      # self.cell = tf.contrib.rnn.AttentionCellWrapper(
+      #     self.cell,
+      #     attn_length=self.attention_size)
+      tf.summary.histogram('attention_weights', self.cell.weights)
 
       self.initial_state = self.cell.zero_state(self.batch_size, tf.float32)
 

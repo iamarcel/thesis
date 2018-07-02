@@ -9,6 +9,7 @@ import math
 import re
 import json
 import jsonlines
+import collections
 from random import randint
 
 from . import pose_utils, vector
@@ -401,19 +402,19 @@ def patch_poses(poses, max_out_of_bounds_joints=4.0 / 32, max_distance=0.3):
 
 def clean_word(word):
   return re.sub('[ 0123456789\.\,;:\?!\(\)\[\]\{\}"\'\<\>%]', '',
-                word.strip().lower()),
+                word.strip().lower())
 
 
-def create_vocabulary(clips_path=DEFAULT_CLIPS_PATH, vocab_path='vocab.txt'):
-  vocab = set()
+def create_vocabulary(vocab_size=512, clips_path=DEFAULT_CLIPS_PATH, vocab_path='vocab.txt'):
+  vocab = collections.Counter()
   for clip in get_clips(clips_path):
     words = clip['subtitle'].split(' ')
-    words = list(filter(lambda x: len(x) > 0, map(clean_word, words)))
-    vocab.update(set(words))
+    words = list(filter(lambda x: len(x.strip()) > 0, map(clean_word, words)))
+    vocab.update(words)
 
   vocab_file = open(vocab_path, 'w')
-  for i, word in enumerate(vocab):
-    vocab_file.write('{}\n'.format(word, i + 1))
+  for i, (word, cnt) in enumerate(vocab.most_common(vocab_size)):
+    vocab_file.write('{}\n'.format(str(word), i + 1))
   vocab_file.close()
 
 

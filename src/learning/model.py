@@ -209,7 +209,7 @@ def setup_estimator(custom_params=dict()):
                 key='subtitle',
                 vocabulary_file='vocab.txt',
                 vocabulary_size=512),
-            32)
+            4)
     ]
 
   model_params = model_params.override_from_dict(dict(
@@ -218,8 +218,8 @@ def setup_estimator(custom_params=dict()):
   model_spec_name = generate_model_spec_name(model_params)
   run_config = tf.estimator.RunConfig(
       model_dir=os.path.join(LEARNING_DIRECTORY, 'log', model_spec_name),
-      save_checkpoints_secs=60,
-      save_summary_steps=100)
+      save_checkpoints_secs=120,
+      save_summary_steps=200)
 
   estimator = tf.estimator.Estimator(
       model_fn=rnn_model_fn, config=run_config, params=model_params)
@@ -269,14 +269,14 @@ def run_experiment(custom_params=dict()):
 
   do_predict = True
   if do_predict:
-    subtitle = 'I am telling you the truth'
+    subtitle = 'the cat was standing on a large chair and sent a message to the pope'
 
     predict_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={
             'subtitle': np.array([subtitle]),
         }, num_epochs=1, shuffle=False)
     preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
-    n_frames = 55
+    n_frames = 70
 
     if model_params.output_type == 'sequences':
       frames = preds[:n_frames, 0, :].tolist()
@@ -298,12 +298,13 @@ def run_experiment(custom_params=dict()):
 if __name__ == '__main__':
   run_experiment({
       'output_type': 'sequences',
-      'motion_loss_weight': 0.1,
+      'motion_loss_weight': 0.5,
       'rnn_cell': 'GRUCell',
       'batch_size': 32,
       'use_pretrained_encoder': False,
-      'hidden_size': 16,
+      'hidden_size': 8,
       'learning_rate': 0.01,
       'dropout': 0.5,
-      'note': 'always_initial_state'
+      'attention_size': 8,
+      'note': 'input_keep'
   })

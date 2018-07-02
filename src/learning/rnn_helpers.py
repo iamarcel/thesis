@@ -2,14 +2,16 @@ import tensorflow as tf
 
 
 def create_rnn_cell(cell_size, name=None, dropout=0.5, cell_type='BasicRNNCell'):
+    base_cell = getattr(tf.nn.rnn_cell, cell_type)(cell_size, name=name)
+    return base_cell
+
+
+def add_dropout(cell, dropout=0.5):
     keep = 1.0 - dropout
 
-    base_cell = getattr(tf.nn.rnn_cell, cell_type)(cell_size, name=name)
-    cell = tf.nn.rnn_cell.DropoutWrapper(
-        base_cell,
-        input_keep_prob=keep,
-        state_keep_prob=keep)
-    return base_cell, cell
+    return tf.nn.rnn_cell.DropoutWrapper(
+        cell,
+        input_keep_prob=keep)
 
 
 def add_rnn_layers(inputs, cell_size, batch_size, input_lengths=None, name=None, dtype=tf.float32):
@@ -21,7 +23,8 @@ def add_rnn_layers(inputs, cell_size, batch_size, input_lengths=None, name=None,
     Returns: Tensor[batch_size, max_time, num_units] Output
     """
     # cell = tf.nn.rnn_cell.BasicRNNCell(cell_size, name=name)
-    base_cell, cell = create_rnn_cell(cell_size, name=name)
+    base_cell = create_rnn_cell(cell_size, name=name)
+    cell = add_dropout(base_cell)
     outputs, state = tf.nn.dynamic_rnn(
         cell,
         inputs,
