@@ -12,14 +12,19 @@ class SequenceDecoder():
                dropout=0.5,
                cell_type='BasicRNNCell',
                memory=None,
+               memory_sequence_length=None,
+               label_lengths=None,
                attention_size=8):
     self.input_size = input_size
     self.initial_state = initial_state
     self.batch_size = _best_effort_batch_size(self.initial_state)
     self.dropout = dropout
     self.attention_size = attention_size
+    self.label_lengths = label_lengths
 
-    self._build_model(cell_type, memory=memory)
+    self._build_model(cell_type,
+                      memory=memory,
+                      memory_sequence_length=memory_sequence_length)
 
   def decode(self, labels=None, label_lengths=None, name='decode'):
     get_zero_input = lambda: tf.zeros([self.batch_size, self.input_size])
@@ -41,7 +46,7 @@ class SequenceDecoder():
           next_cell_state = self.initial_state
           next_input = get_zero_input()
         else:
-          next_cell_state = self.initial_state
+          next_cell_state = cell_state
           next_input = tf.cond(
               finished, get_zero_input,
               lambda: inputs_ta.read(time)
@@ -60,7 +65,7 @@ class SequenceDecoder():
           next_cell_state = self.initial_state
           next_input = get_zero_input()
         else:
-          next_cell_state = self.initial_state
+          next_cell_state = cell_state
           next_input = cell_output
 
         elements_finished = (time >= 200)  # TODO Use cell_output
@@ -74,13 +79,12 @@ class SequenceDecoder():
 
     return output_ta.stack()
 
-  def _build_model(self, cell_type, memory=None):
+  def _build_model(self, cell_type, memory=None, memory_sequence_length=None):
     self.cell = rnn_helpers.create_rnn_cell(
         self.input_size,
-        dropout=self.dropout,
         name='decoder_cell',
         cell_type=cell_type)
-    self.cell = rnn_helpers.add_dropout(self.cell, self.dropout)
+    # self.cell = rnn_helpers.add_dropout(self.cell, self.dropout)
 
     # Make correctly-shaped initial state if it's a tuple (LSTMCell)
     if isinstance(self.cell.state_size, tuple):
@@ -93,7 +97,9 @@ class SequenceDecoder():
           self.cell,
           tf.contrib.seq2seq.LuongAttention(
               num_units=self.input_size,
-              memory=tf.transpose(memory, [1, 0, 2])),
+              memory=tf.transpose(memory, [1, 0, 2]),
+              memory_sequence_length=memory_sequence_length
+              ),
           initial_cell_state=self.initial_state,
           attention_layer_size=self.input_size)
       # self.cell = tf.contrib.rnn.AttentionCellWrapper(
@@ -102,6 +108,8 @@ class SequenceDecoder():
       tf.summary.histogram('attention_weights', self.cell.weights)
 
       self.initial_state = self.cell.zero_state(self.batch_size, tf.float32)
+
+      # self.cell = rnn_helpers.add_dropout(self.cell, self.dropout)
 
 
 def _best_effort_batch_size(input_):

@@ -2,6 +2,7 @@ from __future__ import print_function, division
 from future.builtins import *
 from future.builtins.disabled import *
 
+import argparse
 import os
 import logging
 import json
@@ -67,21 +68,20 @@ def rnn_model_fn(features, labels, mode, params):
     n_labels = params.n_labels
     hidden_state = tf.layers.dense(hidden_state, n_labels)
 
+    seq_labels = None
+    len_labels = None
+    seq_labels = labels['angles'] if labels and 'angles' in labels else None
+    len_labels = tf.cast(labels['n_frames'],
+                         tf.int32) if seq_labels is not None else None
+
     decoder = SequenceDecoder(
         n_labels,
         hidden_state,
         cell_type=params.rnn_cell,
-        memory=embedding_outputs,
+        memory=tf.nn.dropout(embedding_outputs, 1.0 - params.dropout),
+        memory_sequence_length=sequence_length,
+        label_lengths=len_labels,
         attention_size=params.attention_size)
-
-    seq_labels = None
-    len_labels = None
-
-    if mode != tf.estimator.ModeKeys.PREDICT:
-      seq_labels = labels['angles'] if 'angles' in labels else None
-      len_labels = tf.cast(labels['n_frames'],
-                           tf.int32) if seq_labels is not None else None
-      tf.summary.histogram('n_frames', len_labels)
 
     output = decoder.decode(seq_labels, len_labels)
 
@@ -133,7 +133,7 @@ def rnn_model_fn(features, labels, mode, params):
   else:
     optimizer = tf.train.RMSPropOptimizer(
       learning_rate=params.learning_rate,
-      momentum=0.5)
+      momentum=0.0)
     train_op = optimizer.minimize(
         loss=loss, global_step=tf.train.get_global_step())
 
@@ -156,7 +156,8 @@ def generate_model_spec_name(params):
   name += 'dropout={},'.format(params.dropout)
   name += 'learning_rate={},'.format(params.learning_rate)
   name += 'batch_size={},'.format(params.batch_size)
-  name += 'attention_size={}'.format(params.attention_size)
+  name += 'attention_size={},'.format(params.attention_size)
+  name += 'embedding_size={}'.format(params.embedding_size)
 
   if params.note is not None:
     name += ',note={}'.format(params.note)
@@ -191,6 +192,7 @@ def setup_estimator(custom_params=dict()):
       labels_std=std,
       use_pretrained_encoder=False,
       attention_size=8,
+      embedding_size=32,
       note=None)
 
   model_params = default_params.override_from_dict(custom_params)
@@ -209,7 +211,7 @@ def setup_estimator(custom_params=dict()):
                 key='subtitle',
                 vocabulary_file='vocab.txt',
                 vocabulary_size=512),
-            4)
+            model_params.embedding_size)
     ]
 
   model_params = model_params.override_from_dict(dict(
@@ -244,7 +246,7 @@ def predict_class(subtitle):
     return preds[0]
 
 
-def run_experiment(custom_params=dict()):
+def run_experiment(custom_params=dict(), options=None):
   """Runs an experiment with parameters changed as specified.
     The results are saved in log/xxx where xxx is specified by the
     specific parameters.
@@ -255,21 +257,23 @@ def run_experiment(custom_params=dict()):
 
   estimator, model_params = setup_estimator(custom_params)
 
-  do_train = True
-  if do_train:
+  if options.train:
     # profiler_hook = tf.train.ProfilerHook(save_steps=200, output_dir='profile')
     debug_hook = tf_debug.TensorBoardDebugHook("localhost:7000")
     # debug_hook = tf_debug.LocalCLIDebugHook()
     estimator.train(lambda: data.input_fn(
         '../clips.tfrecords',
         batch_size=model_params.batch_size,
-        n_epochs=128,
+        n_epochs=256,
         split_sentences=(model_params.use_pretrained_encoder is False)
     ), hooks=[])
 
-  do_predict = True
-  if do_predict:
-    subtitle = 'the cat was standing on a large chair and sent a message to the pope'
+  if options.predict:
+    subtitle = 'oh my god now it actually produces a different output for different subtitles'
+
+    if not model_params.use_pretrained_encoder:
+      subtitle = subtitle.split(' ')
+      subtitle = list(filter(lambda x: len(x.strip()) > 0, map(common.data_utils.clean_word, subtitle)))
 
     predict_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={
@@ -296,15 +300,28 @@ def run_experiment(custom_params=dict()):
 
 
 if __name__ == '__main__':
+  parser = argparse.ArgumentParser(description='Run a pose prediction model.')
+  parser.add_argument('--train',
+                      dest='train',
+                      action='store_true',
+                      help='whether to train the model')
+  parser.add_argument('--predict',
+                      dest='predict',
+                      action='store_true',
+                      help='whether do a prediction (after training)')
+  parser.set_defaults(
+    train=False,
+    predict=False)
+
   run_experiment({
       'output_type': 'sequences',
       'motion_loss_weight': 0.5,
       'rnn_cell': 'GRUCell',
       'batch_size': 32,
       'use_pretrained_encoder': False,
-      'hidden_size': 8,
-      'learning_rate': 0.01,
-      'dropout': 0.5,
-      'attention_size': 8,
-      'note': 'input_keep'
-  })
+      'hidden_size': 128,
+      'learning_rate': 0.001,
+      'dropout': 0.3,
+      'embedding_size': 16,
+      'note': 'attention_wrapper'
+  }, parser.parse_args())
