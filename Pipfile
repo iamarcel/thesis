@@ -31,6 +31,7 @@ progressbar = "*"
 joblib = "*"
 tensorflow = "*"
 watson-developer-cloud = "*"
+certifi = "*"
 
 [requires]
 python_version = "2.7"

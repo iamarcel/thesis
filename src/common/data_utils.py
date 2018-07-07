@@ -263,9 +263,10 @@ def normalize_clips(read_path=DEFAULT_CLIPS_PATH,
   else:
     config = {}
 
+  # First entry is for length indicator
   config['angle_stats'] = {
-      'mean': np.mean(all_angles, axis=0).tolist(),
-      'std': np.std(all_angles, axis=0).tolist()
+      'mean': [0.0] + np.mean(all_angles, axis=0).tolist(),
+      'std': [1.0] + np.std(all_angles, axis=0).tolist()
   }
 
   with open(config_path, 'w') as config_file:

@@ -58,8 +58,8 @@ def create_question(bot_port):
 
   # Write question data
   clip = common.data_utils.get_random_clip()
-  video_order = [0, 1, 2]
-  random.shuffle(video_order)
+  video_order = [0, 1, 2, 3]
+  # random.shuffle(video_order)
   with jsonlines.open('questions.jsonl', mode='a') as writer:
     question = dict(
         id=clip['id'],
@@ -110,7 +110,11 @@ def create_question(bot_port):
   predicted_class = learning.model.predict_class(clip['subtitle'])
   clusters = common.data_utils.get_clusters()
   cluster = common.data_utils.get_clusters()[predicted_class]
-  file_name_predicted = record_pose_animation(cluster, 'predicted')
+  file_name_cluster = record_pose_animation(cluster, 'cluster')
+
+  bot.reset_pose()
+  prediction = learning.model.predict_sequence(clip['subtitle'])
+  file_name_predicted = record_pose_animation(prediction, 'predicted')
 
   bot.reset_pose()
   time_expected = int(math.ceil(len(clip['angles']) / 25)) + 1
@@ -120,20 +124,21 @@ def create_question(bot_port):
   print(output)
 
   # Merge it all
-  video_file_names = [file_name_expected, file_name_predicted, file_name_nao]
+  video_file_names = [file_name_expected, file_name_cluster, file_name_predicted, file_name_nao]
   proc = Popen([
       'ffmpeg',
       '-i', video_file_names[video_order[0]],
       '-i', video_file_names[video_order[1]],
       '-i', video_file_names[video_order[2]],
+      '-i', video_file_names[video_order[3]],
       '-i', file_name_speech,
-      '-filter_complex', ('[0:v][1:v][2:v]hstack=inputs=3[v];' +
+      '-filter_complex', ('[0:v][1:v][2:v][3:v]hstack=inputs=4[v];' +
                           "[v]drawtext=text=" + clip['subtitle'] + ":fontfile=DejaVuSans\\\:style=Bold" + 
                           ":x=(main_w/2-text_w/2)" +
                           ":y=(main_h-(text_h*2)):fontsize=48:fontcolor=white" +
                           ":borderw=2 [v]"),
       '-map', '[v]',
-      '-map', '3:a:0',
+      '-map', '4:a:0',
       os.path.join(common.data_utils.DEFAULT_VIDEO_PATH, clip['id'] + '--merged.mp4')
   ])
   proc.wait()

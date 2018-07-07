@@ -522,6 +522,22 @@ def get_input_sentences(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
   return input_fn, feature_columns, len(vocab), vocab, n_labels
 
 
+def add_sequence_length_indicator(angle_list):
+  return [1.] + angle_list
+
+
+def add_length_indicator(frames):
+  n_frames = float(len(frames))
+  output = []
+  for i, angles in enumerate(frames):
+    output += [[(n_frames - float(i) - 1) / n_frames] + angles]
+  return output
+
+
+def add_zero_pose(frames):
+  return frames + [[-1.] + [0.] * len(common.pose_utils.ANGLE_NAMES_ORDER)]
+
+
 def _str_feature(value):
   return tf.train.Feature(
       bytes_list=tf.train.BytesList(value=[tf.compat.as_bytes(value)]))
@@ -551,7 +567,9 @@ def create_tfrecords(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
   for clip in clips:
     points_3d = np.asarray(clip['points_3d'])
     angles = list(map(common.pose_utils.get_angle_list, clip['angles']))
-    n_frames = points_3d.shape[0]
+    angles = add_length_indicator(angles)
+    angles = add_zero_pose(angles)
+    n_frames = points_3d.shape[0] + 1
 
     context = {
         'id': _str_feature(clip['id']),
@@ -598,7 +616,7 @@ def parse_tfrecord(serialized):
       tf.FixedLenSequenceFeature(shape=[32, 3], dtype=tf.float32),
       'angles':
       tf.FixedLenSequenceFeature(
-          shape=[len(common.pose_utils.ANGLE_NAMES_ORDER)], dtype=tf.float32)
+          shape=[len(common.pose_utils.ANGLE_NAMES_ORDER) + 1], dtype=tf.float32)
   }
 
   context, sequence = tf.parse_single_sequence_example(
@@ -695,7 +713,7 @@ def input_fn(filenames, batch_size=32, buffer_size=2048, n_epochs=None,
       }, {
           'class': [],
           'n_frames': [],
-          'angles': [None, len(common.pose_utils.ANGLE_NAMES_ORDER)],
+          'angles': [None, len(common.pose_utils.ANGLE_NAMES_ORDER) + 1],
           'points': [None, len(common.pose_utils.H36M_NAMES), 3]
       }))
   dataset = dataset.map(make_time_major)

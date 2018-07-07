@@ -49,7 +49,7 @@ def rnn_model_fn(features, labels, mode, params):
   with tf.variable_scope('text_embedding'):
     if params.use_pretrained_encoder:
       hidden_state = tf.feature_column.input_layer(features, params.feature_columns)
-      embedding_outputs = None
+      memory = None
     else:
       batch_major_hidden_state, sequence_length = tf.contrib.feature_column.sequence_input_layer(features, params.feature_columns)
       real_batch_size = tf.shape(batch_major_hidden_state)[0]
@@ -59,14 +59,15 @@ def rnn_model_fn(features, labels, mode, params):
       with tf.variable_scope('sequence_encoder'):
         encoder = SequenceEncoder(hidden_size=params.hidden_size, dtype=tf.float32,
                                   batch_size=real_batch_size)
-        embedding_outputs, hidden_state = encoder.encode(hidden_state)
+        memory, hidden_state = encoder.encode(hidden_state)
+        memory = tf.layers.dense(memory, params.hidden_size)
+        memory = tf.layers.dense(memory, params.hidden_size)
 
   train_op = None
   loss = None
   predictions = None
   if params.output_type == 'sequences':
     n_labels = params.n_labels
-    hidden_state = tf.layers.dense(hidden_state, n_labels)
 
     seq_labels = None
     len_labels = None
@@ -74,14 +75,15 @@ def rnn_model_fn(features, labels, mode, params):
     len_labels = tf.cast(labels['n_frames'],
                          tf.int32) if seq_labels is not None else None
 
+    hidden_state = tf.layers.dense(hidden_state, n_labels)
+
     decoder = SequenceDecoder(
-        n_labels,
-        hidden_state,
+        output_size=n_labels,
+        initial_state=hidden_state,
         cell_type=params.rnn_cell,
-        memory=tf.nn.dropout(embedding_outputs, 1.0 - params.dropout),
+        memory=tf.nn.dropout(memory, 1.0 - params.dropout),
         memory_sequence_length=sequence_length,
-        label_lengths=len_labels,
-        attention_size=params.attention_size)
+        label_lengths=len_labels)
 
     output = decoder.decode(seq_labels, len_labels)
 
@@ -114,6 +116,8 @@ def rnn_model_fn(features, labels, mode, params):
         inputs=hidden_state,
         rate=params.dropout,
         training=mode == tf.estimator.ModeKeys.PREDICT)
+    dropout = tf.layers.dense(
+        inputs=dropout, units=params.hidden_size, activation=tf.nn.relu)
     logits = tf.layers.dense(
         inputs=dropout, units=params.n_classes, activation=tf.nn.relu)
 
@@ -133,7 +137,7 @@ def rnn_model_fn(features, labels, mode, params):
   else:
     optimizer = tf.train.RMSPropOptimizer(
       learning_rate=params.learning_rate,
-      momentum=0.0)
+      momentum=0.5)
     train_op = optimizer.minimize(
         loss=loss, global_step=tf.train.get_global_step())
 
@@ -156,7 +160,6 @@ def generate_model_spec_name(params):
   name += 'dropout={},'.format(params.dropout)
   name += 'learning_rate={},'.format(params.learning_rate)
   name += 'batch_size={},'.format(params.batch_size)
-  name += 'attention_size={},'.format(params.attention_size)
   name += 'embedding_size={}'.format(params.embedding_size)
 
   if params.note is not None:
@@ -182,16 +185,15 @@ def setup_estimator(custom_params=dict()):
       output_type='sequences',
       rnn_cell='BasicRNNCell',
       dropout=0.3,
-      n_labels=10,
+      n_labels=11,
       n_classes=8,
-      hidden_size=512,
+      hidden_size=32,
       batch_size=8,
       learning_rate=0.001,
       motion_loss_weight=0.5,
       labels_mean=mean,
       labels_std=std,
       use_pretrained_encoder=False,
-      attention_size=8,
       embedding_size=32,
       note=None)
 
@@ -201,7 +203,7 @@ def setup_estimator(custom_params=dict()):
     feature_columns = [
         hub.text_embedding_column(
             'subtitle',
-            'https://tfhub.dev/google/universal-sentence-encoder/1',
+            'https://tfhub.dev/google/universal-sentence-encoder/2',
             trainable=False)
     ]
   else:
@@ -246,6 +248,44 @@ def predict_class(subtitle):
     return preds[0]
 
 
+def predict_sequence(subtitle):
+  estimator, model_params = setup_estimator({
+      'output_type': 'sequences',
+      'motion_loss_weight': 0.9,
+      'rnn_cell': 'GRUCell',
+      'batch_size': 32,
+      'use_pretrained_encoder': False,
+      'hidden_size': 128,
+      'learning_rate': 0.001,
+      'dropout': 0.5,
+      'embedding_size': 64,
+      'note': '2_extra_layers'
+  })
+
+  if not model_params.use_pretrained_encoder:
+    subtitle = subtitle.split(' ')
+    subtitle = list(filter(lambda x: len(x.strip()) > 0, map(common.data_utils.clean_word, subtitle)))
+
+  predict_input_fn = tf.estimator.inputs.numpy_input_fn(
+      x={
+          'subtitle': np.array([subtitle]),
+      }, num_epochs=1, shuffle=False)
+  preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
+
+  print(preds[:, 0, 0])
+  end_markers = np.where(preds[:, 0, 0] < 0.3)[0]
+  if len(end_markers) == 0:
+    n_frames = 150
+  else:
+    n_frames = end_markers[0]
+  print("Length: {} frames.".format(n_frames))
+  frames = preds[:n_frames, 0, 1:].tolist()
+  n_frames = 500
+  angles = list(map(common.pose_utils.get_named_angles, frames))
+
+  return angles
+
+
 def run_experiment(custom_params=dict(), options=None):
   """Runs an experiment with parameters changed as specified.
     The results are saved in log/xxx where xxx is specified by the
@@ -264,12 +304,12 @@ def run_experiment(custom_params=dict(), options=None):
     estimator.train(lambda: data.input_fn(
         '../clips.tfrecords',
         batch_size=model_params.batch_size,
-        n_epochs=256,
+        n_epochs=512,
         split_sentences=(model_params.use_pretrained_encoder is False)
     ), hooks=[])
 
   if options.predict:
-    subtitle = 'oh my god now it actually produces a different output for different subtitles'
+    subtitle = 'no dont worry its something else'
 
     if not model_params.use_pretrained_encoder:
       subtitle = subtitle.split(' ')
@@ -280,10 +320,17 @@ def run_experiment(custom_params=dict(), options=None):
             'subtitle': np.array([subtitle]),
         }, num_epochs=1, shuffle=False)
     preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
-    n_frames = 70
 
     if model_params.output_type == 'sequences':
-      frames = preds[:n_frames, 0, :].tolist()
+      print(preds[:, 0, 0])
+      end_markers = np.where(preds[:, 0, 0] < 0.3)[0]
+      if len(end_markers) == 0:
+        n_frames = 150
+      else:
+        n_frames = end_markers[0]
+      print("Length: {} frames.".format(n_frames))
+      frames = preds[:n_frames, 0, 1:].tolist()
+      n_frames = 500
       angles = list(map(common.pose_utils.get_named_angles, frames))
 
       with open("predicted_angles.json", "w") as write_file:
@@ -313,15 +360,23 @@ if __name__ == '__main__':
     train=False,
     predict=False)
 
+  # run_experiment({
+  #     'output_type': 'sequences',
+  #     'motion_loss_weight': 0.9,
+  #     'rnn_cell': 'GRUCell',
+  #     'batch_size': 32,
+  #     'use_pretrained_encoder': False,
+  #     'hidden_size': 128,
+  #     'learning_rate': 0.001,
+  #     'dropout': 0.5,
+  #     'embedding_size': 64,
+  #     'note': '2_extra_layers'
+  # }, parser.parse_args())
+
   run_experiment({
-      'output_type': 'sequences',
-      'motion_loss_weight': 0.5,
-      'rnn_cell': 'GRUCell',
+      'output_type': 'classes',
+      'motion_loss_weight': 0.8,
+      'rnn_cell': 'BasicLSTMCell',
       'batch_size': 32,
-      'use_pretrained_encoder': False,
-      'hidden_size': 128,
-      'learning_rate': 0.001,
-      'dropout': 0.3,
-      'embedding_size': 16,
-      'note': 'attention_wrapper'
+      'use_pretrained_encoder': True
   }, parser.parse_args())
