@@ -9,6 +9,7 @@ import os
 import os.path
 import math
 import random
+import itertools
 
 import json
 import jsonlines
@@ -57,21 +58,41 @@ def create_question(bot_port):
   import common.watson
 
   # Write question data
-  clip = common.data_utils.get_random_clip()
   video_order = [0, 1, 2, 3]
   # random.shuffle(video_order)
+
+  clips = [common.data_utils.get_random_clip() for _ in range(3)]
+  subtitle = ''
+  subtitles = []
   with jsonlines.open('questions.jsonl', mode='a') as writer:
     question = dict(
-        id=clip['id'],
-        subtitle=clip['subtitle'],
-        angles_expected=clip['angles'],
-        class_expected=clip['class'],
+        ids=[],
+        subtitle='',
+        angles_expected=[],
+        classes_expected=[],
+        n_frames_expected=[],
         video_order=video_order)
+
+    for clip in clips:
+      question['ids'] += [clip['id']]
+      subtitle += clip['subtitle'] + ' '
+      subtitles += [str(clip['subtitle'])]
+      question['angles_expected'] += clip['angles']
+      question['classes_expected'] += [clip['class']]
+      question['n_frames_expected'] += [len(clip['angles'])]
+
+    question['subtitle'] = subtitle
     writer.write(question)
 
+  print(subtitles)
+  question_id = '.'.join(question['ids'])
+
   # Generate TTS audio clip
-  file_name_speech = os.path.join(common.data_utils.DEFAULT_TTS_PATH, clip['id'] + '.wav')
-  common.watson.write_tts_clip(file_name_speech, clip['subtitle'])
+  file_names_speech = []
+  for i, sub in enumerate(subtitles):
+    file_name_speech = os.path.join(common.data_utils.DEFAULT_TTS_PATH, question['ids'][i] + '.wav')
+    common.watson.write_tts_clip(file_name_speech, subtitle)
+    file_names_speech += [file_name_speech]
 
   # Record clips
   # Define some functions
@@ -88,7 +109,7 @@ def create_question(bot_port):
         '-s', '560x752',
         '-i', ':1+1280,270',
         '-t', str(time),
-        file_name
+        str(file_name)
     ])
 
     return p_recording, file_name
@@ -104,26 +125,49 @@ def create_question(bot_port):
 
   # Now, use them
   bot.reset_pose()
-  file_name_expected = record_pose_animation(clip['angles'], 'expected')
+  file_name_expected = record_pose_animation(question['angles_expected'], 'expected')
 
   bot.reset_pose()
-  predicted_class = learning.model.predict_class(clip['subtitle'])
   clusters = common.data_utils.get_clusters()
-  cluster = common.data_utils.get_clusters()[predicted_class]
-  file_name_cluster = record_pose_animation(cluster, 'cluster')
+  predictions = learning.model.predict_classes(subtitles)
+  animation = list(itertools.chain.from_iterable(clusters[x] for x in predictions))
+  file_name_cluster = record_pose_animation(animation, 'cluster')
 
   bot.reset_pose()
-  prediction = learning.model.predict_sequence(clip['subtitle'])
-  file_name_predicted = record_pose_animation(prediction, 'predicted')
+  animation = list(itertools.chain.from_iterable(learning.model.predict_sequences(subtitles)))
+  file_name_predicted = record_pose_animation(animation, 'predicted')
 
   bot.reset_pose()
-  time_expected = int(math.ceil(len(clip['angles']) / 25)) + 1
+  time_expected = int(math.ceil(len(question['angles_expected']) / 25)) + 1
   proc, file_name_nao = record_screen('nao', time_expected)
-  bot.say(clip['subtitle'])
+  bot.say(subtitle)
   output = proc.wait()
-  print(output)
+
+  def text_filter(text, start, end):
+    text = text.replace('\'', '\\\'')
+    return (';[v]drawtext=text=\'' + text + '\'' +
+            ":enable='between(t,"+str(int(math.ceil(start)))+","+str(int(math.floor(end)))+")'"
+            ":fontfile=DejaVuSans\\\:style=Bold" +
+            ":x=(main_w/2-text_w/2)" +
+            ":y=(main_h-(text_h*2)):fontsize=48:fontcolor=white" +
+            ":borderw=2[v]")
 
   # Merge it all
+  text_filters = ''
+  start = 0
+  for i, sub in enumerate(subtitles):
+    end = start + float(question['n_frames_expected'][i]) / 25
+    print(start)
+    print(end)
+    text_filters += text_filter(sub, start, end)
+    start = end
+    print(start)
+    print(end)
+
+  print(text_filters)
+
+  subtitles = ''.join(text_filter(sub, question['n_frames_expected'][i], end) for i, sub in enumerate(subtitles))
+  print(subtitles)
   video_file_names = [file_name_expected, file_name_cluster, file_name_predicted, file_name_nao]
   proc = Popen([
       'ffmpeg',
@@ -131,14 +175,15 @@ def create_question(bot_port):
       '-i', video_file_names[video_order[1]],
       '-i', video_file_names[video_order[2]],
       '-i', video_file_names[video_order[3]],
-      '-i', file_name_speech,
-      '-filter_complex', ('[0:v][1:v][2:v][3:v]hstack=inputs=4[v];' +
-                          "[v]drawtext=text=" + clip['subtitle'] + ":fontfile=DejaVuSans\\\:style=Bold" + 
-                          ":x=(main_w/2-text_w/2)" +
-                          ":y=(main_h-(text_h*2)):fontsize=48:fontcolor=white" +
-                          ":borderw=2 [v]"),
+      '-i', file_names_speech[0], '-itsoffset', str(math.ceil(question['n_frames_expected'][0] / 25)),
+      '-i', file_names_speech[1], '-itsoffset', str(math.ceil((question['n_frames_expected'][0] + question['n_frames_expected'][1]) / 25)),
+      '-i', file_names_speech[2],
+      '-filter_complex', ('[0:v][1:v][2:v][3:v]hstack=inputs=4[v]' +
+                          text_filters +
+                          ';[4:a][5:a][6:a]amix=3[a]'),
       '-map', '[v]',
-      '-map', '4:a:0',
+      '-map', '[a]',
+      # '-map', '4:a:0',
       os.path.join(common.data_utils.DEFAULT_VIDEO_PATH, clip['id'] + '--merged.mp4')
   ])
   proc.wait()
@@ -153,7 +198,7 @@ if __name__ == '__main__':
       'test-zero-pose', 'test-normalization', 'test-plot-angles',
       'get-poses-from-angle-files', 'bot-play-clusters', 'create-tfrecords',
       'create-primitives', 'create-vocabulary', 'create-question',
-      'create-sfa-dataset'
+      'create-sfa-dataset', 'test-2d-pose'
   ]
 
   parser = argparse.ArgumentParser(description='Manipulate clip data files.')
@@ -180,6 +225,18 @@ if __name__ == '__main__':
     common.data_utils.add_clips_to(*args.args)
   elif command_name == 'merge':
     common.data_utils.add_clips_to(*args.args)
+  elif command_name == 'test-2d-pose':
+    clips = common.data_utils.get_clips()
+    for clip in clips:
+      try:
+        poses = common.pose_utils.load_clip_keypoints(
+          clip,
+          openpose_output_dir='./openpose/src/output/')
+        common.visualize.show_2d_pose(poses)
+        break
+      except:
+        continue
+
   elif command_name == 'move-2d-finished-images':
     common.data_utils.move_2d_finished_images(*args.args)
   elif command_name == 'normalize':

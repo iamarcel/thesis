@@ -32,7 +32,7 @@
 
 
 
-* Notes
+* Notes :noexport:
 
 ** Kan uitleggen waarom je sterk verschillende trainingsdata gebruikt
 
@@ -790,59 +790,115 @@
     When the input and output of an encoder-decoder network are the same, this
     stucture is called an /autoencoder/. An autoencoder can be trained without
     supervision and learns to create an internal representation (the thought
-    vector) which is non-sequential and often is of much smaller dimensionality
-    than the original data. This encoder part can then be re-used as the first
-    step in a supervised problem.
+    vector) which is of much smaller dimensionality than the original data. This
+    encoder part can then be re-used as the first step in a supervised problem.
+    An autoencoder can be used to compute a more efficient and meaningful
+    representation of some input or to compute a fixed-length representation of
+    a sequence, when the encoder and decoder networks are recurrent neural
+    networks.
 
-    In Natural Language Processing (NLP), this method has been applied widely
-    with the word2vec algorithm
-
-    It is reasonable to assume that sentences with a similar meaning would
-    correspond with similar gestures. Thus, working from a semantic
-    representation rather than the text being processed directly could help in
-    producing better gestures. This is precisely what text embedding systems do:
-    they "interpret" text and return a representation of its semantics. For
-    example, the embedded vectors of similar words or sentences will be close
-    together.
-
-    These systems are in use in various Natural Language Processing (NLP) tasks
-    such as sentiment analysis and categorization
-    https://medium.com/@josecamachocollados/on-the-contribution-of-neural-networks-and-word-embeddings-in-natural-language-processing-c8bb1b85c61c.
-
+    One of the most use applications of this encoder-decoder architecture is in
+    /text embedding/, which is the process of creating a vector representation
+    for parts of text (characters, parts of words, words or sentences). The
+    ~word2vec~ algorithm is a popular implementation that embeds words in a
+    vector space, where the positional relationship in this vector space is
+    related to the semantic relationship between words. For example, the
+    operation $\mathrm{vec}(``king'') - \mathrm{vec}(``man'') +
+    \mathrm{vec}(``woman'')$ resulted in the vector which was closest to the
+    vector representation of the word "queen"
+    cite:mikolov13_effic_estim_word_repres_vector_space.
     
+    Since it is reasonable to assume that sentences with a similar semantic
+    meaning would result in similar gestures, a text embedding could be used as
+    a first step to process the input sentence before generating a gesture. The
+    advantage of this step is that existing pre-trained models are available.
+    This could increase the effectiveness of the gesture synthesis process,
+    especially if only a small dataset can be collected as training data. 
+
+    The TensorFlow team recently announced a new library /TensorFlow Hub/ that
+    is now part of the TensorFlow ecosystem, which allows access to pre-trained
+    models with a very simple API cite:introducing-tfhub. This library includes
+    built-in access to a variety of text embedding modules, including the
+    ~word2vec~ algorithm and the /universal sentence encoder/ which processes
+    greater-than-word length text cite:tfhub-text.
+
 ** The Dataset label:sec-research-dataset
    :PROPERTIES:
    :Effort:   1:00
    :END:
 
-   To build a system that can generate gestures for a given text using machine
-   learning, one needs training data. Specifically, to predict gestures from
-   text, the dataset should contain pairs of text being spoken and the
-   corresponding gesture.
+   The dataset is a crucial component of any machine learning project. In this
+   case, the model should be trained to predict gestures from a sentence as
+   input. This means the dataset should contain these input-output pairs: text
+   as input and gestures as output.
 
-   Gestures can generally be represented by /poses/, the position of a person's
-   joints. This can easily be used with virtual avatars but real robots require
-   other types of input. The NAOqi software, for example, can only move the
-   wrists to a specific position using inverse kinematics cite:TODO. For more
-   precise control, the angles of its joints are expected.
+   Gestures will be represented as sequences of /poses/, which are single frames
+   with the position of a person's joints. This is the format used in motion
+   tracking systems and can easily be represented on a virtual avatar.
+   
+   #+caption: Example of a /pose/, a collection of joint positions. Specifically, this figure describes the format used in the OpenPose keypoint detection library cite:cao16_realt_multi_person_pose_estim.
+   [[file:./img/openpose_keypoints.png]]
 
-   The biggest datasets available for human motion are the H36M cite:TODO and
-   Panopticon cite:TODO datasets. However, both of these datasets are more
-   geared towards activity recognition or pose estimation and thus include data
-   for a large range of activities but not much data about people talking.
-   Additionally, the text of what is being said is not available. With that in
-   mind, the dataset will need to be created.
+   A real robot however often requires a different type of input; the NAOqi API
+   only provides the ability to directly specify the joint position of its
+   wrists and torso cite:naoqi_cartesian_control. In order to manipulate the
+   arms more precisely, the robot expects the joint angles instead
+   cite:naoqi_joint_control. The simplest way to calculate these joint angles is
+   to measure the angles between the joints in their positional representation.
+   By using SoftBank's specification of these angles, they can be directly
+   measured on a pose in order to move the robot to this position
+   cite:naoqi_joint_control.
+   
+   Next to this difference in data format, it should be noted that these robots
+   do not have the range of motion of humans, nor can they move their joints as
+   quickly as people. This is a hard constraint on the extent to which human
+   gesture can be imitated by a robot. The NAOqi API allows developers to
+   specify the desired joint angles at every moment, which the robot will
+   fulfill to its best ability.
 
-*** YouTube
+   In order to avoid issues with the robot's balance, only the pose data of the
+   upper body will be used to control the robot. SoftBank's Pepper robot has a
+   hip joint which can be controlled without the risk of it toppling over
+   (Pepper has a wheeled base), but NAO walks on its feet so controlling the
+   legs to move its hips is risky.
+   
+   There are various datasets available of human motion, such as the Human3.6M
+   and CMU Panopticon datasets
+   cite:h36m_pami,Joo_2017_TPAMI,PoseletsICCV09,Shahroudy_2016_CVPR. However,
+   these were created with the intent of training pose estimation or activity
+   recognition techniques, resulting in datasets that are diverse in the kind of
+   movements but have no or few samples of people who are talking. These
+   datasets do not include subtitles for the text being spoken and lack audio
+   tracks.
+   
+   As the dataset required for this project is not readily available, one will
+   need to be created. Below, the elements for an approach to build a dataset
+   from freely available videos and existing pose estimation projects are
+   outlined.
+   
+*** Video Collection
 
-    YouTube is one of the most popular websites and contains an abundance of
-    video, from a wide variety of people in all kinds of environments and
-    performing many activities cite:TODO. Videos with English spoken text are
+    YouTube cite:youtube is one of the most popular websites and contains video
+    footage from a wide variety of people in all kinds of environments and
+    performing many activities. Videos with English spoken text are
     automatically transcribed which means that the subtitles for many videos are
-    available, too.
+    available. This means an adequate amount of video footage of people talking
+    and gesturing would likely be available.
 
-    If these videos could be processed in order to extract the poses of people
-    talking, a dataset could be constructed this way.
+    To download YouTube videos with their subtitles, ~youtube-dl~ can be used
+    which is a command line utility that can download video from a variety of
+    sources including YouTube cite:youtube_dl.
+
+    It is unlikely that entire videos will be usable so some pre-processing will
+    need to be done on the downloaded videos. In particular, the parts of the
+    videos that have suitable footage will need to be selected and the video
+    will need to be split up in sentences with the corresponding footage.
+    ~ffprobe~ is a command line utility that is part of the ~ffmpeg~ multimedia
+    framework and can be used to detect scene changes (for example, when the
+    footage cuts to another camera angle) cite:ffprobe. This can be used to aid
+    the selection of footage, because pose estimation will be unstable across
+    hard cuts and it is usually the case that a scene is either completely
+    usable or completely unusable.
 
 *** Pose Estimation
 
@@ -851,50 +907,63 @@
     (sequence). That is, the position of a person's joints (for example, the
     left knee, right wrist etc.) are estimated on the image.
 
-    Quite successful methods have been found to do pose estimation. The Stacked
-    Hourglass cite:newell16_stack_hourg_networ_human_pose_estim, OpenPose
+    Some recent projects have had good results in estimating the (2D) positions
+    of joints in images. The Stacked Hourglass
+    cite:newell16_stack_hourg_networ_human_pose_estim, OpenPose
     cite:cao16_realt_multi_person_pose_estim and AlphaPose cite:fang16_rmpe
     networks have state-of-the-art results and have their source code freely
     available. All of these systems internally use convolutional neural networks
     to process their input images. The OpenPose and AlphaPose networks can
     detect multiple people in an image and do not have scaling or centering
-    constraints.
+    constraints, as opposed to the Stacked Hourglass algorithm.
 
     These networks estimate the two-dimensional position of joints in an image.
     To control a robot, however, the three-dimensional position of these poses
     (or the angles between them) is needed. There are two ways to approach
     three-dimensional pose estimation: either one first estimates the pose in
-    2D, then "lifts" this into three dimensions, or one directly estimated the
+    2D, then "lifts" this into three dimensions, or one directly estimates the
     3D poses from an image.
+    
+    #+caption: label:fig:openpose_format Example of 2D pose detections by OpenPose cite:cao16_realt_multi_person_pose_estim.
+    [[file:./img/openpose_demo.gif]]
 
-    It is possible to estimate 3D poses straight from monocular images cite:TODO
-    but these projects' source code is not available or they do not produce
-    results as good as the other method: lifting 2D poses to 3D. The
-    "3d-pose-baseline" project is what the authors consider to be a baseline for
-    2D-to-3D lifting of poses; it is a simple neural network but works very
-    well. The code is available on GitHub.
+    It is possible to estimate 3D poses straight from monocular images
+    cite:mehta16_monoc_human_pose_estim_in,simo-serra13_joint_model_pose_estim_singl_image,
+    however, the source code of these projects is not available. For the VNect
+    project, an unofficial TensorFlow implementation is available
+    cite:vnect_tensorflow but it did not produce results that were as good as
+    using the official implementation of the other method: lifting poses from 2D
+    to 3D.
+    
+    The "3d-pose-baseline" project is what the authors consider to be a baseline
+    for 2D-to-3D lifting of poses
+    cite:martinez17_simpl_yet_effec_basel_human_pose_estim; it is a simple
+    neural network but appeared to work well on the initial testing data. The
+    code is available on GitHub and written with TensorFlow so it could be
+    adapted for use within the rest of this project.
 
 ** Time Series Clustering label:sec-research-clustering
    :PROPERTIES:
    :Effort:   0:30
    :END:
-   Instead of directly predicting poses, the problem of gesture synthesis is
-   much simplified if we break down movement into a sequence of /motion
-   primitives/. This way, a two-step process appears:
+
+   Instead of directly predicting poses, the problem of gesture synthesis can be
+   much simplified if we break down movement into a sequence of motion
+   primitives. This way, a two-step process appears:
 
    1. Extract motion primitives from the pose data
    2. Predict motion primitives from parts of text
 
    To extract these motion primitives from the data, an unsupervised clustering
-   algorithm can be used to find clusters of (subsequences of) pose information.
+   algorithm could be used to find clusters of (subsequences of) gestures.
    Clustering, even with a large amount of features, is a well-understood
    problem and even one of the first techniques taught in most introductions to
    machine learning. /Time series/ clustering, however, introduces its own
-   challenges. In order to be able to identify these motion primitives, the
-   algorithm needs to be able to look at small parts of these sequences and find
-   similar-looking subsequences in other pose animations. One can compare this
-   to anomaly detection, albeit with more labels than thw two of "normal" and
-   "exceptional".
+   challenges cite:zolhavarieh14_review_subseq_time_series_clust. In order to be
+   able to identify these motion primitives, the algorithm needs to be able to
+   look at small parts of these sequences and find similar-looking subsequences
+   in other pose animations. One can compare this to anomaly detection, albeit
+   with more labels than thw two of "normal" and "exceptional".
 
    A first approach might be using a sliding window with some fixed time length
    and finding close matches across the dataset. However, sliding window
@@ -903,43 +972,44 @@
 
    Previous work has been one on activity clustering of motion capture data
    cite:zhou13_hierar_align_clust_analy_tempor, though here the difference
-   between different activities (e.g., walking versus sitting) is much less
-   subtle than different hand gestures. The source code of this project was not
-   accessible either so we have not tried this method on our data.
+   between different activities (e.g., walking versus sitting) is much more
+   pronounced than different gestures and the authors noted that it did not
+   perform well for smaller, more subtle movements.
 
-   To perform clustering on /whole/ time series, there are multiple methods. The
-   classic Dynamic Time Warping (DTW) distance metric can be used to compare
-   time series of different lengths and this can be used as a basis for a
-   clustering algorithm: clustering in its general form comes down to grouping
+   To perform clustering on /whole/ time series, there are multiple methods.
+   Noting that clustering in its most general form comes down to grouping
    samples so that the samples within a group are close to each other while
-   samples between groups are far away from each other, i.e., the distance
-   metric is the most important component of a clustering algorithm
-   cite:zolhavarieh14_review_subseq_time_series_clust. The ~dtwclust~ R package
-   cite:r-dtwclust provides a DTW-based clustering algorithm with the option to
-   use experiment different metrics like TADPole clustering.
+   samples between groups are far away from each other, the key element of a
+   clustering method is its distance metric
+   cite:zolhavarieh14_review_subseq_time_series_clust. The classic Dynamic Time
+   Warping (DTW) distance metric can be used to compare time series of different
+   lengths and is implemented in the ~dtwclust~ R package cite:r-dtwclust
+   which provides this and other clustering metrics. Additionally, this package
+   includes a few methods to extract a medioid of these clusters, which can be
+   used as the representation for a gesture to be played back on the robot.
 
 ** Conclusion
 
-   This chapter provided an overview of the works that this thesis will use and
-   build upon. Previous work on gesture synthesis were examined in both robots
-   and virtual agents; then a selected set of recent developments in machine
-   learning were described, particularly in terms of language processing and
-   time-series data processing; in autoref:sec-research-dataset the available
-   data was examined and the tools to create a dataset for this problem were
-   outlined; finally, in autoref:sec-research-clustering time-series clustering
-   algorithms were explored that could simplify this problem by discretizing it
-   into a set of motion primitives.
+   This chapter provided an overview of the previous work that this thesis uses
+   and builds upon. Previous work on gesture synthesis were examined in both
+   robots and virtual agents; then a selected set of recent developments in
+   machine learning was described, particularly in terms of language processing
+   and time-series data processing; in autoref:sec-research-dataset the
+   available data was examined and the tools to create a dataset for this
+   problem were outlined; finally, in autoref:sec-research-clustering
+   time-series clustering algorithms were explored that could simplify this
+   problem by discretizing it into a set of motion primitives.
 
-   With these components and starting points in place, an image begins to form
-   of what this complete system could look like. In the next section, these
-   components will be combined in a pipeline that performs gesture synthesis.
+   With these starting points in place, an architecture begins to take shape
+   that could complete the desired task. In the next section, these components
+   will be combined in a pipeline that performs gesture synthesis.
 
 * A Modern Approach to Gesture Synthesis label:sec:method
   SCHEDULED: <2018-07-02 ma>--<2018-07-15 zo>
 
   The goal of this project is to synthesize natural gestures on a robot in a
   continuous fashion, that carry some relation to what the robot is saying. This
-  will be done by first generating a dataset of clips ((subtitle, pose)-pairs)
+  will be done by first building a dataset of clips ((subtitle, pose)-pairs)
   by applying pose estimation to YouTube videos, then clustering these poses and
   then building a machine learning model that learns to predict these clusters
   from a given sentence. Finally, the resulting poses will be performed on a
@@ -974,7 +1044,7 @@
   #+END_SRC
 
   #+CAPTION: Overview of the pipeline that processes the data and generates gestures
-  #+ATTR_LATEX: :width 0.35\textwidth
+  #+ATTR_LATEX: :width 0.323\textwidth :float wrap :placement {R}[2cm]{0.5\textwidth}
   #+RESULTS: fig-pipeline
   [[file:./img/thesis-pipeline.png]]
 
@@ -983,23 +1053,21 @@
    :Effort:   0:30
    :END:
 
-   As this research is designed to be built upon, having a clear process and
-   easily accessible source code and data is important. All the code used in
-   this project is made available on the GitHub repository
-   https://github.com/iamarcel/thesis. The source for this report is also
-   present.
+   As this research is designed to be built upon, having easily accessible
+   source code and data is important. All the code used in this project is made
+   available on the GitHub repository https://github.com/iamarcel/thesis. The
+   source for this report is also present.
 
-   To maximize ease of use for the authors and future users of this work, Docker
-   cite:TODO was used to create a reproducible development environment that can
-   easily be set up by anyone. Docker is a system for running lightweight,
-   portable containers that make sure all required packages are present in a
-   version that is compatible.
+   To maximize ease of use for the author and future users of this work, Pipenv
+   cite:pipenv was used to manage the project's Python dependencies and is used
+   for most of the code. Using OpenPose required some more system-level
+   dependencies such as the NVIDIA CUDA and CuDNN libraries, so the environment
+   for using OpenPose was created as a Docker container.
 
    Information on how to use the code is available in the source code
    repository.
 
-*** TODO Mention how you use Pipenv, Docker only for OpenPose
-** Getting Pose Data
+** Collecting Pose Data
 
    Below, the process from finding video on YouTube to extracting the gesture
    data in a useful form is detailed. First, the Video Picker application that
@@ -1009,7 +1077,7 @@
 
    Throughout this section, the main unit of data will be called a "clip". A
    clip is the extracted data from the part of a video that corresponds with one
-   line in its subtitles and mainly consists of the following data points:
+   line in its subtitles and consists of the following fields:
 
    - An identifier (for tracking its source, preventing duplicates and
      identifying extracted frame images, which are stored separately)
@@ -1038,38 +1106,50 @@
       during the shot
 
     Whole videos that fulfill these needs are scarce but since the data has to
-    be cut into clips, videos can be processed to extracts only the parts that
+    be cut into clips, videos can be processed to extract only the parts that
     fulfill these requirements. The Video Picker application built assists in
     the process of finding good parts of a video and saving its data.
 
     When a video with suitable parts is found on YouTube and downloaded using
-    ~youtube-dl~ cite:TODO which can download the video and embed its
-    automatically generated subtitles, it is first examined by the scene
-    detection algorithm in ~ffprobe~ cite:TODO. Usually, a person is similarly
-    framed throughout a single shot so Video Picker can run semi-automatically
-    when a suitable shot is chosen.
+    ~youtube-dl~ cite:youtube_dl, it is first examined by the scene detection
+    algorithm in ~ffprobe~ cite:ffprobe. Usually, a person is similarly framed
+    throughout a single shot so Video Picker can run semi-automatically when a
+    suitable shot is chosen and save all the clips in a single scene/shot.
 
     Then, the video is opened in Video Picker. The video picker is a GUI in
     which the user can scrub through the video or navigate by shot. When he has
-    found a suitable scene, he can point at the person of interest with the
+    found a suitable shot, he can point at the person of interest with the
     mouse cursor and start recording this scene. Since the pose detection
     algorithm can detect multiple people in the scene (audience, for example)
     the user needs to point his cursor closest to the person he is interested
-    in.
+    in. This will be used later to filter out only the person of interest.
 
     The video picker then starts extracting the clips from the current shot.
-    Every clip is saved in a JSONL-format cite:TODO (where every line in the
-    file is a JSON-formatted object; this is much faster than reading and
+    Every clip is saved in a JSON Lines format cite:jsonlines (where every line
+    in the file is a JSON-formatted object; this is much faster than reading and
     parsing an entire JSON object at once) and the image frames are extracted
-    and saved with ~ffmpeg~ cite:TODO automatically by the application.
+    and saved with ~ffmpeg~ cite:ffmpeg automatically by the application.
 
     The user can also explicitly pick a single clip or stop extracting when the
-    shot has changed but the scene detection algorithm hadn't detected that
-    change. This happens, for example, when there is a fade between shots.
+    shot has changed but the scene detection algorithm had not detected that
+    change. This happens, for example, when there is a smooth transition between
+    shots.
 
-    In the back end, the video picker is a Python application using the GTK+
-    cite:TODO and GStreamer cite:TODO frameworks for building the GUI and
+    Below the surface, the video picker is a Python application using the GTK+
+    cite:gtk and GStreamer cite:gstreamer frameworks for building the GUI and
     playing back the video respectively.
+    
+    Due to the relatively strict conditions for usable videos (mainly the fact
+    that the person speaking should be fully visible), most of the videos used
+    in this project are of people who are presenting on a stage, e.g.,
+    presenters of TED talks. This will necessarily result in a set of gestures
+    that might not completely correspond to the gestures one performs in a
+    dialogue with another person. On the other hand, this limited "gesture
+    vocabulary" will make it easier to train a machine learning model and the
+    resulting gestures will likely still look natural. It would likely be
+    possible to train this pipeline on a different set of specialized gestures,
+    such as gestures of someone telling fairy tales, which the model could then
+    learn to imitate.
 
 **** TODO Figure: screenshot
 *** Detecting 2D Poses with OpenPose
@@ -1077,22 +1157,37 @@
     :Effort:   0:30
     :END:
 
-    The authors of OpenPose included a sample application that, once compiled,
-    can read a directory of images and write the poses in each image to a JSON
-    file. This program is run on the output directory of the video picker
-    application and afterwards, the pose data from OpenPose is added to the
-    database of clips.
+    Once the video clips are collected, the next step is to perform 2D pose
+    estimation on the extracted image frames and saving those results to the
+    clips. The authors of OpenPose included a sample application that, once
+    compiled, can read a directory of images and write the poses in each image
+    to a JSON file. This "demo" program is run on the output directory of the
+    video picker application and afterwards, the pose data from OpenPose is
+    added to the database of clips. When adding the results from OpenPose to the
+    clips, the location of interest that the user specified when extracting the
+    clip in the video picker is used to select the desired person if multiple
+    people were detected.
 
     The OpenPose output format is a list wherein the $x$ position, $y$ position
     and confidence score of each joint is specified, in the order of the pose
-    model OpenPose used cite:TODO. This list is specified for each person
-    detected in the image. If, in a clip, one or more joint positions have a
-    very small confidence, that clip is not used further.
+    model OpenPose used cite:openpose_output. This list is specified for each
+    person detected in the image. If, in a clip, one or more joint positions
+    have a very small confidence, that clip is not used further to avoid errant
+    results later on in the process. autoref:fig:openpose_format shows the order
+    of keypoints in this list.
 
-    There is no stability in the detected people, i.e., people can disappear or
-    appear over time and the order in which they are specified can change
-    throughout frames. This is why the user must specify the center of the
-    target person while selecting video clips in the video picker.
+    Note that there is no stability in the detected people, i.e., people can
+    disappear or appear over time and the order in which they are specified can
+    change throughout frames. This is why the user must specify the center of
+    the target person while selecting video clips in the video picker.
+    
+    autoref:fig:sanity_check_openpose shows an example result from this step of
+    the pipeline. This "sanity check" was performed on a subset of the captured
+    clips in order to verify whether the data was sent to and processed by
+    OpenPose correctly.
+    
+    #+caption: label:fig:sanity_check_openpose "Sanity check" for OpenPose 2D detections, showing a source video frame and the extracted pose information.
+    [[file:./img/sanity-check-openpose.jpg]]
 
 **** TODO Figure: sanity check - example of OpenPose detection
 
@@ -1101,19 +1196,32 @@
     :Effort:   2:00
     :END:
 
-    The /3D Pose Baseline/ project had its source code and trained model
-    available online so this was used as a starting point. Some modifications
-    had to be made in order to use it in this pipeline, though.
+    Now that the 2D gestures are extracted, the next step is to lift the poses
+    into three-dimensional space. The /3D Pose Baseline/ project had its source
+    code and trained model available online so this was used as a starting
+    point. Some modifications had to be made in order to use it in this
+    pipeline, though.
 
     First, the pose data format that 3D Pose Baseline expects is different from
-    the one OpenPose outputs. They use the Human3.6M and COCO format,
+    the one OpenPose outputs: they use the Human3.6M and COCO format
     respectively. The Human3.6M pose model has its joints ordered differently,
     does not have the eye and ear joints but does define hip, top-of-head and
-    spine (at chest height) joints. While the ideal solution would be to
+    spine (at chest height) joints. 
+    
+    Another 2D pose estimation framework, the Stacked Hourglass project
+    cite:newell16_stack_hourg_networ_human_pose_estim, uses the same skeleton
+    structure as 3D Pose Baseline and also has its source code available (in Lua
+    and Torch). When testing this out, however, the results where not nearly as
+    good as those from OpenPose. The Stacked Hourglass network can only detect a
+    single person and requires precise annotation of the person's center and
+    size in an image, which would make the data collection step difficult.
+
+    While the ideal solution, when using OpenPose's 2D results, would be to
     re-train the 3D Pose Baseline model using 2D data from OpenPose, that would
     require processing their entire training set with OpenPose and then training
-    it, which would take too much time. Instead, the following conversion was
-    used:
+    it, which would take too much time. Instead, a rough direct conversion was
+    made. Before passing the 2D detections as input to 3D Pose Baseline, their
+    points were reordered and the following points were added:
     
     - Hip :: Center of left hip and left hip
     - Head (top of head) :: Half the distance between the Neck/Nose and the
@@ -1121,24 +1229,32 @@
     - Spine (chest height) :: 1/4 of the distance between Thorax and Hip below
          the Thorax.
 
-    Second, while the authors' code allowed running the training and validation
-    steps, there was no code present to run the inference step, i.e., predicting
-    3D poses for new 2D detections. Additionally, a smoothing step was added to
-    the 2D predictions (OpenPose processes these frame-by-frame) before feeding
-    it into this model.
+    The second modification was necessary to use this project for predictions.
+    While the authors' code allowed running the training and validation steps,
+    there was no code present to run the inference step, i.e., predicting 3D
+    poses for new 2D detections. Additionally, the 2D predictions were smoothed
+    before feeding them into this model, since OpenPose processes videos
+    frame-by-frame resulting in motion that was not always smooth.
+    
+    After these two steps the 3D Pose Baseline code was usable but it did not
+    yet produce results that were of adequate quality. Sometimes poses were
+    completely incorrect or deformed throughout a clip. Three issues were found
+    with the data.
 
-    The results after these two steps were not usable yet to use in a new model
-    to predict these gestures, though. First, a missing point in the 2D
-    detection had large effects on the results in 3D. In cases where there were
-    only joints detected of the upper body, the 3D detection became useless.
-    Second, since the data is captured from multiple people, their size and body
-    shape differed. Finally, the people in the 3D space were oriented in
-    different directions.
+    First, a missing point in the 2D detection had large effects on the results
+    in 3D. In cases where there were only joints detected of the upper body, the
+    3D detection became useless. Second, since the data is captured from
+    multiple people, their size and body shape differed. Finally, the people in
+    the 3D space were oriented in different directions.
+    
+    These effects would result in the model learning useless features like the
+    body shape or orientation of the people. Thus, before using the data in a
+    machine learning model, it has to be cleaned and normalized first.
 
 **** TODO Figure: sanity check - 3D skeletons
 
 **** TODO Figure: sanity check - video > 2D detection > 3D skeleton (+ subtitle)
-
+     
 **** TODO Figure: difference in skeleton structures
 
 *** Cleaning and Normalizing the Data

@@ -235,6 +235,16 @@ def show2Dpose(channels,
         np.mean(confidences[indices])))
 
 
+def show_2d_pose(points, add_labels=False):
+  points = np.asarray(points)
+
+  fig = plt.figure()
+  ax = fig.add_subplot(111)
+  show2Dpose(points, ax, add_labels=add_labels)
+
+  plt.show()
+
+
 def _mpl_reorder_poses(points):
   """Reorders points so Matplotlib shows them in the orientation we expect"""
   # Swap y and z axes because mpl shows z as height instead of depth

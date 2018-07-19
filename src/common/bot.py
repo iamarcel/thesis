@@ -25,6 +25,8 @@ class BotController:
         self.tts = ALProxy('ALAnimatedSpeech', host, port)
         self.motion = ALProxy('ALMotion', host, port)
         self.posture = ALProxy('ALRobotPosture', host, port)
+        self.life = ALProxy('ALAutonomousLife', host, port)
+        self.speaking_movement = ALProxy('ALSpeakingMovement', host, port)
 
         # self.motion.setStiffnesses('Body', 1.0)
         self.motion.wakeUp()
@@ -32,8 +34,13 @@ class BotController:
 
     def say(self, text):
         print(text)
+        self.life.setAutonomousAbilityEnabled('BasicAwareness', True)
+        self.speaking_movement.setEnabled(True)
+        self.speaking_movement.setMode('contextual')
         configuration = {"bodyLanguageMode": "random"}
         self.tts.say(str(text), configuration)
+        self.speaking_movement.setEnabled(True)
+        self.life.setAutonomousAbilityEnabled('BasicAwareness', False)
 
     def move(self, effector, position):
         frame = motion.FRAME_TORSO

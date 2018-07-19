@@ -231,7 +231,7 @@ def setup_estimator(custom_params=dict()):
   return estimator, model_params
 
 
-def predict_class(subtitle):
+def predict_classes(subtitles):
     estimator, model_params = setup_estimator({
        'output_type': 'classes',
        'motion_loss_weight': 0.8,
@@ -242,13 +242,13 @@ def predict_class(subtitle):
 
     predict_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={
-            'subtitle': np.array([subtitle]),
+            'subtitle': np.array(subtitles),
         }, num_epochs=1, shuffle=False)
-    preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
-    return preds[0]
+    preds = list(estimator.predict(input_fn=predict_input_fn))
+    return preds
 
 
-def predict_sequence(subtitle):
+def predict_sequences(subtitles):
   estimator, model_params = setup_estimator({
       'output_type': 'sequences',
       'motion_loss_weight': 0.9,
@@ -263,27 +263,42 @@ def predict_sequence(subtitle):
   })
 
   if not model_params.use_pretrained_encoder:
-    subtitle = subtitle.split(' ')
-    subtitle = list(filter(lambda x: len(x.strip()) > 0, map(common.data_utils.clean_word, subtitle)))
+    def parse_subtitle(subtitle):
+      subtitle = subtitle.split(' ')
+      subtitle = list(filter(lambda x: len(x.strip()) > 0, map(common.data_utils.clean_word, subtitle)))
 
+      return subtitle
+    subtitles = list(map(parse_subtitle, subtitles))
+
+    max_len = max(len(x) for x in subtitles)
+    for sub in subtitles:
+      sub += [''] * (max_len - len(sub))
+
+  print(np.array(subtitles))
   predict_input_fn = tf.estimator.inputs.numpy_input_fn(
       x={
-          'subtitle': np.array([subtitle]),
+          'subtitle': np.array(subtitles),
       }, num_epochs=1, shuffle=False)
-  preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
+  all_preds = np.array(list(estimator.predict(input_fn=predict_input_fn)))
 
-  print(preds[:, 0, 0])
-  end_markers = np.where(preds[:, 0, 0] < 0.3)[0]
-  if len(end_markers) == 0:
-    n_frames = 150
-  else:
-    n_frames = end_markers[0]
-  print("Length: {} frames.".format(n_frames))
-  frames = preds[:n_frames, 0, 1:].tolist()
-  n_frames = 500
-  angles = list(map(common.pose_utils.get_named_angles, frames))
+  def process_prediction(preds):
+    print(preds[:, 0])
+    end_markers = np.where(preds[:, 0] < 0.3)[0]
+    if len(end_markers) == 0:
+      n_frames = 150
+    else:
+      n_frames = end_markers[0]
+    print("Length: {} frames.".format(n_frames))
+    frames = preds[:n_frames, 1:].tolist()
+    angles = list(map(common.pose_utils.get_named_angles, frames))
 
-  return angles
+    return angles
+
+  all_angles = []
+  for i in range(all_preds.shape[1]):
+    all_angles += [process_prediction(all_preds[:, i, :])]
+
+  return all_angles
 
 
 def run_experiment(custom_params=dict(), options=None):
