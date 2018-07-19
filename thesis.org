@@ -1,0 +1,1461 @@
+# -*- org-confirm-babel-evaluate: nil -*-
+#+TITLE: Autonomous Production of Gestures on a Social Robot using Deep Learning
+#+AUTHOR: Marcel Samyn
+#+COLUMNS: %4TODO(To Do) %40ITEM(Task)  %12EFFORT(Effort){:}
+#+OPTIONS: tasks:nil ':t
+#+LATEX_CLASS: report-noparts
+#+LATEX_HEADER_EXTRA: \input{ugent.tex}
+
+#+BEGIN_SRC elisp :exports none :session python-env
+  ;; If you have the pipenv package, this initalializes the environment so that
+  ;; Python packages are all present.
+  (pipenv-mode)
+#+END_SRC
+
+#+RESULTS:
+: t
+
+#+BEGIN_SRC latex
+\usetikzlibrary{shapes,arrows,backgrounds,fit}
+
+\tikzstyle{block} = [
+  rectangle, 
+  thick, minimum width=1.5cm, minimum height=1cm,
+  rounded corners=2pt,
+  fill=black!6, draw=black!60
+]
+\tikzstyle{blue-block} = [
+  block, 
+  fill=ugent-blue!10, draw=ugent-blue!80
+]
+#+END_SRC
+
+
+
+* Notes
+
+** Kan uitleggen waarom je sterk verschillende trainingsdata gebruikt
+
+** Leg uit in de thesis: in het begin is het belangrijk dat we heel monotone beelden gebruiken
+
+** Voorlopig is het waarschijnlijk best dat je de monologen gebruikt. Vermeld de use-case:monoloog voor een publiek
+
+** Leg uit hoe je nieuwe trainingsdata kan maken
+
+** Erken probleem in de clustering: de gebaren die er uit komen zin /gemiddelden/ (lauwe gebaren)
+   Iconische gebaren verdwijnen met deze methode uit het repertoire van de robot.
+
+** Vermeld dat bepaalde heel belangrijke elementen die we willen hebben, worden uitgemiddeld
+
+*** Mogelijkheid: dataset biasen met extra trainignsdata
+
+*** In RNN kan je bijvoorbeeld een veel hardere gradient met voor die specifieke woorden geven (1/0.03)
+
+** Meet de afstanden van de clusters tot de ground truth (niet alleen klassen)
+   DEADLINE: <2018-07-02 ma>
+   Toon dat die afstand kleiner wordt. Dus twee evaluaties:
+
+   1. Toon dat er geen bug zit in je algoritme, dat ze wel dichter komen bij de trainingsdata
+   2. Tonen met mensen
+
+** Vergelijk gelijkaardige zinnen
+   maak een 100-tal paren van zinnen die wel/niet op elkaar lijken en vergelijk
+   dat met de output van je algoritme.
+   
+   Bijvoorbeeld: cluster uw zinnen en kijk of daar iets in zit
+
+** Vraag voor mezelf: hoe kan ik meer tussentijds cijfers geven over hoe goed het werkt?
+
+** 2-10 juli is buffer voor het extra werk dat Tony mee geeft
+
+** Data storage
+   - src
+   - data
+     - clusters.json: { class: frames[] }
+* Development                                                      :noexport:
+** DONE [#A] Maak precieze planning wat je nog moet doen
+   CLOSED: [2018-06-21 do 11:51]
+** DONE [#A] Stuur planning door
+   CLOSED: [2018-06-21 do 18:27] DEADLINE: <2018-06-21 do>
+** DONE Create evaluation questionnaire
+   CLOSED: [2018-06-26 di 08:18] DEADLINE: <2018-06-27 wo> SCHEDULED: <2018-06-25 ma>--<2018-06-26 di>
+   :LOGBOOK:
+   CLOCK: [2018-07-03 di 14:34]--[2018-07-03 di 15:06] =>  0:32
+   CLOCK: [2018-06-25 ma 15:47]--[2018-06-25 ma 17:53] =>  2:06
+   CLOCK: [2018-06-25 ma 09:25]--[2018-06-25 ma 11:57] =>  2:32
+   :END:
+*** DONE Create a script to generate a TTS audio clip
+    CLOSED: [2018-06-26 di 08:18]
+    :PROPERTIES:
+    :Effort:   3:00
+    :END:
+*** DONE Create comparison video (x6)
+    CLOSED: [2018-06-26 di 08:18]
+    :PROPERTIES:
+    :Effort:   1:00
+    :END:
+    :LOGBOOK:
+    CLOCK: [2018-06-23 za 13:24]--[2018-06-23 za 15:12] =>  1:48
+    :END:
+**** DONE Pick a random subtitle
+     CLOSED: [2018-06-23 za 15:12]
+**** DONE Generate TTS audio
+     CLOSED: [2018-06-23 za 15:12]
+**** DONE Record video clips
+     CLOSED: [2018-06-23 za 15:12]
+***** DONE Play back original gesture
+      CLOSED: [2018-06-23 za 15:12]
+***** DONE Play back NAO's generated gesture
+      CLOSED: [2018-06-23 za 15:12]
+***** DONE Play back chosen cluster
+      CLOSED: [2018-06-23 za 15:12]
+**** DONE Merge video clips
+     CLOSED: [2018-06-23 za 15:12]
+**** DONE Add audio clip to video
+     CLOSED: [2018-06-23 za 15:12]
+**** DONE Add subtitles to video
+     CLOSED: [2018-06-23 za 15:12]
+*** DONE Upload videos
+    CLOSED: [2018-06-26 di 08:18]
+    :PROPERTIES:
+    :Effort:   1:00
+    :END:
+*** DONE Create questions for all videos
+    CLOSED: [2018-06-26 di 08:18]
+    - Embedded video
+    - Score each
+    - Which do you prefer?
+
+**** TODO Duplicate previous question
+**** TODO Replace video
+*** TODO Add question: attention check
+** DONE Try out the Java clustering algorithm
+   CLOSED: [2018-06-26 di 16:18]
+   :LOGBOOK:
+   CLOCK: [2018-06-26 di 08:18]--[2018-06-26 di 12:04] =>  3:46
+   :END:
+** DONE Try other ways of clustering
+   CLOSED: [2018-07-07 za 16:22]
+   :LOGBOOK:
+   CLOCK: [2018-07-03 di 09:08]--[2018-07-03 di 12:15] =>  3:07
+   CLOCK: [2018-07-02 ma 19:16]--[2018-07-02 ma 20:30] =>  1:14
+   CLOCK: [2018-07-02 ma 17:12]--[2018-07-02 ma 18:14] =>  1:02
+   CLOCK: [2018-07-02 ma 16:39]--[2018-07-02 ma 16:45] =>  0:06
+   CLOCK: [2018-06-27 wo 08:06]--[2018-06-27 wo 11:24] =>  3:18
+   CLOCK: [2018-06-26 di 18:15]--[2018-06-26 di 18:26] =>  0:11
+   CLOCK: [2018-06-26 di 16:18]--[2018-06-26 di 17:33] =>  1:15
+   :END:
+** TODO Send out questionnaire
+** TODO Record a video of a live NAO gesturing
+** TODO Record video of NAO telling a story
+** TODO Improve sequence model
+   Hmm. Adding droput in the sequence decoder, right after the initial RNN cell,
+   increases the max loss by 10x. Even if the dropout is 0. It then produces
+   output independent of the subtitle, though. Hmm, maybe I did something wrong
+   in the inference loop function.
+
+*** TODO Add a mask dimension to the data
+*** TODO Stop predicting when mask says so
+*** TODO Eigen embedding
+**** DONE Maak een per-woord vocab
+     CLOSED: [2018-06-19 di 15:26]
+**** DONE embed woorden in vocab
+     CLOSED: [2018-06-21 do 08:24]
+**** DONE Encode die sequentie
+     CLOSED: [2018-06-21 do 08:24]
+**** TODO Decode + geef tussen-states mee aan decoder
+
+* TODO Extended Abstract
+  :PROPERTIES:
+  :Effort:   5:00
+  :UNNUMBERED: t
+  :END:
+
+* TODO Preface
+  :PROPERTIES:
+  :UNNUMBERED: t
+  :Effort:   2:00
+  :END:
+* Introduction
+  :PROPERTIES:
+  :Effort:   1:00
+  :END:
+  :LOGBOOK:
+  CLOCK: [2018-07-07 za 16:23]--[2018-07-07 za 17:23] =>  1:00
+  :END:
+
+   For at least 2.6 million years, humans have been making tools. The ability to
+   create sophisticated tools allowed us to find and process more energy-rich
+   food sources which gave us the energy to evolve bigger, more slowly growing
+   brains. That, in turn, improved our ability to invent new and more complex
+   tools, creating the feedback loop that quickly made humans the dominant
+   animal species on earth cite:lieberman12.
+
+   The story of human toolmaking started with the humble Pointy Rock. The Pointy
+   Rock was crafted by smacking together two less pointy rocks repeatedly so
+   that at least one of them would start to chip off and become sharper. While
+   crude compared to today's strict engineering practices and tolerances, the
+   Pointy Rock helped our ancestors a tremendous amount. With this tool, one
+   could kill prey, break bones to access valuable marrow and pulverize plants
+   so they could be more easily digested.
+
+   Since that point, humans have never stopped building tools. The desire to
+   craft things that make our lives easier is deeply embedded in the human
+   condition. In an ever-accelerating feedback loop, people have built tools
+   with tools to build better tools.
+
+   A prime motivator for making increasingly complex machines was (and still is)
+   the desire for machines that could run completely autonomously. In the past
+   few millenia machines that operated autonomously had been invented, like
+   water clocks and Japanese Karakuri automatons (mechanized puppets), but these
+   were mostly for display purposes and of little use. Widespread, practical use
+   of automation started with the introduction of mechanized spinning machines
+   in the 1780s during the industrial revolution
+   cite:britannica-industrial-revolution.
+
+   One more fundamental feature---the ability to /reprogram/ these
+   machines---came with the Unimate, a machine that would today be distinctly
+   recognizable as an industrial machine cite:robotics_unimate. It was the first
+   digitally operated, programmable machine and this ability for it to be
+   reprogrammed is why the Unimate can be confidently identified as a /robot/.
+   Industrial and commercial robots are widespread today and excel at various
+   tasks like car assembly, package sorting and vacuuming. More recently, robots
+   that can perform perform complex human tasks like driving make headlines in
+   technology news cite:wired-self-driving.
+
+   Though industrial and specialized robots are useful, nothing captures our
+   attention more than a human-like machine. The idea of artificial humans can
+   be found in centuries-old legends like the Greek Talos, a bronze man that
+   defended Crete or the clay golems of the Jews and Nordics. But it wasn't
+   until the 1930s that real robots entered our popular culture. It started with
+   not much more than ancient automata, simple humanlike machines that could
+   perform a few "tricks", but development steadily continued and robots learned
+   to walk, talk and interact with their environment.
+
+   One of the most popular robots today, Pepper from Softbank Robotics, can make
+   eye contact, read emotions from people's faces and adapt its behavior based
+   on the moods of people he's talking with. Notable about these features is
+   that they are /social/, they are built so that the robot can interact with
+   the people in its environment in an active manner. Next to the challenges of
+   locomotion (i.e., not falling and moving at an acceptable speed) and making
+   robots /look/ like humans, making robots /behave/ like humans is a tremendous
+   challenge.
+
+*** DONE Reference for when automation started
+    CLOSED: [2018-06-09 za 08:35]
+
+** Social Robots
+
+   Social robots can interact and communicate with humans by following the
+   behavioral norms that their conversational partners expect cite:bartneckil.
+   The power of these kinds of robots lies in the fact that the prerequisites
+   for fluent interaction are essentially reversed: the human no longer needs to
+   learn how to interact with the machine; rather, the machine learned how
+   people naturally operate so that they can interact without any special skills
+   or training.
+
+   These robots have the potential to become our assistants and trusted
+   sidekicks. In the form of humanoid nurses, smart toys or even small creatures
+   to be carried around cite:breazeal04_desig, these machines would understand
+   us intuitively, anticipate our needs and seamlessly integrate in our social
+   world. They could become an integral part of this human-dominated world,
+   understand us on an emotional level and carry out tasks that we cannot or
+   prefer not to do.
+
+   Modern robots are starting to look more humanlike and gaining basic human
+   capabilities like the ability to walk, speak, see, listen and move objects.
+   However, these are still rather technical foundations and a lot more effort
+   is needed to let these machines communicate effortlessly with people.
+   Creating the ability to interact socially is not easy. Concepts like body
+   language and emotion---that have evolved over for millions of years in humans
+   and are still an active research topic in psychology---have to be programmed
+   into computers who are inherently built to act in a rational, logical and
+   determinstic manner.
+
+   However, that is not to say that this is impossible or far away in the
+   future. Many robots exist today which vary in approach and ability to be
+   social. Developed at the Massachusetts Institute of Technology by a team led
+   by Dr. Cynthia Breazeal, the robotic head /Kismet/ was one of the earliest
+   examples of a social robot. The developers knew that building a robot that
+   behaves realistically like a human adult would be impossible at that point so
+   Kismet was designed to appear and behave more like a baby. It could hear and
+   speak but interpreted the /emotion/ of what was being said and spoke in a
+   kind of proto-language similar to infants. This way, people interacting with
+   Kismet naturally talked slower and were more expressive in their voice:
+   Kismet managed to intuitively define the social context in which it could
+   operate well. The goal of allowing interaction without training the user was
+   achieved and the robot could still communicate its way of communication, in a
+   way that was almost unnoticed by the people interacting with Kismet
+   cite:breazeal04_desig. This appeared to work: people formed an emotional
+   connection to the robot and enjoyed interacting with it.
+   
+   #+CAPTION: label:fig:kismet Kismet is a social robot that presents itself as an infant, to which people intuitively react by being more expressive in their voice and talking more slowly. This is precisely what Kismet's computer system needed to work well.
+   #+ATTR_LATEX: :width 0.323\textwidth :float wrap :placement {R}[2cm]{0.5\textwidth}
+   [[file:./img/kismet.jpg]]
+
+   Two of the most popular social robots today are SoftBank's NAO and Pepper
+   cite:softbank-robotics. These robots can understand and talk to people,
+   recognize their emotion and are used in a broad range of places like
+   introductory classes for STEM education and hotel lobbies. NAO is about 60
+   centimeters high and can walk on his feet, while Pepper is 1.20 meters high
+   and moves around using three wheels under its "skirt" (See autoref:fig:pepper).
+   
+   #+CAPTION: label:fig:pepper Softbank's social robot Pepper, one of the most popular advanced robots today.
+   #+NAME: fig:pepper
+   #+ATTR_LATEX: :width 0.323\textwidth :float wrap :placement {L}[2cm]{0.4\textwidth}
+   [[file:./img/pepper.jpg]]
+
+   Robots like NAO and Pepper try to be a part of our world by being present in
+   public places around groups of people while still being very clear about
+   their identity as a robot. There are also social robots that take this one
+   step further where they actually try to appear indistinguishable from
+   humans. So far, these robots are still in what is called the /uncanny
+   valley/---a very high level of realism that is eerie because it is not yet
+   /exactly/ human-like.
+
+   It takes little effort to appreciate the complexity and amount of mechanisms
+   at play when people communicate with each other. We can infer meaning and
+   intention in a split second, quickly learn and reason inductively and adapt
+   our communication style to our conversation partner. Now, imitating a few
+   million years' worth of evolution is no small undertaking but the closer we
+   get to communicating in a human-like way, the better we will be able to work
+   with machines cite:adalgeirsson10_mebot,huang13_model_evaluat_narrat_gestur_human_robot.
+
+** Why Gesture?
+
+   Building machines which are modeled after human form and behavior is called
+   /antropomorphic design/. This is important to support an intuitive and
+   meaningful interaction with humans cite:breazeal04_desig and a key component
+   of antropomorphism is animacy or aliveness
+   cite:bartneck08_measur_instr_anthr_animac_likeab. People's perception of
+   animacy is greatly influenced by the amount and type of motion they perceive
+   in an object---as shown, for example, in Heider and Simmel's work
+   cite:heider44_exper_study_appar_behav. Indeed, motion is a prerequisite for a
+   perceived notion of aliveness.
+
+   In situations with both virtual agents and humanoid robots it has been shown
+   that speech-accompanying non-verbal behaviors have a positive effect on
+   antropomorphism, likeability and future contact intentions---key objectives
+   in the field of Human Robot Interaction (HRI)
+   cite:bremner16_iconic_gestur_robot_avatar_recog,salem13_to_err_is_human,adalgeirsson10_mebot.
+   Congruent gesture improves task performance
+   cite:kramer16_nonverbal_mimicry,mamode13_cooper but even incongruent
+   gesturing increases people's evaluation of a robot's human-like qualities
+   cite:huang13_model_evaluat_narrat_gestur_human_robot.
+
+   A speaker's gestures bear little structure nor are they produced or
+   interpreted consciously, yet they still convey information between the
+   collocutors. Gesturing is in fact beneficial to both the speaker and the
+   listener: it helps the speaker think and helps the listener understand this
+   thinking---even for people who are not trained in understanding these
+   gestures cite:goldin-meadow99_role_gestur_commun_think,mcneill95_hand.
+
+   This presents opportunities to significantly improve the quality of
+   communication between humans and machines. First, human-like motion improves
+   people's perception of the robot. Secon, gesturing can provide additional
+   information that is not conveyed in speech and improve the quality of
+   communication. Third, communicating on an intuitive level reduces the need
+   for training people who need to work with these robots.
+
+** Current State of Robot Gesture Synthesis label:sec-state-robot-synthesis
+
+   To understand the state of current gesture synthesis technologies, one can
+   look at both gesture synthesis in robot and in virtual agents. Translating
+   the motion of such an agent to a live robot is challenging but possible
+   cite:Salem2012.
+
+   Three desirable properties for an effective gesture synthesis are proposed:
+
+   *Continuity.* The avatar keeps moving. If a humanoid robot or avatar is
+   motionless even for a small amount of time, people can think it is crashing
+   and thus stop seeing the avatar as a being that is alive.
+
+   *Variability.* The avatar should be able to perform gestures for any text
+   given.
+
+   *Congruence.* The gestures performed should have some relationship to the
+   semantics of the text that is  being spoken. For example, extreme cases like
+   nodding while the avatar says "no" should be avoided.
+
+   In current research and industry, these are popular approaches for gesture
+   synthesis:
+
+   /The gestures are pre-recorded or otherwise pre-determined./ This could be by
+   manually animating the robot for specific sentences or by annotating text
+   files with the gestures which should be performed and when
+   cite:neff08_gestur_model_animat_based_probab,Kipp2007,kopp04_synth_multim_utter_conver_agent.
+   This can produce natural results but is very labor-intensive and not suited
+   to the large amount of interactions a humanoid robot might have. This method
+   succeeds at /Continuity/ and /Congruence/ but fails for the /Variability/
+   requirement (with a significant cost for animation).
+
+   /Gestures are generated randomly./ They might be chosen from a repertoire of
+   movements and then stiched together or be completely random altogether.
+   Often, this method introduces noticeable stuttering and might produce
+   gestures that are inconsistent with the content of the spoken text, which
+   is confusing to the person listening. An improvement for this method is
+   adding fixed motions for specific keywords, which introduces the problems
+   of pre-recording again. Random gestures allow /Variability/ but have
+   difficulty with /Congruence/ and /Continuity/.
+
+   /Gestures are generated from a set of rules cite:ng-thow-hing10_synch./ The
+   gesture synthesis system analyzes the content of the text that will be
+   pronounced and chooses a category of gesture for each text part. Then,
+   category-specific rules are applied (such as matching for a keyword or parts
+   of words) with some randomness to generate the final gestures. In principle,
+   this system can allow all three desired properties but at a high cost for
+   creating the gesture generation rules. To create this kind of system, it is
+   necessary to perform social studies that examine how humans gesture and try
+   to extract general rules.
+
+   Neither of these solutions are ideal. In a truly social robot, the gesture
+   synthesis system should be able to generate these gestures for arbitrary text
+   (so that the robot can be reprogrammed) and still look natural---just like
+   humans can say things they have never said before and still look alive.
+
+   So how /do/ people gesture? What can we learn from research in psychology
+   that could help us build a better system for gesture synthesis?
+
+** How People Gesture
+
+   In his classical work on human gesturing, McNeill argues that gesture and
+   speech are created in concert; they are neither used as an addition to
+   speech, nor a translation of it, nor are both modalities produced independently
+   cite:mcneill95_hand.
+
+   As mentioned previously speech-accompanying gesture is largely unstructured,
+   but not completely. Some gestures /are/ interpreted consciously, for example
+   when pointing at the location of an object that is being talked about.
+   McNeill proposes four categories of gesture cite:cassell_1998,mcneill95_hand:
+
+   - Iconic gestures :: literally depict an object or action that is being
+        described. For example, spreading your arms while saying "big" or
+        standing on your toes while explaining a ballet move.
+   - Metaphoric gestures :: also represent something but not directly, for
+        example, making a rolling motion with the hands while saying "the
+        meeting went on and on."
+   - Deictic gestures :: reference positions in space. For example, pointing at
+        the bus stop when directing someone.
+   - Beat gestures :: are not closely related to the content of the
+                      communication but rather are used to emphasize words or to
+                      clarify the structure of a sentence. For example, holding
+                      the hands together left from the body in the first part of
+                      a sentence, then moving both of them as the speaker
+                      transitions to the second part of the sentence.
+
+   Iconic and metaphoric gestures are perhaps the most straightforward of these
+   from the point of view of gesture synthesis. In order to produce these, one
+   could build a "gesture dictionary" that associates specific words or parts of
+   sentences with gestures. To add more variability, some randomness could be
+   added in the form of alternative gestures or noise. Note however that these
+   types of gestures especially can vary across culture: a "V for victory" with
+   the palm facing the gesturer is considered offensive in British culture
+   cite:archer97.
+
+   Deictic gestures reveal information that is not present in speech and
+   generating these gestures would thus require semantic information along with
+   the words that are being spoken. Once that information is present, though,
+   generating deictic gestures is straightforward.
+
+   Beat gestures make up the biggest part of all gestures (almost half, followed
+   closely by iconic gestures) cite:mcneill95_hand but do not directly
+   correspond to the content of the communication, making these difficult to
+   generate procedurally. Subsequently, this type of gesture has not been
+   focused on much in gesture synthesis research. Yet in order to build a robot
+   that would move naturally it seems reasonable to start with the most-occuring
+   type of gesture---perhaps this category alone is enough in order to make the
+   robot seem alive.
+
+   Imagining the ideal gesture synthesis system in a robot, it could then have
+   the following structure: both speech and gesture are generated
+   simultaneously, with access to information about the robot's intent and
+   contextual information like, possibly, the positions of objects to be pointed
+   at or cultural background. It could then use beat gestures as a baseline for
+   its movement and combine those with iconic, metaphoric and deictic gestures
+   using information from the context to make more precise gestures.
+
+** The Goal: Gesture Synthesis with Deep Learning
+
+    The goal of this project is to build a system that can synthesize gestures
+    for any text, in a continuous fashion and related to the content of what is
+    being communicated. An approach based on labor-intensive animation, text
+    tagging or manual gesture analysis and research is not desired; it should be
+    able to handle arbitrary input text and even synthesize motion for words it
+    has never encountered.
+
+    The nature of this problem is in some sense very similar to that of other
+    problems where intuitive human abilities are to be imitated like speech
+    synthesis, bipedal locomotion and image recognition. In all of these tasks,
+    machine learning-based approached have proven to be very successful
+    cite:hintin-need-ml so adopting a similar approach here seems promising.
+
+    Especially the generation of beat gestures might benefit from a deep
+    learning approach---a neural network could learn a general sense of how
+    people move, which can be used as a starting point for other methods to add
+    their more specific gestures (like deictic ones) to; or it might even be
+    able to learn iconic and metaphoric gestures given enough of the right data
+    is present.
+
+    autoref:sec:literature-research covers a more detailed analysis of gesyure
+    synthesis methods, explores recent advances in machine learning and provides
+    background information on the technologies and methods used throughout the
+    process. autoref:sec:method explains the process used in this project in
+    detail, while autoref:sec:evaluation evaluates the results. Finally,
+    autoref:sec:conclusion concludes this thesis and provides opportunities for
+    future work.
+    
+** TODO Checklist
+   - [ ] Context: Where does this fit in the state of the art?
+   - [ ] Need: Why should it be done?
+   - [ ] Task: What was done?
+   - [ ] Object: What does the document cover?
+
+* Literature Research label:sec:literature-research
+
+** Gesture Synthesis in Robots
+   :PROPERTIES:
+   :Effort:   0:30
+   :END:
+   :LOGBOOK:
+   CLOCK: [2018-07-07 za 17:23]--[2018-07-07 za 18:06] =>  0:43
+   :END:
+
+   An overview of current gesture synthesis sytems was given in
+   autoref:sec-state-robot-synthesis. This section will provide a deeper look at
+   how two of these systems work in practice.
+
+   Kismet's range of gestures is limited: it can only move its face actuators
+   and move its head with the neck motors. Its movements are organized into
+   /skills/, each of which is a finite state machine of positions where a
+   transition is a certain /motion primitive/, a unit of gesture. These skills
+   and the transitions between them are activated by the robot's other
+   behavioral systems and external stimuli as specified in the finite state
+   machine cite:breazeal04_desig.
+   
+   While the task of gesture generation can be applied to any robot, this thesis
+   focuses on SoftBank's robots NAO and Pepper because they were easily
+   accessible to work with. SoftBank provides developers a Python API and
+   software package /Choregraphe/ cite:softbank_tools which includes a visual
+   programming environment and robot simulator. This way, the results can be
+   tested on a virtual robot quickly. Performing these gestures on a physical
+   robot is as simple as changing the connection from the simulator to the real
+   robot.
+
+   SoftBank's robots all use the same software framework and API, /NAOqi/
+   cite:softbank_naoqi. This framework includes a few modules that regulate
+   their autonomous life cite:naoqi_autonomous_life:
+
+   - ALAutonomousBlinking :: makes the robot blink its eyes (flash the LEDs
+        around its eyes).
+   - ALBackgroundMovement :: makes the robot make slight movements when it is
+        idle and runs a breathing animation.
+   - ALBasicAwareness :: makes the robot look at people's faces when it sees
+        them, hears them or notices them when they touch it.
+   - ALListeningMovement :: makes the robot move slightly when it is listening.
+   - ALSpeakingMovement :: controls how the robot moves when it is talking.
+        There are two modes for this module: /random/ launches random animations
+        and /contextual/ launches specific animations for certain keywords and
+        fills in the rest with random animations.
+
+   Note that not all of these run simultaneously. For example, the
+   /BackgroundMovement/'s breathing animation does not run when the
+   /ListeningMovement/ or /SpeakingMovement/ is active.
+
+   A developer has some control over these movements, like enabling and
+   disabling them or changing the mode of speaking movement, but these systems
+   are fairly limited in their expressive capability. In public appearances of
+   SoftBank robots, their movements are often animated manually and thus do not
+   use these autonomous capabilities.
+
+*** DONE Systems in NAO(qi), Kismet
+    CLOSED: [2018-06-21 do 08:25]
+** Gesture Synthesis in Virtual Agents
+   :PROPERTIES:
+   :Effort:   0:15
+   :END:
+   :LOGBOOK:
+   CLOCK: [2018-07-10 di 09:51]--[2018-07-10 di 10:15] =>  0:24
+   CLOCK: [2018-07-09 ma 17:35]--[2018-07-09 ma 18:11] =>  0:36
+   :END:
+
+   One of the most advanced gesture synthesis systems is the Articulated
+   Communication Engine (ACE) cite:kopp04_synth_multim_utter_conver_agent. In
+   this system, one annotates the text to be spoken with gestures and how they
+   should be timed in an XML language called MURML (see
+   autoref:fig:ace-murml-example). The ACE system combines the information from
+   the text-to-speech engine with the gestures and information given in the
+   speech/gesture definition, allowing it to create movements that are
+   well-timed with the text being spoken (for example, stretching the arm while
+   saying "there"). All the gestures that appear in a specification are combined
+   so that the whole looks like a singular movement.
+   
+   The gestures produced by ACE are continuous and precise. However, they
+   require extensive metadata accompanying the speech. When no behavior
+   specification is defined, the avatar does not move. This makes the ACE system
+   useful when a high level of precision is required, such as for deictic
+   gestures, but less for free-form text.
+
+   #+CAPTION: label:fig:ace-murml-example Example of MURML multi-modal specification (adapted from cite:salem10_gener)
+   #+NAME: fig:ace-murml-example
+   [[file:img/ace-murml-example.png]]
+
+   The BodySpeech system was developed to remove the need to specify which
+   gestures have to be chosen. It uses an audio clip of a recorded voice,
+   analyzes its intensity in segmented parts of speech, chooses from a set of
+   motion-captured gestures the one that most closely aligns with that part of
+   speech and then blends between those movements cite:Fernandez:2013.
+   
+   Interesting reference points for realistic gesture synthesis can be found in
+   3D animated movies or video games. Movies are mostly manually animated but
+   provide a point of reference---not only in the sense that the people in these
+   movies move in a way we recognize as being human, but also in how these
+   movements are often purposely not precisely imitated from humans. Animators
+   understand some principles of aliveness and manipulate or exaggerate gestures
+   to convey emotional content.
+   
+   Modern video games present many in-game avatars that have to move in a
+   realistic manner yet not all move in the same way. This means they face
+   similar challenges and try to generate animation instead of extensive motion
+   capture by actors. In practice, these avatars have a few keypoints animated
+   manually and the animation for the rest of the avatar is generated using
+   physics-based engines that take into account the biomechanics of humans
+   cite:deepmotion_avatar, or a base animation is created manually or via motion
+   capture and some variations are generated automatically
+   cite:2013-SCA-diverse.
+
+*** DONE ACE, video game engines
+    CLOSED: [2018-06-21 do 08:25]
+** Recent Advances in Machine Learning
+   :PROPERTIES:
+   :Effort:   3:00
+   :END:
+   :LOGBOOK:
+   CLOCK: [2018-07-10 Tue 18:53]--[2018-07-10 Tue 19:07] =>  0:14
+   CLOCK: [2018-07-10 di 16:34]--[2018-07-10 Tue 18:24] =>  1:50
+   CLOCK: [2018-07-10 di 15:05]--[2018-07-10 di 15:34] =>  0:29
+   CLOCK: [2018-07-10 di 11:10]--[2018-07-10 di 12:00] =>  0:50
+   CLOCK: [2018-07-10 di 10:26]--[2018-07-10 di 10:54] =>  0:28
+   :END:
+
+   Over the past ten years, tremendous progress has been made in the field of
+   machine learning. With the invention of effective training algorithms such as
+   the backpropagation algorithm and stochastic gradient descent, along with the
+   exploitation of GPUs, we now have the capability to process more data orders
+   of magnitude more quickly with algorithms that are more effective
+   cite:nvidia-ai-computing.
+   
+   With these improvements in performance the possibilty arrived to train large
+   neural networks, machine learning algorithms that automatically learn
+   abstract representations of their data, became a possibility. This alleviated
+   the need for manual feature engineering, which is time-consuming and requires
+   extensive domain knowledge. Many complex problems such as object recognition,
+   speech synthesis and machine translation are dominantly being tackled with
+   deep neural networks cite:lecun15_deep_learn.
+
+*** Recurrent Neural Networks
+
+    Those last two problems require an extension of "plain" neural networks
+    because they must produce a /sequence/ of features (e.g., sound samples or
+    words) which can have a variable length.
+
+    In order to be able to read or produce a sequence, the cells in the neural
+    network need some kind of memory. The simplest way to do this is to give
+    cells two inputs and outputs: the default input/output and a state vector.
+    The cell then computes:
+
+    1. The state, based on the input and the previous state
+    2. The current output, based on the state
+
+    Both these computations are, as in other neural networks, linear
+    combinations with some learned weights. This computation is repeated for
+    each element in the sequence with the same weights. A network composed of
+    these kind of cells is called a Recurrent Neural Network (RNN), who can be
+    represented as very deep neural networks where each time step (an iteration
+    where the cell computation is performed) is a layer in this network and the
+    weights are shared across layers. This way, recurrent neural networks are
+    similar to deep neural networks.
+    
+    Simple RNNs have difficulty learning long-term relationships because of a
+    problem called the /vanishing gradient problem/ that also occurs in very
+    deep neural networks. The LSTM (Long Short-Term Memory) cell solves this
+    problem by splitting the state in two parts: one part is the output for
+    every step and another part is a more long-term part that is only changed
+    linearly with a filtered set of values from the first part cite:colah-lstm.
+    The GRU (Gated Recurrent Unit) is a variation on the LSTM structure which
+    appears to perform better on smaller datasets
+    cite:chung14_empir_evaluat_gated_recur_neural.
+
+    #+begin_src latex :exports results :results output
+      \begin{figure}[h]
+      \centering
+      % Define block styles
+
+      \begin{tikzpicture}[->, shorten >=1pt, auto, node distance=2.8cm, semithick, font=\headingfont]
+      \matrix [row sep=0.8cm, column sep=1.2cm] {
+        \node (y_t-2) {}; &
+        \node (y_t-1) {$y_{t-1}$}; &
+        \node (y_t) {$y_{t}$}; &
+        &
+        \\
+        \node (s_t-2) {$\cdots$}; &
+        \node (rnn_t-1) [block] {RNN Cell}; &
+        \node (rnn_t) [block] {RNN Cell}; &
+        \node (rnn_next) {$\cdots$}; &
+        \\
+        &
+        \node (x_t-1) {$x_{t-1}$}; &
+        \node (x_t) {$x_{t}$}; &
+        \node (x_t+1) {}; &
+        \\
+      };
+
+      \path[->]
+        (x_t-1) edge[thick] (rnn_t-1)
+        (x_t) edge[thick] (rnn_t)
+
+        (rnn_t-1) edge[thick] (y_t-1)
+        (rnn_t) edge[thick] (y_t)
+
+        (s_t-2) edge[thick] node[above] {$s_{t-2}$} (rnn_t-1)
+        (rnn_t-1) edge[thick] node[above] {$s_{t-1}$} (rnn_t)
+        (rnn_t) edge[thick] node[above] {$s_t$} (rnn_next)
+        ;
+      \end{tikzpicture}
+      \caption{\label{fig:rnn}A time slice of a Recurrent Neural Network (RNN). 
+        At each time step $t$, the network reads the current input $y_t$ and uses
+        the state of the previous time step $s_{t-1}$ to compute the current output
+        $y_t$ and current state $s_t$.}
+      \end{figure}
+    #+end_src
+
+**** DONE Figure: Basic RNN
+     CLOSED: [2018-07-10 Tue 17:57]
+*** The Encoder-Decoder Architecture
+    
+    RNNs are good at predicting the next time step or steps in a sequence,
+    making them ideal for tasks such as text autocompletion, but they can also
+    be used for more complex tasks. 
+
+    An encoder-decoder architecture consists of two recurrent neural networks.
+    The first is used to read a source sequence and the state from the final
+    time step is then interpreted as a representation of the entire
+    sequence---often referred to as the /thought vector/. This thought vector
+    then serves as input to a second RNN that again outputs a sequence but of a
+    different kind. This architecture is used in sequence-to-sequence problems
+    where there is no one-to-one mapping between the steps in the source
+    sequence and steps in the destination sequence. In machine translation, for
+    example, the number of words in a sentence in different languages can
+    differ, as well as the word order.
+    
+    Encoder-decoder architectures can also be used to solve problems which do
+    not transform a sequence to another sequence. For example, in image caption
+    generation, the encoder is a convolutional neural network that "interprets"
+    and image, while the decoder network is a sequential network that generates
+    a sequence of words describing the image.
+    
+    #+begin_src latex :exports results :results output
+      \begin{figure}[h]
+      \centering
+      \usetikzlibrary{shapes,arrows,backgrounds,fit}
+
+      \begin{tikzpicture}[->, shorten >=1pt, auto, node distance=2cm, semithick, font=\headingfont]
+      \tikzstyle{my-circle} = [
+        circle, 
+        thick, minimum size=1cm,
+        fill=ugent-blue!10, draw=ugent-blue!80
+      ]
+
+      \node (input) {};
+      \node (encoder) [block, right=4cm of input] {ENCODER};
+      \draw [dash pattern=on 10pt off 5pt on 16pt off 5pt on 13pt off 5pt on 8pt off 5pt] (input) -- (encoder);
+
+      \node (thought-vector) [my-circle, above of=encoder, text width=1.5cm, align=center] {Thought Vector};
+      \draw (encoder) -> (thought-vector);
+
+      \node (decoder) [block, above of=thought-vector] {DECODER};
+      \draw (thought-vector) -> (decoder);
+      \node (output) [right=4cm of decoder] {};
+      \draw [dash pattern=on 2pt off 5pt on 7pt off 5pt on 3pt off 5pt on 4pt off 5pt on 1pt off 5pt on 1pt off 5pt] (decoder) -- (output);
+
+      \end{tikzpicture}
+      \caption{\label{fig:encoder-decover}A high-level overview of the encoder-decoder
+        architecture that reads a variable-length input sequence and outputs another
+        sequence. Often, both the encoder and the decoder networks are recurrent
+        neural networks.}
+      \end{figure}
+    #+end_src
+    
+*** Text Embedding
+
+    When the input and output of an encoder-decoder network are the same, this
+    stucture is called an /autoencoder/. An autoencoder can be trained without
+    supervision and learns to create an internal representation (the thought
+    vector) which is non-sequential and often is of much smaller dimensionality
+    than the original data. This encoder part can then be re-used as the first
+    step in a supervised problem.
+
+    In Natural Language Processing (NLP), this method has been applied widely
+    with the word2vec algorithm
+
+    It is reasonable to assume that sentences with a similar meaning would
+    correspond with similar gestures. Thus, working from a semantic
+    representation rather than the text being processed directly could help in
+    producing better gestures. This is precisely what text embedding systems do:
+    they "interpret" text and return a representation of its semantics. For
+    example, the embedded vectors of similar words or sentences will be close
+    together.
+
+    These systems are in use in various Natural Language Processing (NLP) tasks
+    such as sentiment analysis and categorization
+    https://medium.com/@josecamachocollados/on-the-contribution-of-neural-networks-and-word-embeddings-in-natural-language-processing-c8bb1b85c61c.
+
+    
+** The Dataset label:sec-research-dataset
+   :PROPERTIES:
+   :Effort:   1:00
+   :END:
+
+   To build a system that can generate gestures for a given text using machine
+   learning, one needs training data. Specifically, to predict gestures from
+   text, the dataset should contain pairs of text being spoken and the
+   corresponding gesture.
+
+   Gestures can generally be represented by /poses/, the position of a person's
+   joints. This can easily be used with virtual avatars but real robots require
+   other types of input. The NAOqi software, for example, can only move the
+   wrists to a specific position using inverse kinematics cite:TODO. For more
+   precise control, the angles of its joints are expected.
+
+   The biggest datasets available for human motion are the H36M cite:TODO and
+   Panopticon cite:TODO datasets. However, both of these datasets are more
+   geared towards activity recognition or pose estimation and thus include data
+   for a large range of activities but not much data about people talking.
+   Additionally, the text of what is being said is not available. With that in
+   mind, the dataset will need to be created.
+
+*** YouTube
+
+    YouTube is one of the most popular websites and contains an abundance of
+    video, from a wide variety of people in all kinds of environments and
+    performing many activities cite:TODO. Videos with English spoken text are
+    automatically transcribed which means that the subtitles for many videos are
+    available, too.
+
+    If these videos could be processed in order to extract the poses of people
+    talking, a dataset could be constructed this way.
+
+*** Pose Estimation
+
+    Pose estimation is the task of processing an image or image sequence and
+    extracting information about the pose of the person or people in that image
+    (sequence). That is, the position of a person's joints (for example, the
+    left knee, right wrist etc.) are estimated on the image.
+
+    Quite successful methods have been found to do pose estimation. The Stacked
+    Hourglass cite:newell16_stack_hourg_networ_human_pose_estim, OpenPose
+    cite:cao16_realt_multi_person_pose_estim and AlphaPose cite:fang16_rmpe
+    networks have state-of-the-art results and have their source code freely
+    available. All of these systems internally use convolutional neural networks
+    to process their input images. The OpenPose and AlphaPose networks can
+    detect multiple people in an image and do not have scaling or centering
+    constraints.
+
+    These networks estimate the two-dimensional position of joints in an image.
+    To control a robot, however, the three-dimensional position of these poses
+    (or the angles between them) is needed. There are two ways to approach
+    three-dimensional pose estimation: either one first estimates the pose in
+    2D, then "lifts" this into three dimensions, or one directly estimated the
+    3D poses from an image.
+
+    It is possible to estimate 3D poses straight from monocular images cite:TODO
+    but these projects' source code is not available or they do not produce
+    results as good as the other method: lifting 2D poses to 3D. The
+    "3d-pose-baseline" project is what the authors consider to be a baseline for
+    2D-to-3D lifting of poses; it is a simple neural network but works very
+    well. The code is available on GitHub.
+
+** Time Series Clustering label:sec-research-clustering
+   :PROPERTIES:
+   :Effort:   0:30
+   :END:
+   Instead of directly predicting poses, the problem of gesture synthesis is
+   much simplified if we break down movement into a sequence of /motion
+   primitives/. This way, a two-step process appears:
+
+   1. Extract motion primitives from the pose data
+   2. Predict motion primitives from parts of text
+
+   To extract these motion primitives from the data, an unsupervised clustering
+   algorithm can be used to find clusters of (subsequences of) pose information.
+   Clustering, even with a large amount of features, is a well-understood
+   problem and even one of the first techniques taught in most introductions to
+   machine learning. /Time series/ clustering, however, introduces its own
+   challenges. In order to be able to identify these motion primitives, the
+   algorithm needs to be able to look at small parts of these sequences and find
+   similar-looking subsequences in other pose animations. One can compare this
+   to anomaly detection, albeit with more labels than thw two of "normal" and
+   "exceptional".
+
+   A first approach might be using a sliding window with some fixed time length
+   and finding close matches across the dataset. However, sliding window
+   approaches for clustering subsequences seem to be mostly meaningless
+   cite:keoghil_clust.
+
+   Previous work has been one on activity clustering of motion capture data
+   cite:zhou13_hierar_align_clust_analy_tempor, though here the difference
+   between different activities (e.g., walking versus sitting) is much less
+   subtle than different hand gestures. The source code of this project was not
+   accessible either so we have not tried this method on our data.
+
+   To perform clustering on /whole/ time series, there are multiple methods. The
+   classic Dynamic Time Warping (DTW) distance metric can be used to compare
+   time series of different lengths and this can be used as a basis for a
+   clustering algorithm: clustering in its general form comes down to grouping
+   samples so that the samples within a group are close to each other while
+   samples between groups are far away from each other, i.e., the distance
+   metric is the most important component of a clustering algorithm
+   cite:zolhavarieh14_review_subseq_time_series_clust. The ~dtwclust~ R package
+   cite:r-dtwclust provides a DTW-based clustering algorithm with the option to
+   use experiment different metrics like TADPole clustering.
+
+** Conclusion
+
+   This chapter provided an overview of the works that this thesis will use and
+   build upon. Previous work on gesture synthesis were examined in both robots
+   and virtual agents; then a selected set of recent developments in machine
+   learning were described, particularly in terms of language processing and
+   time-series data processing; in autoref:sec-research-dataset the available
+   data was examined and the tools to create a dataset for this problem were
+   outlined; finally, in autoref:sec-research-clustering time-series clustering
+   algorithms were explored that could simplify this problem by discretizing it
+   into a set of motion primitives.
+
+   With these components and starting points in place, an image begins to form
+   of what this complete system could look like. In the next section, these
+   components will be combined in a pipeline that performs gesture synthesis.
+
+* A Modern Approach to Gesture Synthesis label:sec:method
+  SCHEDULED: <2018-07-02 ma>--<2018-07-15 zo>
+
+  The goal of this project is to synthesize natural gestures on a robot in a
+  continuous fashion, that carry some relation to what the robot is saying. This
+  will be done by first generating a dataset of clips ((subtitle, pose)-pairs)
+  by applying pose estimation to YouTube videos, then clustering these poses and
+  then building a machine learning model that learns to predict these clusters
+  from a given sentence. Finally, the resulting poses will be performed on a
+  live robot. An overview of this pipeline is shown in autoref:fig-pipeline.
+
+  #+NAME: fig-pipeline
+  #+BEGIN_SRC dot :file ./img/thesis-pipeline.png
+    digraph {
+      // rankdir = LR;
+      splines = true;
+      node [shape = box];
+
+      yt [label = "YouTube"]
+      p2d [label = "2D Pose Estimation"]
+      p3d [label = "2D-to-3D Lifting"]
+      ang [label = "Calculating Angles"]
+      prim [label = "Clustering"]
+      model [label = "Learning Model"]
+      pred [label = "Predicted Gestures"]
+
+      yt -> p2d [label="Image Sequence"]
+      p2d -> p3d [label="2D Poses"]
+      p3d -> ang [label="3D Poses"]
+      ang -> prim [label="Angles"]
+
+      prim -> model [label="Clusters"]
+
+      yt -> model [label="Subtitles"]
+
+      model -> pred
+    }
+  #+END_SRC
+
+  #+CAPTION: Overview of the pipeline that processes the data and generates gestures
+  #+ATTR_LATEX: :width 0.35\textwidth
+  #+RESULTS: fig-pipeline
+  [[file:./img/thesis-pipeline.png]]
+
+** Development Environment
+   :PROPERTIES:
+   :Effort:   0:30
+   :END:
+
+   As this research is designed to be built upon, having a clear process and
+   easily accessible source code and data is important. All the code used in
+   this project is made available on the GitHub repository
+   https://github.com/iamarcel/thesis. The source for this report is also
+   present.
+
+   To maximize ease of use for the authors and future users of this work, Docker
+   cite:TODO was used to create a reproducible development environment that can
+   easily be set up by anyone. Docker is a system for running lightweight,
+   portable containers that make sure all required packages are present in a
+   version that is compatible.
+
+   Information on how to use the code is available in the source code
+   repository.
+
+*** TODO Mention how you use Pipenv, Docker only for OpenPose
+** Getting Pose Data
+
+   Below, the process from finding video on YouTube to extracting the gesture
+   data in a useful form is detailed. First, the Video Picker application that
+   helps with data extraction is introduced. Then the process of extracting the
+   3D poses is explained. Finally, these 3D poses will be converted to joint
+   angles for further ease of use and complexity reduction.
+
+   Throughout this section, the main unit of data will be called a "clip". A
+   clip is the extracted data from the part of a video that corresponds with one
+   line in its subtitles and mainly consists of the following data points:
+
+   - An identifier (for tracking its source, preventing duplicates and
+     identifying extracted frame images, which are stored separately)
+   - Start and end points in the original video
+   - The subtitle
+   - The 2D poses
+   - The 3D poses
+   - The joint angles
+   - The class to which this movement belongs
+
+   Throughout the following steps, all fields of the clip will be filled in.
+
+*** The Video Picker
+    :PROPERTIES:
+    :Effort:   1:00
+    :END:
+
+    While there is indeed a lot of video material available on YouTube, the
+    requirements for the dataset are very specific:
+
+    - The clip should be of a person talking
+    - The person should talk English and subtitles should be available
+    - The person should be visible in its entirety (as will be explained below,
+      this is necessary for further steps in the pipeline)
+    - The clip should be a single contiguous shot, i.e. the camera cannot move
+      during the shot
+
+    Whole videos that fulfill these needs are scarce but since the data has to
+    be cut into clips, videos can be processed to extracts only the parts that
+    fulfill these requirements. The Video Picker application built assists in
+    the process of finding good parts of a video and saving its data.
+
+    When a video with suitable parts is found on YouTube and downloaded using
+    ~youtube-dl~ cite:TODO which can download the video and embed its
+    automatically generated subtitles, it is first examined by the scene
+    detection algorithm in ~ffprobe~ cite:TODO. Usually, a person is similarly
+    framed throughout a single shot so Video Picker can run semi-automatically
+    when a suitable shot is chosen.
+
+    Then, the video is opened in Video Picker. The video picker is a GUI in
+    which the user can scrub through the video or navigate by shot. When he has
+    found a suitable scene, he can point at the person of interest with the
+    mouse cursor and start recording this scene. Since the pose detection
+    algorithm can detect multiple people in the scene (audience, for example)
+    the user needs to point his cursor closest to the person he is interested
+    in.
+
+    The video picker then starts extracting the clips from the current shot.
+    Every clip is saved in a JSONL-format cite:TODO (where every line in the
+    file is a JSON-formatted object; this is much faster than reading and
+    parsing an entire JSON object at once) and the image frames are extracted
+    and saved with ~ffmpeg~ cite:TODO automatically by the application.
+
+    The user can also explicitly pick a single clip or stop extracting when the
+    shot has changed but the scene detection algorithm hadn't detected that
+    change. This happens, for example, when there is a fade between shots.
+
+    In the back end, the video picker is a Python application using the GTK+
+    cite:TODO and GStreamer cite:TODO frameworks for building the GUI and
+    playing back the video respectively.
+
+**** TODO Figure: screenshot
+*** Detecting 2D Poses with OpenPose
+    :PROPERTIES:
+    :Effort:   0:30
+    :END:
+
+    The authors of OpenPose included a sample application that, once compiled,
+    can read a directory of images and write the poses in each image to a JSON
+    file. This program is run on the output directory of the video picker
+    application and afterwards, the pose data from OpenPose is added to the
+    database of clips.
+
+    The OpenPose output format is a list wherein the $x$ position, $y$ position
+    and confidence score of each joint is specified, in the order of the pose
+    model OpenPose used cite:TODO. This list is specified for each person
+    detected in the image. If, in a clip, one or more joint positions have a
+    very small confidence, that clip is not used further.
+
+    There is no stability in the detected people, i.e., people can disappear or
+    appear over time and the order in which they are specified can change
+    throughout frames. This is why the user must specify the center of the
+    target person while selecting video clips in the video picker.
+
+**** TODO Figure: sanity check - example of OpenPose detection
+
+*** Lifting Poses to 3D
+    :PROPERTIES:
+    :Effort:   2:00
+    :END:
+
+    The /3D Pose Baseline/ project had its source code and trained model
+    available online so this was used as a starting point. Some modifications
+    had to be made in order to use it in this pipeline, though.
+
+    First, the pose data format that 3D Pose Baseline expects is different from
+    the one OpenPose outputs. They use the Human3.6M and COCO format,
+    respectively. The Human3.6M pose model has its joints ordered differently,
+    does not have the eye and ear joints but does define hip, top-of-head and
+    spine (at chest height) joints. While the ideal solution would be to
+    re-train the 3D Pose Baseline model using 2D data from OpenPose, that would
+    require processing their entire training set with OpenPose and then training
+    it, which would take too much time. Instead, the following conversion was
+    used:
+    
+    - Hip :: Center of left hip and left hip
+    - Head (top of head) :: Half the distance between the Neck/Nose and the
+         Thorax joints above the Neck/Nose.
+    - Spine (chest height) :: 1/4 of the distance between Thorax and Hip below
+         the Thorax.
+
+    Second, while the authors' code allowed running the training and validation
+    steps, there was no code present to run the inference step, i.e., predicting
+    3D poses for new 2D detections. Additionally, a smoothing step was added to
+    the 2D predictions (OpenPose processes these frame-by-frame) before feeding
+    it into this model.
+
+    The results after these two steps were not usable yet to use in a new model
+    to predict these gestures, though. First, a missing point in the 2D
+    detection had large effects on the results in 3D. In cases where there were
+    only joints detected of the upper body, the 3D detection became useless.
+    Second, since the data is captured from multiple people, their size and body
+    shape differed. Finally, the people in the 3D space were oriented in
+    different directions.
+
+**** TODO Figure: sanity check - 3D skeletons
+
+**** TODO Figure: sanity check - video > 2D detection > 3D skeleton (+ subtitle)
+
+**** TODO Figure: difference in skeleton structures
+
+*** Cleaning and Normalizing the Data
+
+    The 3D poses are processed in two steps:
+
+    - The cleaning step :: throws away corrupt poses and attempts to correct
+         small errors.
+    - The normalization step :: formats the poses so they are independent of
+         body shape and orientation.
+
+    *Cleaning.*
+    Three classes of errors occurred in the results from 3D Pose Baseline:
+
+    - Point error: in a single or a few frames, one or more joints were not
+      detected in 2D and had erroneous positions in the 3D output.
+    - Clip error: not enough points were detected in 2D, resulting in an
+      unusable 3D skeleton.
+    - Leaning: a person appeared to be leaning forward while it should not.
+
+    Each clip is processed on a frame-by-frame basis and the distance of each
+    joint with that joint in the previous frame is examined. When this distance
+    exceeds a threshold (here 30% of a person's height), the position of that
+    joint is replaced with the position from the previous frame. When more than
+    4 joints had to be corrected this way, the clip is considered low quality
+    and not used anymore.
+
+    Then, the leaning issue is corrected for by setting an allowed range for
+    the angle that the spine makes with the upward axis. If this angle is
+    exceeded, all the points of the upper body are rotated so that they lie
+    within this range.
+
+    *Normalizing.*
+    At this point, a pose is represented by the Cartesian coordinates of each
+    joint in three-dimensional space. Even when every skeleton is centered
+    around the hip, the height is set to unity and all skeletons are oriented
+    in the same direction (by rotating the body so that the hip is aligned with
+    the perpendicular axis), there are still two problems: people's body type
+    differs significantly and the space containing all possible poses (i.e.,
+    the entire 3D Cartesian space for every joint) is too large.
+
+    Since the end goal was to play back gestures on a NAO robot, the choice was
+    made to convert the data format to one that is directly compatible with the
+    NAOqi SDK that is used to control this robot. Controlling the pose of a NAO
+    robot is done by setting the angles of its actuators, so these angles could
+    be measured from the position representation of the 3D poses.
+    autoref:tab-pose-to-angle shows the details of how each angle was
+    calculated. Note that when axes are specified, this is in the reference
+    coordinate system of the poses returned from 3D Pose Baseline, not the
+    coordinate system used in the NAOqi software.
+
+    #+NAME: tab-pose-to-angle
+    #+CAPTION: Details of joint position to angle conversion
+    | Angle name     | Method                                                         |
+    |----------------+----------------------------------------------------------------|
+    | HipRoll        | Angle around $-z$ axis, from chest (upwards) to $-y$ axis      |
+    | HipPitch       | Angle around $x$ axis, from chest to $-y$ axis                 |
+    | RShoulderPitch | Angle around $x$ axis, from right upper arm to chest $- \pi/2$ |
+    | RShoulderRoll  | Angle of right upper arm with $yz$ plane $+ \pi/10$            |
+    | RElbowRoll     | Angle between right upper arm and right elbow                  |
+    | LShoulderPitch | Angle around $x$ axis, from left upper arm to chest $- \pi/2$  |
+    | LShoulderRoll  | Angle of left upper arm with $yz$ plane $- \pi/10$             |
+    | LElbowRoll     | Angle between left upper arm and left elbow (negative)         |
+    | HeadPitch      | Angle around $x$ axis, from nose to head $- \pi/4$             |
+    | HeadYaw        | Angle around $-y$ axis, from $-z$ axis to nose                 |
+
+    Note that these are only the angles for the upper body. The other joints
+    and angles are ignored because the upper body is more important and to
+    avoid possible issues with the robot getting out of balance.
+
+**** TODO Figure: leaning
+     :PROPERTIES:
+     :Effort:   0:30
+     :END:
+**** TODO Figure: NAO skeleton and angles
+     :PROPERTIES:
+     :Effort:   0:30
+     :END:
+**** TODO Figure: Vectors used in pose, for directions
+     :PROPERTIES:
+     :Effort:   1:00
+     :END:
+**** TODO Figure: Difference in axes
+     :PROPERTIES:
+     :Effort:   0:15
+     :END:
+** Finding Motion Primitives
+   
+   Even if pose data is stored as a limited set of angles, the output space is
+   continuous and quite large. This makes it difficult to train a machine
+   learning model with only a small amount of data. Would it be possible to
+   vastly reduce the model complexity by turning it into a classification
+   problem? How would the results compare?
+
+   Generating gestures can be interpreted as a classification problem if the
+   space of possible movements is reduced to a sequence of predefined /motion
+   primitives/. Instead of producing a continuous sequence of angles, the model
+   could classify a sentence under a motion primitive and then concatenate
+   these motion primitives into a coherent, continuous whole. This approach
+   poses two more questions:
+
+   - Can we make this look continuous? Continuity was one of the main
+     objectives but given the discrete nature of a sequence of motion
+     primitives, this appears not to be trivial.
+   - Is it possible to extract a set of these motion primitives from our
+     dataset? I.e., can we cluster our dataset into motion patterns?
+
+   The first question might have a straightforward answer as the NAOqi software
+   has a built-in animation module that can interpolate between points. It is,
+   however, difficult to evaluate beforehand if this results in (qualitatively)
+   natural motion. The second question needs deeper investigation and just
+   trying it.
+
+   
+*** Time series clustering
+    Let us have a closer look at the structure of a clustering algorithm. In
+    essence, a clustering algorithm groups "similar-looking" data points, where
+    the data points /within/ a group are very similar and data points /across/
+    groups differ as much as possible. Additionally the algorithm might produce
+    a "prototype" data point for each group. Thus, the primary element of a
+    clustering algorithm is its metric for similarity or distance: elements
+    within a group have a distance to each other that is as small as possible,
+    while their distance to other groups is as large as possible. The
+    "prototype" of a group can, for example, be defined as the median of the
+    data points in that group.
+
+    In time series clustering, the most important distance measure is the
+    Dynamic Time Warping (DTW) metric. This is similar to the Euclidean distance
+    but allows time to stretch and compress at will, such as to get the closest
+    match between two sequences as possible.
+
+    The ~dtwclust~ R package allows experimenting with different distance
+    metrics. Those that support sequences of varying lengths are:
+
+    - Dynamic Time Warping (DTW) distance :: the shortest path through the
+         matrix of pairwise distances between the points of two sequences, from
+         the top left to the bottom right point.
+    - Global Alignment Kernel distance :: a generalization of the DTW distance
+         that can use any distance metric as opposed to only the Euclidean
+         distance, in this case the Triangular GAK which uses 
+
+**** TODO Explain metrics in dtwclust
+     :PROPERTIES:
+     :Effort:   0:30
+     :END:
+
+**** TODO Figure: Euclidian distance vs. DTW distance
+     :PROPERTIES:
+     :Effort:   0:30
+     :END:
+
+    The standard Euclidian distance compares distance on a point-by-point basis.
+    For time series, however, this metric falls short because it cannot account
+    for variations in the /length/ of recurring patterns that should be
+    discovered. The Dynamic Time Warping (DTW) metric solves this issue by
+    skipping or repeating points in time so that the distance between two time
+    series is minimized.
+
+**** TODO Talk about DTAK or problems with DTW?
+
+    The DTW metric defines a distance between two clips but we are interested in
+    /subsequences/ of clips that occur in multiple clips.
+
+*** Results
+    :PROPERTIES:
+    :Effort:   2:00
+    :END:
+
+**** TODO Figure: examples of extracted clusters
+** Predict Poses
+
+   Now the dataset contains clips with each a subtitle and a motion primitive.
+   In this section, a model will be built that learns to predict these motion
+   primitives.
+   
+   Note that the input of this network is a variable-length sequence of
+   characters. However, (plain) neural networks have a fixed structure: they
+   expect a specific size of input and product an output of a certain size.
+   While the straightforward approach of padding a sequence up until a certain
+   length can seem appealing at first, this approach suffers from a few
+   problems cite:TODO:
+
+   - The size of the network and subsequently its complexity is dependent upon
+     the maximum length. This means, for example, that the network needs to be
+     rebuilt if longer sequences are desired.
+   - Exactly the same amount of processing needs to happen whether the input is
+     short or long.
+   - The network cannot learn to exploit structure in parts of the input, e.g.,
+     the words "this big" appearing at the beginning or at the end result in
+     completely different computations.
+
+   A /recurrent/ neural network, however, is able to handle this kind of data.
+   This kind of network introduces a "time" dimension that can vary across
+   inputs.
+
+   In practice, though, there is a caveat. Training data is not processed
+   sample-per-sample, rather minibatches of samples are created and all elements
+   in the minibatch pass through the network at once. This improves training
+   speed cite:TODO but re-introduces some of the problems mentioned above. While
+   inputs of different length do not have an impact on the /result/ of the
+   network, batching inputs of different lengths can slow down the training
+   process.
+
+*** TODO Figure: graph of the model(s)
+    :PROPERTIES:
+    :Effort:   0:30
+    :END:
+*** Using an Existing Text Embedder
+    :PROPERTIES:
+    :Effort:   1:00
+    :END:
+    
+    A simpler way to process text input is using a pre-trained text embedder.
+    TensorFlow recently released the TensorFlow Hub, a module that allows
+    developers to easily use and integrate pre-trained models in their projects.
+
+    The Universal Sentence Encoder is one of these models that takes
+    arbitrary-length English text as input and returns a 512-dimensional vector
+    representing the meaning of that sentence. This output can then be used in
+    any machine learning model.
+
+    Internally, the Universal Sentence Encoder actually /does not/ use recurrent
+    neural networks; its structure is based on the one introduced by Vaswani et
+    al., in /Attention is all You Need/ cite:vaswani17_atten_is_all_you_need.
+    
+    Recurrent neural networks have difficulty with long-term dependencies (LSTM
+    networks fare somewhat better) because of the large amount of operations in
+    between the input data and the corresponding output: the data from one time
+    step is passed through all the data from later time steps and combined into
+    the intermediate state, which needs to be "unrolled" again.
+    
+    An attentional network is one in which weights act as "keys" to select
+    specific time steps of the input, implemented as a weight vector that is
+    multiplied element-wise with the inputs. This weight vector is a variable
+    that is optimized.
+    
+*** Classification-based vs. RNN
+    :PROPERTIES:
+    :Effort:   2:00
+    :END:
+*** Hyperparameters
+    :PROPERTIES:
+    :Effort:   2:00
+    :END:
+
+**** TODO Figure: effect of hyperparameters
+
+** Play Back on Robot
+   :PROPERTIES:
+   :Effort:   2:00
+   :END:
+   
+   Now that gestures have been generated, a real robot has to perform them. The
+   robot chosen here was the NAO robot developed by SoftBank Robotics because of
+   its popularity and straightforward Python API (NAOqi cite:TODO). To control
+   the robot's gestures, there are two options:
+
+   - The /cartesian control/ allows the user to specify positions in 3D space.
+     Then, the robot will move to that position itself. Note, however, that it
+     is only possible to specify the locations of the end effectors, i.e., the
+     hands.
+   - The /position control/ is a more low-level interface that allows the user
+     to specify the angles of the robot's actuators. The robot itself still
+     takes care of preventing self-collisions and balancing.
+
+   In this case, the position control is used because there are more degrees of
+   freedom and thus more expressiveness. In practice, once the correct angles
+   are determined, this is relatively straighforward: one connects to the robot
+   (or a simulated robot running on the local machine---the only difference is
+   the IP address and port number) and then sends the requested position to the
+   robot at the right time.
+
+   Though these angles might contain positions that are not reachable by the
+   robot or move too quickly, the NAO will move in a best-effort way. The
+   commands to specify position are asynchronous so they can be sent
+   frame-by-frame while the robot will try to keep up as best as he can.
+   
+   During most of the project, the results were tested on a virtual robot.
+   SoftBank provides the /Choregraphe/ application cite:TODO which provides a
+   visual programming interface and hosts a virtual robot with a 3D view.
+
+*** TODO Figure: screenshot of Choregraphe
+   
+*** TODO Figure: photo of NAO
+* Evaluation label:sec:evaluation
+  SCHEDULED: <2018-06-28 do>--<2018-06-29 vr>
+  
+  
+  While the metrics and many "sanity checks" used up until now give some
+  confidence that the gesture generated look natural, that conclusion is clearly
+  subjective and should be verified with a proper test. This section covers the
+  setup and results for a Turing-like test that was performed to validate the
+  results produced.
+  
+** Experiment setup
+   :PROPERTIES:
+   :Effort:   2:00
+   :END:
+   
+*** TODO Figure: screenshot of survey
+    
+** Results
+   :PROPERTIES:
+   :Effort:   2:00
+   :END:
+   
+*** TODO Figure: graph of results
+* Conclusions and Future Work label:sec:conclusion
+  :PROPERTIES:
+  :Effort:   2:00
+  :END:
+
+** TODO Checklist
+   - [ ] Findings: What are the main results?
+   - [ ] Take-home message: What should the reader remember?
+   - [ ] Future work: what is the outlook?
+
+* References
+bibliographystyle:unsrt
+bibliography:~/org/bibliography/references.bib
