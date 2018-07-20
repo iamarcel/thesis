@@ -9,7 +9,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import matplotlib.image as img
-from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d import Axes3D, proj3d
+from matplotlib.patches import FancyArrowPatch
 import numpy as np
 
 from common.pose_utils import load_clip_keypoints, openpose_to_baseline, get_confidences, get_positions
@@ -205,6 +206,50 @@ def create_sanity_check_pipeline(clip, openpose_output_dir='../output/'):
   plt.savefig('../img/sanity-check-pipeline.pgf', pad_inches=0)
 
   print("Don't forget to check the image include path in the generated .pgf file")
+
+
+def create_pose_vector_plot(clip):
+  poses = pose_utils.load_clip_keypoints(
+      clip,
+      openpose_output_dir='./openpose/src/output/')
+
+  fig = plt.figure(figsize=(5, 5), dpi=300)
+  ax = fig.add_subplot(111, projection='3d')
+  ax.axis('off')
+
+  points_3d = np.array(clip['points_3d'])[0, :]
+  points_3d = _mpl_reorder_pose(points_3d)
+  vals = pose_utils.get_named_pose(points_3d)
+  _mpl_setup_ax_3d(ax)
+
+  # Make connection matrix
+  joints = pose_utils.JOINTS
+  for i in range(joints.shape[0]):
+    x, y, z = [np.array([vals[joints[i, 0]][j], vals[joints[i, 1]][j]]) for j in range(3)]
+    a = Arrow3D(x, y, z, mutation_scale=10,
+                lw=2, arrowstyle="->", color=UGENT_BLUE,
+                alpha=0.9 if joints[i, 1] in pose_utils.LEFT_FRONT_BODY_PARTS else 0.2)
+    ax.add_artist(a)
+
+  ax.add_artist(
+    Arrow3D([0, 0.2], [0, 0], [0, 0],
+            mutation_scale=10,
+            lw=1, arrowstyle="->", color="red", alpha=0.5))
+  ax.add_artist(
+    Arrow3D([0, 0], [0, 0.2], [0, 0],
+            mutation_scale=10,
+            lw=1, arrowstyle="->", color="blue", alpha=0.5))
+  ax.add_artist(
+    Arrow3D([0, 0], [0, 0], [0, 0.2],
+            mutation_scale=10,
+            lw=1, arrowstyle="->", color="green", alpha=0.5))
+
+  ax.invert_zaxis()
+  fig.tight_layout(pad=0)
+  plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
+  plt.axis('off')
+  plt.savefig('../img/pose-vectors.png', pad_inches=0)
+  # plt.savefig('../img/pose-vectors.pgf', pad_inches=0)  # Huge file size
 
 
 def animate_3d_poses(points, add_labels=False, ax=None, save=False):
@@ -421,3 +466,15 @@ def _mpl_setup_ax_3d(ax, radius=0.5, add_labels=False):
   ax.set_aspect(1)
 
   # ax.invert_zaxis()
+
+
+class Arrow3D(FancyArrowPatch):
+  def __init__(self, xs, ys, zs, *args, **kwargs):
+    FancyArrowPatch.__init__(self, (0,0), (0,0), *args, **kwargs)
+    self._verts3d = xs, ys, zs
+
+  def draw(self, renderer):
+    xs3d, ys3d, zs3d = self._verts3d
+    xs, ys, zs = proj3d.proj_transform(xs3d, ys3d, zs3d, renderer.M)
+    self.set_positions((xs[0],ys[0]),(xs[1],ys[1]))
+    FancyArrowPatch.draw(self, renderer)

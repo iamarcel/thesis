@@ -199,7 +199,7 @@ if __name__ == '__main__':
       'get-poses-from-angle-files', 'bot-play-clusters', 'create-tfrecords',
       'create-primitives', 'create-vocabulary', 'create-question',
       'create-sfa-dataset', 'create-sanity-check-2d', 'create-sanity-check-2d-3d',
-      'create-sanity-check-pipeline'
+      'create-sanity-check-pipeline', 'create-pose-vector-plot'
   ]
 
   parser = argparse.ArgumentParser(description='Manipulate clip data files.')
@@ -247,6 +247,14 @@ if __name__ == '__main__':
     for clip in clips[5:]:
       try:
         common.visualize.create_sanity_check_pipeline(clip, openpose_output_dir='./output/')
+        break
+      except (ValueError, IOError) as e:
+        print(e)
+  elif command_name == 'create-pose-vector-plot':
+    clips = common.data_utils.get_clips()
+    for clip in clips[7:]:
+      try:
+        common.visualize.create_pose_vector_plot(clip)
         break
       except (ValueError, IOError) as e:
         print(e)

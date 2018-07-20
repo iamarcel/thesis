@@ -13,8 +13,8 @@ import imageio
 import logging
 
 from predict_3dpose import create_model, train_dir
-from common.openpose_utils import load_clip_keypoints, openpose_to_baseline
-from common import openpose_utils
+from common.pose_utils import load_clip_keypoints, openpose_to_baseline
+from common import pose_utils
 import common.data_utils
 import linear_model
 
@@ -109,9 +109,9 @@ def process_clips():
     for i, clip in enumerate(clips):
         clip_id = clip['id']
 
-        if len(clip['points_3d']) > 0:
-            logger.warn("{} already has 3D predictions".format(clip_id))
-            continue
+        # if len(clip['points_3d']) > 0:
+        #     logger.warn("{} already has 3D predictions".format(clip_id))
+        #     continue
         print("Queueing 3D poses for {}".format(clip_id))
         try:
             keypoints = load_clip_keypoints(clip)
@@ -120,10 +120,11 @@ def process_clips():
             continue
 
         input_keys.append((len(input_points), len(input_points) + len(keypoints)))
+        keypoints = np.squeeze(keypoints)
         input_points = np.append(input_points, keypoints, axis=0)
         input_indices.append(i)
 
-    h36m_points = openpose_utils.get_all_positions(openpose_to_baseline(input_points))
+    h36m_points = pose_utils.get_all_positions(openpose_to_baseline(input_points))
     poses_3d = predict_batch(h36m_points)
 
     for i, (start, end) in enumerate(input_keys):

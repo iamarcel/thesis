@@ -48,6 +48,20 @@ JOINTS = np.array([
   ['LElbow', 'LWrist'], ['Thorax', 'RShoulder'], ['RShoulder', 'RElbow'],
   ['RElbow', 'RWrist']])
 
+LEFT_FRONT_BODY_PARTS = [
+  'Hip',
+  'LHip',
+  'LKnee',
+  'LFoot',
+  'Spine',
+  'Thorax',
+  'Neck/Nose',
+  'Head',
+  'LShoulder',
+  'LElbow',
+  'LWrist'
+]
+
 KEY_OP_PEOPLE = 'people'
 KEY_OP_KEYPOINTS = 'pose_keypoints_2d'
 

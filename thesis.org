@@ -1342,9 +1342,12 @@
     be measured from the position representation of the 3D poses.
     autoref:fig:nao-angles shows the definition of these angles and
     autoref:tab:pose-to-angle shows the details of how they can be calculated from
-    the Cartesian coordinates. Note that when axes are specified, this is in the
-    reference coordinate system of the poses returned from 3D Pose Baseline, not
-    the coordinate system used in the NAOqi software.
+    the Cartesian coordinates. The joints mentioned in autoref:tab:pose-to-angle
+    are interpreted as vectors, which autoref:fig:pose-angles visualizes.
+
+    Note that when axes are specified, this is in the reference coordinate
+    system of the poses returned from 3D Pose Baseline, not the coordinate
+    system used in the NAOqi software.
 
     #+NAME: tab:pose-to-angle
     #+CAPTION: label:tab:pose-to-angle Details of joint position to angle conversion
@@ -1361,21 +1364,32 @@
     | HeadPitch      | Angle around $x$ axis, from nose to head $- \pi/4$             |
     | HeadYaw        | Angle around $-y$ axis, from $-z$ axis to nose                 |
 
-    Note that these are only the angles for the upper body. The other joints
-    and angles are ignored because the upper body is more important and to
-    avoid possible issues with the robot getting out of balance.
+    Note that these are only the angles for the upper body. The other joints and
+    angles are ignored because they are not used here to generate gestures.
     
     #+BEGIN_SRC latex
       \begin{figure}
         \begin{tabular}{ >{\centering\arraybackslash} m{70mm} >{\centering\arraybackslash} m{70mm} }
           \includegraphics[width=65mm]{./img/nao-angles-arm-l.png} & \includegraphics[width=65mm]{./img/nao-angles-arm-r.png} \\
           (a) Left arm angles & (b) Right arm angles \\[18pt]
-          \multicolumn{2}{c}{\includegraphics[width=65mm]{./img/nao-angles-head.png}} \\
-          \multicolumn{2}{c}{(c) Head angles}
+          \includegraphics[width=65mm]{./img/nao-angles-head.png} & \includegraphics[width=40mm]{./img/nao-axes.png} \\
+          (c) Head angles & (d) Reference frame
         \end{tabular}
-        \caption{\label{fig:nao-angles} Angle definitions for the NAO robot. The 3D
-          pose data is converted from Cartesian coordinates into a representation
-          based on these angles.}
+        \caption{\label{fig:nao-angles} Angle definitions and reference frame for
+          Cartesian coordinates of the NAO robot. The 3D pose data is converted from
+          Cartesian coordinates into a representation based on these angles.}
+      \end{figure}
+    #+END_SRC
+    
+    #+BEGIN_SRC latex :exports results
+      \begin{figure}[htbp]
+        \centering
+        \adjustbox{max width=1.2\linewidth,center}{\includegraphics{./img/pose-vectors.png}}
+        \caption{\label{fig:pose-angles} Visualization of the vector interpretation of
+          body joints. Joints on the back side are shaded for clarity. The reference
+          coordinate frame for the 3D Pose Baseline poses is also shown (not to
+          scale); the $x$, $y$ and $z$ axes are colored in red, green and blue
+          respectively.}
       \end{figure}
     #+END_SRC
 
@@ -1388,11 +1402,13 @@
      :PROPERTIES:
      :Effort:   0:30
      :END:
-**** TODO Figure: Vectors used in pose, for directions
+**** DONE Figure: Vectors used in pose, for directions
+     CLOSED: [2018-07-20 vr 17:09]
      :PROPERTIES:
      :Effort:   1:00
      :END:
-**** TODO Figure: Difference in axes
+**** DONE Figure: Difference in axes
+     CLOSED: [2018-07-20 vr 17:15]
      :PROPERTIES:
      :Effort:   0:15
      :END:
@@ -1404,12 +1420,12 @@
    vastly reduce the model complexity by turning it into a classification
    problem? How would the results compare?
 
-   Generating gestures can be interpreted as a classification problem if the
-   space of possible movements is reduced to a sequence of predefined /motion
+   Gesture synthesis can be interpreted as a classification problem if the space
+   of possible movements is reduced to a sequence of predefined /motion
    primitives/. Instead of producing a continuous sequence of angles, the model
-   could classify a sentence under a motion primitive and then concatenate
-   these motion primitives into a coherent, continuous whole. This approach
-   poses two more questions:
+   could classify a sentence under a motion primitive and then concatenate these
+   motion primitives into a coherent, continuous whole. This approach poses two
+   more questions:
 
    - Can we make this look continuous? Continuity was one of the main
      objectives but given the discrete nature of a sequence of motion
@@ -1420,38 +1436,51 @@
    The first question might have a straightforward answer as the NAOqi software
    has a built-in animation module that can interpolate between points. It is,
    however, difficult to evaluate beforehand if this results in (qualitatively)
-   natural motion. The second question needs deeper investigation and just
-   trying it.
-
+   natural motion. The second question needs deeper investigation and
+   experimentation.
    
 *** Time series clustering
-    Let us have a closer look at the structure of a clustering algorithm. In
-    essence, a clustering algorithm groups "similar-looking" data points, where
-    the data points /within/ a group are very similar and data points /across/
-    groups differ as much as possible. Additionally the algorithm might produce
-    a "prototype" data point for each group. Thus, the primary element of a
-    clustering algorithm is its metric for similarity or distance: elements
-    within a group have a distance to each other that is as small as possible,
-    while their distance to other groups is as large as possible. The
-    "prototype" of a group can, for example, be defined as the median of the
-    data points in that group.
-
+    :LOGBOOK:
+    CLOCK: [2018-07-20 vr 17:19]
+    :END:
     In time series clustering, the most important distance measure is the
     Dynamic Time Warping (DTW) metric. This is similar to the Euclidean distance
     but allows time to stretch and compress at will, such as to get the closest
     match between two sequences as possible.
 
-    The ~dtwclust~ R package allows experimenting with different distance
-    metrics. Those that support sequences of varying lengths are:
+    As mentioned in autoref:sec-research-clustering, the ~dtwclust~ R package
+    allows experimenting with different distance metrics. Those that support
+    sequences of varying lengths are described below.
 
-    - Dynamic Time Warping (DTW) distance :: the shortest path through the
-         matrix of pairwise distances between the points of two sequences, from
-         the top left to the bottom right point.
-    - Global Alignment Kernel distance :: a generalization of the DTW distance
-         that can use any distance metric as opposed to only the Euclidean
-         distance, in this case the Triangular GAK which uses 
+    *Dynamic Time Warping (DTW) distance.* To calculate the DTW distance between
+    two sequences $a_i, i \in {1, \ldots n}$ and $b_j, j \in {1, \ldots m}$, the
+    following steps are taken:
 
-**** TODO Explain metrics in dtwclust
+    1. Calculate the pairwise Euclidian distance between every pair of points
+       $(a_i, b_j)$ and store it in a matric $M_{ij} = d(a_i, b_j)$, where $d:
+       \mathcal{R} \times \mathcal{R} \rightarrow \mathcal{R}$ is the Euclidean
+       distance function.
+    2. Find the shortest path from $M_{0,0}$ to $M{n,m}$, where the total weight
+       of the path is the sum of the elements on this path.
+
+    This shortest path, in terms of $(i, j)$-pairs, is called the /alignment/
+    and the sum of the elements of this path is the DTW distance.
+    
+    *Truangular Global Alignment Kernel (GAK) distance.* GAK methods interpret
+    the distance measurement in a kernel space, similar to the process often
+    used in Support Vector Machines (SVM). With a GAK, it is relatively simple
+    to add a penalty to certain paths. In particular, the Triangular GAK with
+    parameter $T$ weights elements of the alignment by their distance to the
+    diagonal and discards elements further than $T$ from the diagonal. This
+    greatly reduces the computation complexity---with some loss of precision, of
+    course. Still, the triangular GAK seems to perform well
+    cite:Cuturi:2011:FGA:3104482.3104599.
+
+    The DTW metric defines a distance between two clips but we are interested in
+    /subsequences/ of clips that occur in multiple clips.
+
+**** DONE Explain metrics in dtwclust
+     CLOSED: [2018-07-20 vr 19:32]
      :PROPERTIES:
      :Effort:   0:30
      :END:
@@ -1467,11 +1496,6 @@
     discovered. The Dynamic Time Warping (DTW) metric solves this issue by
     skipping or repeating points in time so that the distance between two time
     series is minimized.
-
-**** TODO Talk about DTAK or problems with DTW?
-
-    The DTW metric defines a distance between two clips but we are interested in
-    /subsequences/ of clips that occur in multiple clips.
 
 *** Results
     :PROPERTIES:
