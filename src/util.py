@@ -198,7 +198,8 @@ if __name__ == '__main__':
       'test-zero-pose', 'test-normalization', 'test-plot-angles',
       'get-poses-from-angle-files', 'bot-play-clusters', 'create-tfrecords',
       'create-primitives', 'create-vocabulary', 'create-question',
-      'create-sfa-dataset', 'test-2d-pose'
+      'create-sfa-dataset', 'create-sanity-check-2d', 'create-sanity-check-2d-3d',
+      'create-sanity-check-pipeline'
   ]
 
   parser = argparse.ArgumentParser(description='Manipulate clip data files.')
@@ -225,18 +226,30 @@ if __name__ == '__main__':
     common.data_utils.add_clips_to(*args.args)
   elif command_name == 'merge':
     common.data_utils.add_clips_to(*args.args)
-  elif command_name == 'test-2d-pose':
+  elif command_name == 'create-sanity-check-2d':
     clips = common.data_utils.get_clips()
     for clip in clips:
       try:
-        poses = common.pose_utils.load_clip_keypoints(
-          clip,
-          openpose_output_dir='./openpose/src/output/')
-        common.visualize.show_2d_pose(poses)
+        common.visualize.create_sanity_check_2d(clip)
         break
-      except:
-        continue
-
+      except (ValueError, IOError) as e:
+        print(e)
+  elif command_name == 'create-sanity-check-2d-3d':
+    clips = common.data_utils.get_clips()
+    for clip in clips[5:]:
+      try:
+        common.visualize.create_sanity_check_2d_3d(clip)
+        break
+      except (ValueError, IOError) as e:
+        print(e)
+  elif command_name == 'create-sanity-check-pipeline':
+    clips = common.data_utils.get_clips()
+    for clip in clips[5:]:
+      try:
+        common.visualize.create_sanity_check_pipeline(clip, openpose_output_dir='./output/')
+        break
+      except (ValueError, IOError) as e:
+        print(e)
   elif command_name == 'move-2d-finished-images':
     common.data_utils.move_2d_finished_images(*args.args)
   elif command_name == 'normalize':

@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import os
 import json
 import random
@@ -12,6 +14,10 @@ import numpy as np
 
 from common.pose_utils import load_clip_keypoints, openpose_to_baseline, get_confidences, get_positions
 from . import data_utils, pose_utils
+
+UGENT_BLUE = "#1E64C8"
+UGENT_YELLOW = "#FFD200"
+UGENT_EA = "#6F71B9"
 
 
 def create_plot_grid(ny, nx):
@@ -60,12 +66,26 @@ def plot_skeleton(points, points_2d, image_paths, confidences=None):
   plt.show()
 
 
+def get_clip_image_paths(clip):
+  config = {}
+  with open('config.json') as config_file:
+    config = json.load(config_file)
+  image_root = config['image_root']
+  image_extension = config['image_extension']
+  images = [
+      image_path(clip['id'], i + 1, image_root, image_extension)
+      for i in range(clip['end'] - clip['start'])
+  ]
+
+  return images
+
+
 def image_path(id, i, root, ext):
   return os.path.join(root, id + "-" + ("{:06d}".format(i)) + ext)
 
 
-def preview_clip(n=-1):
-  clips = list(data_utils.get_clips(path='clips-with-3d.jsonl'))
+def preview_clip(n=-1, openpose_output_dir='../output/'):
+  clips = list(data_utils.get_clips(path='clips.jsonl'))
   config = {}
   with open('config.json') as config_file:
     config = json.load(config_file)
@@ -84,7 +104,7 @@ def preview_clip(n=-1):
           for i in range(clip['end'] - clip['start'])
       ]
 
-      keypoints = openpose_to_baseline(np.array(load_clip_keypoints(clip)))
+      keypoints = openpose_to_baseline(np.array(load_clip_keypoints(clip, openpose_output_dir=openpose_output_dir)))
       points_2d = np.array(list(map(get_positions, keypoints)))
 
       plot_skeleton(
@@ -97,6 +117,94 @@ def preview_clip(n=-1):
       print(e)
       print("Trying another clip...")
       n = random.randint(0, len(clips))
+
+
+def create_sanity_check_2d(clip):
+  poses = pose_utils.load_clip_keypoints(
+      clip,
+      openpose_output_dir='./openpose/src/output/')
+  image = get_clip_image_paths(clip)[0]
+  if not os.path.isfile(image):
+    raise ValueError('No image for this frame present.')
+
+  fig = plt.figure(figsize=(10, 3), dpi=300)
+  ax_img = fig.add_subplot(121)
+  ax_img.axis('off')
+  ax_img = plt.imshow(img.imread(image))
+
+  ax_skel = fig.add_subplot(122)
+
+  show_2d_pose(openpose_to_baseline(poses), ax=ax_skel)
+
+  fig.tight_layout(pad=0)
+  plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
+  plt.axis('off')
+  plt.savefig('../img/sanity-check-openpose.png', pad_inches=0)
+  plt.savefig('../img/sanity-check-openpose.pgf', pad_inches=0)
+
+  print("Don't forget to check the image include path in the generated .pgf file")
+
+
+def create_sanity_check_2d_3d(clip):
+  poses = pose_utils.load_clip_keypoints(
+      clip,
+      openpose_output_dir='./openpose/src/output/')
+
+  fig = plt.figure(figsize=(10, 3), dpi=300)
+  ax_2d = fig.add_subplot(121)
+  ax_2d.axis('off')
+  ax_3d = fig.add_subplot(122, projection='3d')
+  ax_3d.axis('off')
+
+  pose_3d = np.array(clip['points_3d'])[0, :]
+
+  show_2d_pose(openpose_to_baseline(poses), ax=ax_2d)
+  show_3d_pose(pose_3d, ax=ax_3d, radius=0.3)
+  ax_3d.invert_zaxis()
+
+  fig.tight_layout(pad=0)
+  plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
+  plt.axis('off')
+  plt.savefig('../img/sanity-check-3d.png', pad_inches=0)
+  plt.savefig('../img/sanity-check-3d.pgf', pad_inches=0)
+
+
+def create_sanity_check_pipeline(clip, openpose_output_dir='../output/'):
+  images = get_clip_image_paths(clip)
+  points_2d = pose_utils.load_clip_keypoints(
+      clip,
+      openpose_output_dir=openpose_output_dir)
+  # points_2d = openpose_to_baseline(points_2d)
+
+  image = get_clip_image_paths(clip)[0]
+  if not os.path.isfile(image):
+    raise ValueError('No image for this frame present.')
+
+  fig = plt.figure(figsize=(10, 5), dpi=300)
+  ax_img = fig.add_subplot(131)
+  ax_img.axis('off')
+  ax_img = plt.imshow(img.imread(image))
+
+  ax_2d = fig.add_subplot(132)
+  ax_2d.axis('off')
+  ax_3d = fig.add_subplot(133, projection='3d')
+  ax_3d.axis('off')
+
+  points_3d = np.array(clip['points_3d'])[0, :]
+
+  show_2d_pose(openpose_to_baseline(points_2d), ax=ax_2d)
+  show_3d_pose(points_3d, ax=ax_3d, radius=0.3)
+  ax_3d.invert_zaxis()
+
+  fig.suptitle(u"“" + clip['subtitle'] + u"”", fontsize=16)
+
+  fig.tight_layout(pad=0)
+  plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
+  plt.axis('off')
+  plt.savefig('../img/sanity-check-pipeline.png', pad_inches=0)
+  plt.savefig('../img/sanity-check-pipeline.pgf', pad_inches=0)
+
+  print("Don't forget to check the image include path in the generated .pgf file")
 
 
 def animate_3d_poses(points, add_labels=False, ax=None, save=False):
@@ -134,22 +242,22 @@ def animate_3d_poses(points, add_labels=False, ax=None, save=False):
   plt.show()
 
 
-def show_3d_pose(points, add_labels=False):
+def show_3d_pose(points, ax=None, add_labels=False, radius=0.5):
   points = np.asarray(points)
   points = _mpl_reorder_pose(points)
 
-  fig = plt.figure()
-  ax = fig.add_subplot(111, projection='3d')
-  show3Dpose(points, ax, add_labels=add_labels)
-
-  plt.show()
+  if ax is None:
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+  show3Dpose(points, ax, add_labels=add_labels, radius=radius)
 
 
 def show3Dpose(channels,
                ax,
-               lcolor="#3498db",
-               rcolor="#e74c3c",
-               add_labels=False):  # blue, orange
+               lcolor=UGENT_BLUE,
+               rcolor=UGENT_EA,
+               add_labels=False,
+               radius=0.5):  # blue, orange
   """
     Visualize a 3d skeleton
 
@@ -168,7 +276,7 @@ def show3Dpose(channels,
   ) * 3, "channels should have 96 entries, it has %d instead" % channels.size
   vals = np.reshape(channels, (len(pose_utils.H36M_NAMES), -1))
 
-  _mpl_setup_ax_3d(ax, add_labels=add_labels)
+  _mpl_setup_ax_3d(ax, add_labels=add_labels, radius=radius)
 
   I = np.array([1, 2, 3, 1, 7, 8, 1, 13, 14, 15, 14, 18, 19, 14, 26, 27
                ]) - 1  # start points
@@ -180,14 +288,14 @@ def show3Dpose(channels,
   for i in np.arange(len(I)):
     x, y, z = [np.array([vals[I[i], j], vals[J[i], j]]) for j in range(3)]
     ax.plot(
-        x, y, z, marker='o', markersize=2, lw=1, c=lcolor if LR[i] else rcolor)
+        x, y, z, marker='o', lw=2, c=lcolor if LR[i] else rcolor)
     # print_line_lengths([x, y, z], I[i], J[i])
 
 
 def show2Dpose(channels,
                ax,
-               lcolor="#3498db",
-               rcolor="#e74c3c",
+               lcolor=UGENT_BLUE,
+               rcolor=UGENT_EA,
                add_labels=False,
                confidences=None):
   """
@@ -203,7 +311,7 @@ def show2Dpose(channels,
         Nothing. Draws on ax.
     """
 
-  assert channels.size == len(
+  assert channels.shape[0] == len(
       pose_utils.H36M_NAMES
   ) * 2, "channels should have 64 entries, it has %d instead" % channels.size
   vals = np.reshape(channels, (len(pose_utils.H36M_NAMES), -1))
@@ -235,14 +343,18 @@ def show2Dpose(channels,
         np.mean(confidences[indices])))
 
 
-def show_2d_pose(points, add_labels=False):
-  points = np.asarray(points)
+def show_2d_pose(points, ax=None, add_labels=False):
+  points = np.array(list(map(get_positions, points)))
+  points = np.reshape(points[1, :], (-1, 2))
+  points = points - points[0, :]  # Use hip as center
+  height = abs(points[15, 1] - points[8, 1])
+  points /= (height * 1.2)
+  points = points.flatten()
 
-  fig = plt.figure()
-  ax = fig.add_subplot(111)
+  if ax is None:
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
   show2Dpose(points, ax, add_labels=add_labels)
-
-  plt.show()
 
 
 def _mpl_reorder_poses(points):

@@ -6,7 +6,7 @@
 #+LATEX_CLASS: report-noparts
 #+LATEX_HEADER_EXTRA: \input{ugent.tex}
 
-#+BEGIN_SRC elisp :exports none :session python-env
+#+BEGIN_SRC emacs-lisp :exports none :session python-env
   ;; If you have the pipenv package, this initalializes the environment so that
   ;; Python packages are all present.
   (pipenv-mode)
@@ -148,22 +148,27 @@
 ** TODO Send out questionnaire
 ** TODO Record a video of a live NAO gesturing
 ** TODO Record video of NAO telling a story
-** TODO Improve sequence model
+** DONE Improve sequence model
+   CLOSED: [2018-07-20 vr 15:04]
    Hmm. Adding droput in the sequence decoder, right after the initial RNN cell,
    increases the max loss by 10x. Even if the dropout is 0. It then produces
    output independent of the subtitle, though. Hmm, maybe I did something wrong
    in the inference loop function.
 
-*** TODO Add a mask dimension to the data
-*** TODO Stop predicting when mask says so
-*** TODO Eigen embedding
+*** DONE Add a mask dimension to the data
+    CLOSED: [2018-07-20 vr 15:04]
+*** DONE Stop predicting when mask says so
+    CLOSED: [2018-07-20 vr 15:04]
+*** DONE Eigen embedding
+    CLOSED: [2018-07-20 vr 15:04]
 **** DONE Maak een per-woord vocab
      CLOSED: [2018-06-19 di 15:26]
 **** DONE embed woorden in vocab
      CLOSED: [2018-06-21 do 08:24]
 **** DONE Encode die sequentie
      CLOSED: [2018-06-21 do 08:24]
-**** TODO Decode + geef tussen-states mee aan decoder
+**** DONE Decode + geef tussen-states mee aan decoder
+     CLOSED: [2018-07-20 vr 15:04]
 
 * TODO Extended Abstract
   :PROPERTIES:
@@ -1150,8 +1155,13 @@
     possible to train this pipeline on a different set of specialized gestures,
     such as gestures of someone telling fairy tales, which the model could then
     learn to imitate.
+    
+    #+caption: label:fig:video-picker Screenshot of the Video Picker application. This allows the user to select usable clips from videos and extracts their frames and subtitles for further processing.
+    #+attr_latex: :width 1.2\textwidth,center
+    [[file:./img/video-picker-screenshot.png]]
 
-**** TODO Figure: screenshot
+**** DONE Figure: screenshot
+     CLOSED: [2018-07-20 vr 09:32]
 *** Detecting 2D Poses with OpenPose
     :PROPERTIES:
     :Effort:   0:30
@@ -1186,10 +1196,16 @@
     clips in order to verify whether the data was sent to and processed by
     OpenPose correctly.
     
-    #+caption: label:fig:sanity_check_openpose "Sanity check" for OpenPose 2D detections, showing a source video frame and the extracted pose information.
-    [[file:./img/sanity-check-openpose.jpg]]
+    #+BEGIN_SRC latex :exports results
+      \begin{figure}[htbp]
+        \centering
+        \adjustbox{max width=1.2\linewidth,center}{\input{./img/sanity-check-openpose.pgf}}
+        \caption{\label{fig:sanity_check_openpose} "Sanity check" for OpenPose 2D detections, showing a source video frame and the extracted pose information.}
+      \end{figure}
+    #+END_SRC
 
-**** TODO Figure: sanity check - example of OpenPose detection
+**** DONE Figure: sanity check - example of OpenPose detection
+     CLOSED: [2018-07-20 vr 10:35]
 
 *** Lifting Poses to 3D
     :PROPERTIES:
@@ -1199,14 +1215,13 @@
     Now that the 2D gestures are extracted, the next step is to lift the poses
     into three-dimensional space. The /3D Pose Baseline/ project had its source
     code and trained model available online so this was used as a starting
-    point. Some modifications had to be made in order to use it in this
-    pipeline, though.
+    point. Some modifications were made in order to use it in this pipeline.
 
-    First, the pose data format that 3D Pose Baseline expects is different from
-    the one OpenPose outputs: they use the Human3.6M and COCO format
-    respectively. The Human3.6M pose model has its joints ordered differently,
-    does not have the eye and ear joints but does define hip, top-of-head and
-    spine (at chest height) joints. 
+    The first modification is made because the pose data format that 3D Pose
+    Baseline expects is different from the one OpenPose outputs: they use the
+    Human3.6M and COCO format respectively. The Human3.6M pose model has its
+    joints ordered differently, does not have the eye and ear joints but does
+    define hip, top-of-head and spine (at chest height) joints.
     
     Another 2D pose estimation framework, the Stacked Hourglass project
     cite:newell16_stack_hourg_networ_human_pose_estim, uses the same skeleton
@@ -1214,72 +1229,96 @@
     and Torch). When testing this out, however, the results where not nearly as
     good as those from OpenPose. The Stacked Hourglass network can only detect a
     single person and requires precise annotation of the person's center and
-    size in an image, which would make the data collection step difficult.
+    size in an image, which would also make the data collection step more
+    difficult.
 
-    While the ideal solution, when using OpenPose's 2D results, would be to
-    re-train the 3D Pose Baseline model using 2D data from OpenPose, that would
-    require processing their entire training set with OpenPose and then training
-    it, which would take too much time. Instead, a rough direct conversion was
-    made. Before passing the 2D detections as input to 3D Pose Baseline, their
-    points were reordered and the following points were added:
+    While the ideal solution---when using OpenPose's 2D results---for the
+    incompatibility between pose formats would be to re-train the 3D Pose
+    Baseline model using 2D data from OpenPose, that would require processing
+    their entire training set with OpenPose and then training it, which would
+    take too much time. Instead, a rough direct conversion was made. Before
+    passing the 2D detections as input to 3D Pose Baseline, their points were
+    reordered and the following points were added:
     
     - Hip :: Center of left hip and left hip
     - Head (top of head) :: Half the distance between the Neck/Nose and the
          Thorax joints above the Neck/Nose.
-    - Spine (chest height) :: 1/4 of the distance between Thorax and Hip below
+    - Spine (chest height) :: Half the distance between Thorax and Hip below
          the Thorax.
 
-    The second modification was necessary to use this project for predictions.
-    While the authors' code allowed running the training and validation steps,
-    there was no code present to run the inference step, i.e., predicting 3D
-    poses for new 2D detections. Additionally, the 2D predictions were smoothed
-    before feeding them into this model, since OpenPose processes videos
-    frame-by-frame resulting in motion that was not always smooth.
+    The second modification is necessary to use this 3D Pose Baseline for making
+    predictions. While the authors' code allowed running the training and
+    validation steps, there was no code present to run the inference step, i.e.,
+    predicting 3D poses for new 2D detections. Additionally, the 2D predictions
+    were smoothed before feeding them into this model, since OpenPose processes
+    videos frame-by-frame resulting in motion that was not always smooth.
     
-    After these two steps the 3D Pose Baseline code was usable but it did not
-    yet produce results that were of adequate quality. Sometimes poses were
+    After these two changes the 3D Pose Baseline code is usable but does not yet
+    produce results that were of adequate quality. Sometimes poses are
     completely incorrect or deformed throughout a clip. Three issues were found
-    with the data.
+    rooted in the data.
 
-    First, a missing point in the 2D detection had large effects on the results
-    in 3D. In cases where there were only joints detected of the upper body, the
-    3D detection became useless. Second, since the data is captured from
-    multiple people, their size and body shape differed. Finally, the people in
-    the 3D space were oriented in different directions.
+    First, a missing point in the 2D detection has large effects on the results
+    in 3D. When only joints in the upper body are detected by OpenPose, the
+    lifted 3D pose is useless. Second, since the data is captured from multiple
+    people, their size and body shape differs. Finally, the people in the 3D
+    space are oriented in different directions.
     
     These effects would result in the model learning useless features like the
     body shape or orientation of the people. Thus, before using the data in a
     machine learning model, it has to be cleaned and normalized first.
+    
+    #+BEGIN_SRC latex :exports results
+      \begin{figure}[htbp]
+        \centering
+        \adjustbox{max width=1.2\linewidth,center}{\input{./img/sanity-check-3d.pgf}}
+        \caption{\label{fig:sanity_check_3d} Sanity check for the 2D to 3D pose conversion.}
+      \end{figure}
+    #+END_SRC
+    
+    #+BEGIN_SRC latex :exports results
+      \begin{figure}[htbp]
+        \centering
+        \adjustbox{max width=1.2\linewidth,center}{\input{./img/sanity-check-pipeline.pgf}}
+        \caption{\label{fig:sanity_check_pipeline} Sanity check for the entire pipeline.
+           the image frame used as source, the middle shows the results from the OpenPose 2D
+           pose estimation and the right shows the results from lifting that 2D pose into 3D
+           and performing a slight rotation. Above the figure is the corresponding subtitle for
+           this clip.}
+      \end{figure}
+    #+END_SRC
 
-**** TODO Figure: sanity check - 3D skeletons
+**** DONE Figure: sanity check - 3D skeletons
+     CLOSED: [2018-07-20 vr 14:00]
 
-**** TODO Figure: sanity check - video > 2D detection > 3D skeleton (+ subtitle)
+**** DONE Figure: sanity check - video > 2D detection > 3D skeleton (+ subtitle)
+     CLOSED: [2018-07-20 vr 14:37]
      
 **** TODO Figure: difference in skeleton structures
 
 *** Cleaning and Normalizing the Data
 
     The 3D poses are processed in two steps:
-
-    - The cleaning step :: throws away corrupt poses and attempts to correct
-         small errors.
-    - The normalization step :: formats the poses so they are independent of
-         body shape and orientation.
+    
+    1. *Cleaning* throws away corrupt poses and attempts to correct small
+       errors.
+    2. *Normalizing* formats the poses so they are independent of body shape and
+       orientation.
 
     *Cleaning.*
     Three classes of errors occurred in the results from 3D Pose Baseline:
 
     - Point error: in a single or a few frames, one or more joints were not
-      detected in 2D and had erroneous positions in the 3D output.
+      detected in 2D and have erroneous positions in the 3D output.
     - Clip error: not enough points were detected in 2D, resulting in an
       unusable 3D skeleton.
-    - Leaning: a person appeared to be leaning forward while it should not.
+    - Leaning: a person appears to be leaning forward while it should not.
 
     Each clip is processed on a frame-by-frame basis and the distance of each
     joint with that joint in the previous frame is examined. When this distance
     exceeds a threshold (here 30% of a person's height), the position of that
     joint is replaced with the position from the previous frame. When more than
-    4 joints had to be corrected this way, the clip is considered low quality
+    4 joints have to be corrected this way, the clip is considered low quality
     and not used anymore.
 
     Then, the leaning issue is corrected for by setting an allowed range for
@@ -1296,18 +1335,19 @@
     differs significantly and the space containing all possible poses (i.e.,
     the entire 3D Cartesian space for every joint) is too large.
 
-    Since the end goal was to play back gestures on a NAO robot, the choice was
+    Since the end goal is to play back gestures on a NAO robot, the choice was
     made to convert the data format to one that is directly compatible with the
     NAOqi SDK that is used to control this robot. Controlling the pose of a NAO
     robot is done by setting the angles of its actuators, so these angles could
     be measured from the position representation of the 3D poses.
-    autoref:tab-pose-to-angle shows the details of how each angle was
-    calculated. Note that when axes are specified, this is in the reference
-    coordinate system of the poses returned from 3D Pose Baseline, not the
-    coordinate system used in the NAOqi software.
+    autoref:fig:nao-angles shows the definition of these angles and
+    autoref:tab:pose-to-angle shows the details of how they can be calculated from
+    the Cartesian coordinates. Note that when axes are specified, this is in the
+    reference coordinate system of the poses returned from 3D Pose Baseline, not
+    the coordinate system used in the NAOqi software.
 
-    #+NAME: tab-pose-to-angle
-    #+CAPTION: Details of joint position to angle conversion
+    #+NAME: tab:pose-to-angle
+    #+CAPTION: label:tab:pose-to-angle Details of joint position to angle conversion
     | Angle name     | Method                                                         |
     |----------------+----------------------------------------------------------------|
     | HipRoll        | Angle around $-z$ axis, from chest (upwards) to $-y$ axis      |
@@ -1324,12 +1364,27 @@
     Note that these are only the angles for the upper body. The other joints
     and angles are ignored because the upper body is more important and to
     avoid possible issues with the robot getting out of balance.
+    
+    #+BEGIN_SRC latex
+      \begin{figure}
+        \begin{tabular}{ >{\centering\arraybackslash} m{70mm} >{\centering\arraybackslash} m{70mm} }
+          \includegraphics[width=65mm]{./img/nao-angles-arm-l.png} & \includegraphics[width=65mm]{./img/nao-angles-arm-r.png} \\
+          (a) Left arm angles & (b) Right arm angles \\[18pt]
+          \multicolumn{2}{c}{\includegraphics[width=65mm]{./img/nao-angles-head.png}} \\
+          \multicolumn{2}{c}{(c) Head angles}
+        \end{tabular}
+        \caption{\label{fig:nao-angles} Angle definitions for the NAO robot. The 3D
+          pose data is converted from Cartesian coordinates into a representation
+          based on these angles.}
+      \end{figure}
+    #+END_SRC
 
 **** TODO Figure: leaning
      :PROPERTIES:
      :Effort:   0:30
      :END:
-**** TODO Figure: NAO skeleton and angles
+**** DONE Figure: NAO skeleton and angles
+     CLOSED: [2018-07-20 vr 15:19]
      :PROPERTIES:
      :Effort:   0:30
      :END:

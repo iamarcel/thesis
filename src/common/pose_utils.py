@@ -51,7 +51,7 @@ JOINTS = np.array([
 KEY_OP_PEOPLE = 'people'
 KEY_OP_KEYPOINTS = 'pose_keypoints_2d'
 
-DEFAULT_OPENPOSE_OUTPUT_PATH = '/root/dev/output/'
+DEFAULT_OPENPOSE_OUTPUT_PATH = '../output/'
 
 X_AXIS = np.array([1., 0., 0.])
 Y_AXIS = np.array([0., 1., 0.])
@@ -92,7 +92,10 @@ def load_clip_keypoints(clip,
   if filenames is None:
     filenames = get_outputs(openpose_output_dir)
   keypoints = []
-  clip_files = list(get_clip_files(clip, filenames=filenames))
+  clip_files = list(get_clip_files(
+    clip,
+    filenames=filenames,
+    openpose_output_dir=openpose_output_dir))
   if len(clip_files) == 0:
     raise ValueError("No keypoint data found")
 
@@ -112,7 +115,7 @@ def load_clip_keypoints(clip,
         raise ValueError("Clip has pose with confidence score" +
                          " lower than {}".format(min_confidence))
 
-      keypoints.append(person[KEY_OP_KEYPOINTS])
+      keypoints.append([person[KEY_OP_KEYPOINTS]])
 
   return keypoints
 
@@ -198,6 +201,7 @@ def openpose_to_baseline(coco_frames):
     Returns:
       b36m_frames: ndarray (?x, 32*3) - for every H36M body part xi, yi, ci
     """
+  coco_frames = np.squeeze(np.asarray(coco_frames))
   if coco_frames.shape[1] != len(COCO_BODY_PARTS) * 3:
     raise ValueError(
         "Expected predictions to be in OpenPose format, i.e. of shape (?, " +
@@ -238,7 +242,7 @@ def openpose_to_baseline(coco_frames):
                      lambda i, j: i + (i - j) / 2)
 
   # Spine is nead the neck base, between neck and hip
-  add_computed_point('Spine', 'Thorax', 'Hip', lambda i, j: i + (j - i) / 4)
+  add_computed_point('Spine', 'Thorax', 'Hip', lambda i, j: i + (j - i) / 2)
 
   return h36m_frames
 

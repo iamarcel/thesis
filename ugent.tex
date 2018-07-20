@@ -35,8 +35,9 @@
     UprightFont = *-Normal.otf,
     BoldFont = *-SemiBold.otf]{UGentPannoText}
 \titleformat{\chapter}[display]
-    {\large\headingfont}
-    {\chaptertitlename\ \thechapter}{0pt}{\Huge\uppercase}
+    {\fontsize{16}{16}\headingfont}
+    {\chaptertitlename\ \thechapter}{0pt}
+    {\fontsize{28}{22}\selectfont\uppercase}
 \titleformat*{\section}{\LARGE\headingfont}
 \titleformat*{\subsection}{\Large\headingfont}
 \titleformat*{\subsubsection}{\large\headingfont}
@@ -52,7 +53,7 @@
 \setlength{\parindent}{0pt}
 \usepackage[inline]{enumitem}
 \setlist{nosep, labelwidth=\parindent}
-% \setlist[1]{leftmargin=-\parindent}
+\setlist[1]{leftmargin=-\parindent}
 
 % Precise typography
 \usepackage{microtype}
@@ -76,3 +77,6 @@
 
 % Increase spacing between columns = spacing around floating figure
 \setlength\columnsep{18pt}
+
+% Allow spill-out-of-textwidth images
+\usepackage[export]{adjustbox}
