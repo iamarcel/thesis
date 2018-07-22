@@ -25,7 +25,7 @@ if (file.exists("model.RData")) {
 }
 
 data["class"] <- pc_dtw@cluster
-ggplot(data, aes(class)) + geom_histogram(stat = "count", bins = 8)
+ggplot(data, aes(class)) + geom_histogram(stat = "count", bins = 8, fill = "gray80") + theme_minimal()
 
 con <- file("clips-clustered.jsonl", open = "w")
 data <- jsonlite::stream_out(data, con)

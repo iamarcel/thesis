@@ -1439,46 +1439,60 @@
    natural motion. The second question needs deeper investigation and
    experimentation.
    
-*** Time series clustering
+*** Time Series Clustering
     :LOGBOOK:
-    CLOCK: [2018-07-20 vr 17:19]
+    CLOCK: [2018-07-21 za 08:48]--[2018-07-21 za 09:01] =>  0:13
     :END:
-    In time series clustering, the most important distance measure is the
-    Dynamic Time Warping (DTW) metric. This is similar to the Euclidean distance
-    but allows time to stretch and compress at will, such as to get the closest
-    match between two sequences as possible.
+
+    These motion primitives can be extracted from the captured gestures by
+    performing unsupervised clustering on the dataset. The range of algorithms
+    available is determined by the properties of this dataset:
+
+    - It is a collection in which samples are time series
+    - The samples have varying lengths
+    - The samples are multi-dimensional (one dimension for each joint)
+    - The desired clusters are subsequences of these samples
+
+    Suitable algorithms to perform unsupervised, multi-dimensional clustering on
+    subsets across multiple samples, with an implementation readily available,
+    were not found by the author so the implementation in this project clusters
+    across /whole/ samples instead of subsequences.
 
     As mentioned in autoref:sec-research-clustering, the ~dtwclust~ R package
     allows experimenting with different distance metrics. Those that support
     sequences of varying lengths are described below.
 
     *Dynamic Time Warping (DTW) distance.* To calculate the DTW distance between
-    two sequences $a_i, i \in {1, \ldots n}$ and $b_j, j \in {1, \ldots m}$, the
-    following steps are taken:
+    two sequences $a_i, i \in \{1,\ldots,n\}$ and $b_j, j \in \{1,\ldots,m\}$,
+    the following steps are taken:
 
     1. Calculate the pairwise Euclidian distance between every pair of points
-       $(a_i, b_j)$ and store it in a matric $M_{ij} = d(a_i, b_j)$, where $d:
-       \mathcal{R} \times \mathcal{R} \rightarrow \mathcal{R}$ is the Euclidean
-       distance function.
-    2. Find the shortest path from $M_{0,0}$ to $M{n,m}$, where the total weight
-       of the path is the sum of the elements on this path.
+       $(a_i, b_j)$ and store it in a matrix $M_{i,j} = d(a_i, b_j)$, where $d:
+       \mathbb{R}^k \times \mathbb{R}^k \rightarrow \mathbb{R}$ is the
+       \(k\)-dimensional Euclidean distance function.
+    2. Find the shortest path from $M_{0,0}$ to $M_{n,m}$, where the total weight
+       of the path is the sum of the elements on this path. Every step in this
+       path can only increase one of or both of the matrix' indices by one.
 
-    This shortest path, in terms of $(i, j)$-pairs, is called the /alignment/
-    and the sum of the elements of this path is the DTW distance.
+    This shortest path, in terms of \((i, j)\)-pairs, is called the /alignment/
+    and the sum of the elements of this path is the DTW distance
+    cite:sarda2017comparing.
     
     *Truangular Global Alignment Kernel (GAK) distance.* GAK methods interpret
     the distance measurement in a kernel space, similar to the process often
-    used in Support Vector Machines (SVM). With a GAK, it is relatively simple
-    to add a penalty to certain paths. In particular, the Triangular GAK with
-    parameter $T$ weights elements of the alignment by their distance to the
+    used in Support Vector Machines. With a GAK, it is relatively simple to add
+    a penalty to certain paths. In particular, the Triangular GAK with parameter
+    $T$ weights elements of the alignment by their distance to the matrix
     diagonal and discards elements further than $T$ from the diagonal. This
     greatly reduces the computation complexity---with some loss of precision, of
     course. Still, the triangular GAK seems to perform well
-    cite:Cuturi:2011:FGA:3104482.3104599.
-
-    The DTW metric defines a distance between two clips but we are interested in
-    /subsequences/ of clips that occur in multiple clips.
-
+    cite:Cuturi:2011:FGA:3104482.3104599,sarda2017comparing.
+    
+    The second element of a clustering algorithm is the method of defining a
+    /prototype/ or centroid of a cluster. In this case, the Partition Around
+    Medioids (PAM) method is used, which always uses an element of the data as
+    centroid.
+    
 **** DONE Explain metrics in dtwclust
      CLOSED: [2018-07-20 vr 19:32]
      :PROPERTIES:
@@ -1501,6 +1515,12 @@
     :PROPERTIES:
     :Effort:   2:00
     :END:
+    :LOGBOOK:
+    CLOCK: [2018-07-21 za 09:01]--[2018-07-21 za 10:26] =>  1:25
+    :END:
+
+    The results described here were obtained using the GAK distance metric, PAM
+    centroid method and a partition in eight clusters.
 
 **** TODO Figure: examples of extracted clusters
 ** Predict Poses
