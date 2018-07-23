@@ -196,10 +196,11 @@ if __name__ == '__main__':
       'move-2d-finished_images', 'normalize', 'add-angles', 'sample',
       'test-angle-conversion', 'bot-play', 'bot-play-random-clip',
       'test-zero-pose', 'test-normalization', 'test-plot-angles',
-      'get-poses-from-angle-files', 'bot-play-clusters', 'create-tfrecords',
+      'write-poses-from-angle-files', 'bot-play-clusters', 'create-tfrecords',
       'create-primitives', 'create-vocabulary', 'create-question',
       'create-sfa-dataset', 'create-sanity-check-2d', 'create-sanity-check-2d-3d',
-      'create-sanity-check-pipeline', 'create-pose-vector-plot'
+      'create-sanity-check-pipeline', 'create-pose-vector-plot',
+      'create-sanity-check-cluster-centers', 'create-sanity-check-cluster-samples'
   ]
 
   parser = argparse.ArgumentParser(description='Manipulate clip data files.')
@@ -258,6 +259,24 @@ if __name__ == '__main__':
         break
       except (ValueError, IOError) as e:
         print(e)
+  elif command_name == 'create-sanity-check-cluster-centers':
+    with open('./cluster-centers.json') as centers_file:
+      centers = json.load(centers_file)['clusters']
+    common.visualize.create_sanity_check_gesture_grid_animation(centers, 'cluster-centers')
+  elif command_name == 'create-sanity-check-cluster-samples':
+    clips = common.data_utils.get_clips()
+    cluster_ids = range(1, 9)
+    clusters = [filter(lambda x: x['class'] == c, clips) for c in cluster_ids]
+
+    for i, cluster in enumerate(clusters):
+      if len(cluster) <= 4:
+        print('WARN: Number cluster elements is only {}'.format(len(cluster)))
+      sample = random.sample(cluster, 4)
+      gestures = [clip['angles'] for clip in sample]
+      common.visualize.create_sanity_check_gesture_grid_animation(
+        gestures,
+        'cluster-{}-samples'.format(str(cluster_ids[i])),
+        figsize=(3, 3))
   elif command_name == 'move-2d-finished-images':
     common.data_utils.move_2d_finished_images(*args.args)
   elif command_name == 'normalize':

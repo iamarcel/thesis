@@ -106,3 +106,7 @@ venv.bak/
 
 # End of https://www.gitignore.io/api/python
 iamarcel
+/src/learning/log/
+/src/tfhub/
+/src/images/
+/src/output/

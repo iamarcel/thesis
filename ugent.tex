@@ -30,17 +30,22 @@
     Ligatures={NoDiscretionary, NoHistoric, NoRequired, NoContextual}]{BaskervaldADFStd}
 
 % Heading font
+\listfiles
 \usepackage{titlesec}
 \newfontfamily\headingfont[Path=fonts/,
     UprightFont = *-Normal.otf,
     BoldFont = *-SemiBold.otf]{UGentPannoText}
 \titleformat{\chapter}[display]
-    {\fontsize{16}{16}\headingfont}
-    {\chaptertitlename\ \thechapter}{0pt}
-    {\fontsize{28}{22}\selectfont\uppercase}
-\titleformat*{\section}{\LARGE\headingfont}
-\titleformat*{\subsection}{\Large\headingfont}
-\titleformat*{\subsubsection}{\large\headingfont}
+  {\fontsize{16}{16}\headingfont}
+  {\chaptertitlename\ \thechapter}{0pt}
+  {\fontsize{28}{22}\selectfont\uppercase}
+\titleformat{\section}
+  {\LARGE\headingfont}
+  {\hspace{-2\smallgridsize}\makebox[1.5\smallgridsize][r]{\thesection}\hspace{.5\smallgridsize}}{0pt}{}
+\titleformat{\subsection}{\Large\headingfont}
+  {\hspace{-2\smallgridsize}\makebox[1.5\smallgridsize][r]{\thesubsection}\hspace{.5\smallgridsize}}{0pt}{}
+\titleformat{\subsubsection}{\large\headingfont}
+  {\hspace{-2\smallgridsize}\makebox[1.5\smallgridsize][r]{\thesubsubsection}\hspace{.5\smallgridsize}}{0pt}{}
 \titleformat{\paragraph}
     {\headingfont\normalsize\bfseries}{\theparagraph}{1em}{}
 \titleformat*{\subparagraph}{\bfseries\headingfont}

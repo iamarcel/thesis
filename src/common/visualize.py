@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import os
+import sys
 import json
 import random
 import itertools
@@ -13,7 +15,7 @@ from mpl_toolkits.mplot3d import Axes3D, proj3d
 from matplotlib.patches import FancyArrowPatch
 import numpy as np
 
-from common.pose_utils import load_clip_keypoints, openpose_to_baseline, get_confidences, get_positions
+from common.pose_utils import load_clip_keypoints, openpose_to_baseline, get_confidences, get_positions, Pose
 from . import data_utils, pose_utils
 
 UGENT_BLUE = "#1E64C8"
@@ -21,8 +23,15 @@ UGENT_YELLOW = "#FFD200"
 UGENT_EA = "#6F71B9"
 
 
-def create_plot_grid(ny, nx):
-  fig = plt.figure()
+flatten = lambda l: [item for sublist in l for item in sublist]
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+
+def create_plot_grid(ny, nx, fig=None):
+  if fig is None:
+    fig = plt.figure()
 
   axes = []
   for y in range(ny):
@@ -252,6 +261,68 @@ def create_pose_vector_plot(clip):
   # plt.savefig('../img/pose-vectors.pgf', pad_inches=0)  # Huge file size
 
 
+def create_sanity_check_gesture_grid(gestures, name, figsize=(6, 3)):
+  """Creates a grid of frames of the given gesture (one grid point per gesture,
+showing the first frame)"""
+
+  n_gestures = len(gestures)
+
+  fig = plt.figure(figsize=figsize, dpi=300)
+  axes = create_plot_grid(2, n_gestures / 2, fig=fig)
+  axes = flatten(axes)
+
+  for i, gesture in enumerate(gestures):
+    ax = axes[i]
+    # Pick random frame from the gesture
+    points = Pose(random.choice(gesture)).pose_list
+    show_3d_pose(points, ax=ax, radius=0.3)
+    ax.invert_zaxis()
+
+  _save_for_report(fig, name)
+
+
+def create_sanity_check_gesture_grid_animation(gestures, name, figsize=(6, 3)):
+  """Creates a grid of frames of the given gesture (one grid point per gesture,
+showing the first frame)"""
+
+  n_gestures = len(gestures)
+
+  fig = plt.figure(figsize=figsize, dpi=300)
+  axes = create_plot_grid(2, n_gestures / 2, fig=fig)
+  axes = flatten(axes)
+
+  animation_specs = []
+  max_gesture_length = 0
+
+  for i, gesture in enumerate(gestures):
+    ax = axes[i]
+    gesture = [Pose(frame).pose_list for frame in gesture]
+    max_gesture_length = max(max_gesture_length, len(gesture))
+
+    spec = get_pose_animation_spec(gesture)
+    animation_specs.append(spec)
+    setup, update = spec
+    setup(ax)
+
+  def update(i):
+    for j, spec in enumerate(animation_specs):
+      setup, update = spec
+      update(axes[j], i)
+
+    if i == 1:
+      _save_for_report(fig, name, do_close=False)
+
+  animation = FuncAnimation(
+    fig,
+    update,
+    interval=40,
+    save_count=max_gesture_length)
+
+  fig.tight_layout(pad=0)
+  plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
+  animation.save('../img/{}.mp4'.format(name))
+
+
 def animate_3d_poses(points, add_labels=False, ax=None, save=False):
   # Swap y and z axes because mpl shows z as height instead of depth
   # points[:, :, 1], points[:, :, 2] = (
@@ -285,6 +356,26 @@ def animate_3d_poses(points, add_labels=False, ax=None, save=False):
     ani.save('viz.mp4')
 
   plt.show()
+
+
+def get_pose_animation_spec(gesture, add_labels=False, radius=0.3):
+  gesture = np.asarray(gesture)
+
+  def setup(ax):
+    points = _mpl_reorder_pose(gesture[0, :, :])
+    show3Dpose(points, ax, add_labels=add_labels, radius=radius)
+    ax.invert_zaxis()
+
+  def update(ax, i):
+    if i >= gesture.shape[0]:
+      return
+
+    ax.clear()
+    points = _mpl_reorder_pose(gesture[i, :, :])
+    show3Dpose(points, ax, add_labels=add_labels, radius=radius)
+    ax.invert_zaxis()
+
+  return (setup, update)
 
 
 def show_3d_pose(points, ax=None, add_labels=False, radius=0.5):
@@ -333,7 +424,7 @@ def show3Dpose(channels,
   for i in np.arange(len(I)):
     x, y, z = [np.array([vals[I[i], j], vals[J[i], j]]) for j in range(3)]
     ax.plot(
-        x, y, z, marker='o', lw=2, c=lcolor if LR[i] else rcolor)
+        x, y, z, linewidth=0.5, marker='o', markersize=1, c=lcolor if LR[i] else rcolor)
     # print_line_lengths([x, y, z], I[i], J[i])
 
 
@@ -466,6 +557,20 @@ def _mpl_setup_ax_3d(ax, radius=0.5, add_labels=False):
   ax.set_aspect(1)
 
   # ax.invert_zaxis()
+
+
+def _save_for_report(fig, name, do_close=True):
+  fig.tight_layout(pad=0)
+  plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
+  plt.savefig('../img/{}.png'.format(name), pad_inches=0)
+  plt.savefig('../img/{}.pgf'.format(name), pad_inches=0)
+
+  if do_close:
+    plt.close()
+
+  eprint("Wrote ./img/{}.{{png,pgf}}.".format(name))
+  eprint("If your plot includes images, don't forget to update its path in the .pgf file.")
+  print(name)
 
 
 class Arrow3D(FancyArrowPatch):

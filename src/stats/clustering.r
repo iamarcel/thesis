@@ -1,5 +1,5 @@
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(jsonlite, dtwclust, rgl, gdata, animation, ggplot2)
+pacman::p_load(jsonlite, dtwclust, rgl, gdata, animation, ggplot2, tikzDevice)
 
 data <- jsonlite::stream_in(file("clips.jsonl", open = "r"))
 
@@ -25,7 +25,10 @@ if (file.exists("model.RData")) {
 }
 
 data["class"] <- pc_dtw@cluster
+
+tikz('../../img/clustering-results-histogram.pgf', width = 4, height = 4)
 ggplot(data, aes(class)) + geom_histogram(stat = "count", bins = 8, fill = "gray80") + theme_minimal()
+dev.off()
 
 con <- file("clips-clustered.jsonl", open = "w")
 data <- jsonlite::stream_out(data, con)
@@ -44,13 +47,6 @@ for (i in 1:length(centers)) {
 
 list_of_centers <- lapply(pc_dtw@centroids, data.frame)
 jsonlite::write_json(list(clusters=list_of_centers), "../cluster-centers.json")
-
-
-
-                                        # Save data for FastText
-
-fasttext_data = paste(paste("__label__", data$cluster, sep = ""), data$subtitle, sep = " ")
-lapply(fasttext_data, write, "fasttext_examples.txt", append = TRUE)
 
 
 
@@ -122,10 +118,10 @@ for (v in 1:length(centers)) {
 }
 
                                         # Plot cluster samples
-cluster_i <- 2
+cluster_i <- 1
 cluster_poses <- unique(which(pc_dtw@cluster == cluster_i))
 str(cluster_poses)
-cluster_samples <- sample(cluster_poses, 8, replace = FALSE)
+cluster_samples <- sample(cluster_poses, 4, replace = FALSE)
 str(cluster_samples)
 
 for (i in 1:length(cluster_samples)) {

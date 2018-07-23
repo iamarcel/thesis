@@ -27,6 +27,17 @@
 ]
 #+END_SRC
 
+#+NAME: pgf_figure
+#+BEGIN_SRC latex :var var_name="" var_caption="" :exports none
+  \begin{figure}
+    \centering
+    \adjustbox{center}{%
+      \input{./img/var_name.pgf}%
+    }
+    \caption{\label{fig:var_name} var_caption}
+  \end{figure}
+#+END_SRC
+
 
 
 * Notes :noexport:
@@ -1093,7 +1104,7 @@
 
    Throughout the following steps, all fields of the clip will be filled in.
 
-*** The Video Picker
+*** The Video Picker label:sec:video-picker
     :PROPERTIES:
     :Effort:   1:00
     :END:
@@ -1514,13 +1525,74 @@
     :Effort:   2:00
     :END:
     :LOGBOOK:
+    CLOCK: [2018-07-23 ma 14:43]--[2018-07-23 ma 14:54] =>  0:11
+    CLOCK: [2018-07-23 ma 07:56]--[2018-07-23 ma 11:54] =>  3:58
     CLOCK: [2018-07-21 za 09:01]--[2018-07-21 za 10:26] =>  1:25
     :END:
 
     The results described here were obtained using the GAK distance metric, PAM
     centroid method and a partition in eight clusters.
+    autoref:fig:clustering-results-histogram shows the distribution of clusters
+    across the dataset. Two of the clusters are very small, two are very big and
+    the other four have a size roughly 1/8th of the dataset.
+    
+    #+call: pgf_figure(var_name="clustering-results-histogram", var_caption="Distribution of gesture clusters across the dataset.")
+    
+    #+call: pgf_figure(var_name="cluster-centers", var_caption="A single frame from each of the clustered gestures' centroids.")
+    
+    #+BEGIN_SRC latex :exports results :results output
+      \begin{figure}[!tbp]
+        \adjustbox{max width=0.95\paperwidth,center}{%
+        \begin{tabular}{m{35mm} m{35mm} m{35mm} m{35mm} m{35mm} m{35mm} }
 
-**** TODO Figure: examples of extracted clusters
+          \multicolumn{2}{p{70mm}}{\input{./img/cluster-1-samples.pgf}} &
+          \multicolumn{2}{p{70mm}}{\input{./img/cluster-2-samples.pgf}} &
+          \multicolumn{2}{p{70mm}}{\input{./img/cluster-3-samples.pgf}} \\
+          \multicolumn{2}{c}{(a) Cluster 1} &
+          \multicolumn{2}{c}{(b) Cluster 2} &
+          \multicolumn{2}{c}{(c) Cluster 3} \\
+
+          \multicolumn{2}{p{70mm}}{\input{./img/cluster-4-samples.pgf}} &
+          \multicolumn{2}{p{70mm}}{\input{./img/cluster-5-samples.pgf}} &
+          \multicolumn{2}{p{70mm}}{\input{./img/cluster-6-samples.pgf}} \\
+          \multicolumn{2}{c}{(d) Cluster 4} &
+          \multicolumn{2}{c}{(e) Cluster 5} &
+          \multicolumn{2}{c}{(f) Cluster 6} \\
+
+          \multicolumn{3}{p{105mm}}{\adjustbox{center}{\input{./img/cluster-7-samples.pgf}}} &
+          \multicolumn{3}{p{105mm}}{\adjustbox{center}{\input{./img/cluster-8-samples.pgf}}} \\
+          \multicolumn{3}{c}{(g) Cluster 7} &
+          \multicolumn{3}{c}{(h) Cluster 8}
+
+        \end{tabular}}
+        \caption{\label{fig:cluster-samples} Frames from four samples for each cluster.}
+      \end{figure}
+
+    #+END_SRC
+    
+    autoref:fig:cluster-centers shows a frame for the centroid of each of the
+    clusters and autoref:fig:cluster-samples shows, for each of the eight
+    clusters, a frame from four random samples in that cluster. While it is
+    difficult to evaluate based on single frames, looking at the animated
+    version of autoref:fig:cluster-samples reveals that thhe results from
+    clustering are good in some cases and not that good in others. For example,
+    one of the poses in cluster 3 (where the person's right upper arm is
+    extended to the right and their lower arm is pointing downwards) would make
+    more sense if it would belong to cluster 5, where two instances of similar
+    gestures are present. The samples within cluster 4 and cluster 6 are all
+    very similar but they could perhaps even be combined into a single cluster.
+    
+    The author suspects that much better results can be achieved with a larger
+    dataset or if an algorithm could be implemented that can extract clusters
+    from subsequences of the gestures, which would be real motion primitives.
+    For now, these results will be used for the rest of the project since
+    building the entire flow that collects and processes data and generates
+    gestures from that is deemed more important. As explained in
+    autoref:sec:video-picker, collecting more data is time-consuming but
+    straightforward.
+
+**** DONE Figure: examples of extracted clusters
+     CLOSED: [2018-07-23 ma 14:51]
 ** Predicting Poses
    
    Now the dataset is annotated with gesture classes, it is possible to build a
@@ -1771,4 +1843,4 @@
 
 * References
 bibliographystyle:unsrt
-bibliography:~/org/bibliography/references.bib
+bibliography:/home/marcel/org/bibliography/references.bib

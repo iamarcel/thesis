@@ -460,4 +460,30 @@ def get_encoded_pose(joint_dict, format_type='h36m'):
       logger.warn('Joint {} is not in this dict'.format(joint_name))
     pose[i, :] = np.asarray(joint_dict[joint_name])
 
+  if format_type == 'h36m':
+    # Reorder axes so they correspond with the H36M frame
+    pose[:, 0], pose[:, 1], pose[:, 2] = pose[:, 1].copy(), -pose[:, 2].copy(), -pose[:, 0].copy()
+
   return pose
+
+
+class Pose(object):
+
+  def __init__(self, angle_dict):
+    self.angles = angle_dict
+
+  @staticmethod
+  def from_angle_list(angle_list):
+    return Pose(get_named_angles(angle_list))
+
+  @staticmethod
+  def from_pose(pose_list):
+    return Pose(get_pose_angles(pose_list))
+
+  @property
+  def angle_list(self):
+    return get_angle_list(self.angles)
+
+  @property
+  def pose_list(self):
+    return get_encoded_pose(get_pose_from_angles(self.angles))
