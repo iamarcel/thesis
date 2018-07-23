@@ -13,18 +13,19 @@
 #+END_SRC
 
 #+BEGIN_SRC latex
-\usetikzlibrary{shapes,arrows,backgrounds,fit}
+  \usetikzlibrary{shapes,arrows,backgrounds,fit}
 
-\tikzstyle{block} = [
-  rectangle, 
-  thick, minimum width=1.5cm, minimum height=1cm,
-  rounded corners=2pt,
-  fill=black!6, draw=black!60
-]
-\tikzstyle{blue-block} = [
-  block, 
-  fill=ugent-blue!10, draw=ugent-blue!80
-]
+  \tikzstyle{block} = [
+    rectangle, 
+    thick, minimum width=1.5cm, minimum height=1cm,
+    inner xsep=12pt,
+    rounded corners=2pt,
+    fill=black!6, draw=black!60
+  ]
+  \tikzstyle{blue-block} = [
+    block, 
+    fill=ugent-blue!10, draw=ugent-blue!80
+  ]
 #+END_SRC
 
 #+NAME: pgf_figure
@@ -1597,15 +1598,16 @@
    
    Now the dataset is annotated with gesture classes, it is possible to build a
    machine learning model that can predict these. This section explains the
-   network structure for this model and for the alternative approach, which
-   predicts gestures directly instead of the classes.
+   network structure for a model that predicts classes based on an input
+   sentence and for the alternative approach, which predicts gestures directly
+   instead.
    
    In all cases, the network can be seen as having an encoder-decoder
    architecture. This section will explain two different encoders and two
    decoders.
 
    The encoder is responsible for reading the input text and interpreting that
-   sequence into a thought vector. In one case, the encoder uses a RNN and a
+   sequence into a thought vector. In one case, the encoder uses an RNN and a
    vocabulary based on the input data while in the other case, the encoder uses
    a pretrained sequence encoder.
 
@@ -1621,19 +1623,7 @@
     :LOGBOOK:
     CLOCK: [2018-07-22 zo 10:50]--[2018-07-22 zo 11:21] =>  0:31
     :END:
-
-    #+BEGIN_SRC latex :exports results :results output
-      \begin{figure}
-        \centering
-        \begin{tikzpicture}[semithick, font=\headingfont]
-          \matrix [row sep=0.8cm, column sep=1.2cm] {
-            \node 
-          }
-        \end{tikzpicture}
-        \caption{\label{fig:classification-network} Structure of the classification
-          network}
-      \end{figure}
-    #+END_SRC
+    
 *** The Encoder Network
     :PROPERTIES:
     :Effort:   1:00
@@ -1660,8 +1650,45 @@
       completely different computations while they should probably result in the
       same gesture, just at a different point in time.
 
-    *RNN-based encoder.* The RNN-based encoder processes the input text in four
-    steps:
+    #+BEGIN_SRC latex :exports results :results output
+      \begin{figure}
+        \centering
+        \begin{tikzpicture}[semithick, font=\headingfont]
+          \matrix [row sep=0.8cm, column sep=1.2cm] {
+            \node (thought) {Output}; \\
+            \node (rnn) [block] {RNN Cell}; \\
+            \node (embedder) [block] {Word Embedding Layer}; \\
+            \node (lookup) [block] {Lookup}; \\
+            \node (splitter) [block] {Splitter}; \\
+            \node (sentence) {Input}; \\
+          };
+
+          \path [->, thick]
+            (sentence) edge node[right] {Sentence} (splitter)
+            (splitter) edge node[right, xshift=12pt] {Normalized words} (lookup)
+            (lookup) edge node[right, xshift=12pt] {Word Indices} (embedder)
+            (embedder) edge node[right, xshift=12pt] {Word Embeddings} (rnn)
+            (rnn) edge node[right] {Thought Vector} (thought)
+            (rnn) edge [loop right] ()
+          ;
+
+          \foreach \x in {-10pt, 10pt} {
+            \path [->, thick]
+              (splitter.north) edge ([xshift=\x] lookup.south)
+              ([xshift=\x] lookup.north)   edge ([xshift=\x] embedder.south)
+              ([xshift=\x] embedder.north) edge ([xshift=\x] rnn.south)
+              ;
+          }
+
+        \end{tikzpicture}
+        \caption{\label{fig:text-encoder} The encoder network that processes an input
+          sentence into a thought vector. Multiple arrows are shown where sequential
+          data flows.}
+      \end{figure}
+    #+END_SRC
+
+    \paragraph{RNN-based encoder} The RNN-based encoder processes the input
+    text in four steps:
 
     1. Split the sentence into text objects.
     2. Use a vocabulary file to encode them with one-hot encoding [fn:one-hot].
@@ -1673,13 +1700,13 @@
     The first design choice in the encoder is the definition of a /text object/.
     This is the unit of text to which the sentence will be reduced. Common
     examples are words and n-grams ($n$ characters). Larger text objects need
-    more space to represent them since each unique instance needs its own
-    interpretation, but they can more readily be used to model time
+    higher-dimensionality neural network layers since each unique instance needs
+    its own representation, but they can more readily be used to model time
     dependencies. Smaller text objects like single characters only need a small
-    vocabulary (in this case, all the letters of the alphabet) but a more
-    complex network structure is needed to capture time dependencies. In this
-    case, words were chosen as text object because of their interpretability and
-    popularity.
+    vocabulary (in this example, each letter of the alphabet and perhaps some
+    punctuation characters) but a more complex network structure is needed to
+    capture time dependencies. In this case, words were chosen as text object
+    because of their interpretability and popularity.
 
     # there are bigger things in there. yesyes. you see. when its bigger it
     # needs more space hé. So yes. The first design choice from above is clearly
@@ -1705,10 +1732,10 @@
     which perform better than plain RNN cells on longer sequences and are less
     complex to train cite:chung14_empir_evaluat_gated_recur_neural. 
     
-    *Pretrained encoder.* The pretrained encoder uses Google's Universal
-    Sentence Encoder cite:cer18_univer_senten_encod available in pretrained form
-    with TensorFlow Hub cite:tfhub. This module reads the entire sentence at
-    once and returns a 512-dimensional vector.
+    \paragraph{Pretrained encoder} The pretrained encoder uses Google's
+    Universal Sentence Encoder cite:cer18_univer_senten_encod available in
+    pretrained form with TensorFlow Hub cite:tfhub. This module reads the entire
+    sentence at once and returns a 512-dimensional vector.
 
     # A /recurrent/ neural network, however, is able to handle this kind of data.
     # This kind of network introduces a "time" dimension that can vary across
@@ -1722,25 +1749,25 @@
     # network, batching inputs of different lengths can slow down the training
     # process.
     
-    Recurrent neural networks have difficulty with long-term dependencies (LSTM
-    networks fare somewhat better) because of the large amount of operations in
-    between the input data and the corresponding output: the data from one time
-    step is passed through all the data from later time steps and combined into
-    the intermediate state, which needs to be "unrolled" again.
+    # Recurrent neural networks have difficulty with long-term dependencies (LSTM
+    # networks fare somewhat better) because of the large amount of operations in
+    # between the input data and the corresponding output: the data from one time
+    # step is passed through all the data from later time steps and combined into
+    # the intermediate state, which needs to be "unrolled" again.
     
-    An attentional network is one in which weights act as "keys" to select
-    specific time steps of the input, implemented as a weight vector that is
-    multiplied element-wise with the inputs. This weight vector is a variable
-    that is optimized.
+    # An attentional network is one in which weights act as "keys" to select
+    # specific time steps of the input, implemented as a weight vector that is
+    # multiplied element-wise with the inputs. This weight vector is a variable
+    # that is optimized.
     
 *** The Decoder Network
     
-    Now that hidden representation of the subtitle has been created, this can
-    again be decoded in a class or sequence of poses.
+    Now that hidden representation of the subtitle has been created, this can be
+    decoded to predict a class or sequence of poses.
 
-    *Classification decoder.* The simplest decoder returns a probability for
-    each of the classes by adding the following layers to the hidden
-    representation:
+    \paragraph{Classification decoder} The simplest decoder returns a
+    probability for each of the classes by adding the following layers to the
+    hidden representation:
 
     1. A dropout layer for regularization
     2. An intermediate fully-connected layer with ReLU activation
@@ -1750,8 +1777,33 @@
     The loss function is the softmax cross entropy with the labels in a one-hot
     encoding.
     
-    *Sequence decoder.* The other decoder directly generates gestures, as a
-    sequence of poses. 
+    #+BEGIN_SRC latex :exports results :results output
+      \begin{figure}
+        \centering
+        \begin{tikzpicture}[semithick, font=\headingfont]
+          \matrix [row sep=0.8cm, column sep=1.2cm] {
+            \node (logits) {Logits}; \\
+            \node (dense2) [block] {Dense}; \\
+            \node (dense1) [block] {Dense}; \\
+            \node (dropout) [block] {Dropout}; \\
+            \node (thought) {Input}; \\
+          };
+
+          \path [->, thick]
+            (thought) edge node[right] {Thought Vector} (dropout)
+            (dropout) edge (dense1)
+            (dense1) edge (dense2)
+            (dense2) edge (logits)
+          ;
+
+        \end{tikzpicture}
+        \caption{\label{fig:class-decoder} The decoder network that decodes a thought
+          vector into a probability for each class.}
+      \end{figure}
+    #+END_SRC
+    
+    \paragraph{Sequence decoder} The other decoder directly generates gestures,
+    as a sequence of poses.
 
     Since the length (in terms of time) of the output cannot be determined
     beforehand, the network needs to learn this as well. To achieve this, an
