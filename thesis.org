@@ -15,17 +15,70 @@
 #+BEGIN_SRC latex
   \usetikzlibrary{shapes,arrows,backgrounds,fit}
 
-  \tikzstyle{block} = [
+  \tikzset{
+    center coordinate/.style={
+      execute at end picture={
+        \path ([rotate around={180:#1}]perpendicular cs: horizontal line through={#1},
+                                    vertical line through={(current bounding box.east)})
+              ([rotate around={180:#1}]perpendicular cs: horizontal line through={#1},
+                                    vertical line through={(current bounding box.west)});}}}
+
+  \tikzstyle{draw-blue} = [
+    draw=ugent-blue
+  ]
+
+  \tikzstyle{fill-blue} = [
+    fill=ugent-blue!10
+  ]
+
+  \tikzstyle{draw-green} = [
+    draw=ugent-green
+  ]
+
+  \tikzstyle{fill-green} = [
+    fill=ugent-green!10
+  ]
+
+  \tikzstyle{draw-orange} = [
+    draw=ugent-orange
+  ]
+
+  \tikzstyle{fill-orange} = [
+    fill=ugent-orange!10
+  ]
+
+  \tikzstyle{draw-black} = [
+    draw=black!60
+  ]
+
+  \tikzstyle{fill-black} = [
+    fill=black!6
+  ]
+
+  \tikzstyle{base-block} = [
     rectangle, 
     thick, minimum width=1.5cm, minimum height=1cm,
-    inner xsep=12pt,
-    rounded corners=2pt,
-    fill=black!6, draw=black!60
+    inner xsep=12pt, inner ysep=6pt
   ]
+
+  \tikzstyle{block} = [
+    base-block,
+    rounded rectangle,
+    draw-black, fill-black
+  ]
+
   \tikzstyle{blue-block} = [
     block, 
-    fill=ugent-blue!10, draw=ugent-blue!80
+    draw-blue, fill-blue
   ]
+
+  \tikzstyle{variable block} = [
+    base-block,
+    draw-orange, fill-orange
+  ]
+
+  \newacronym{rnn}{RNN}{Recurrent Neural Network}
+
 #+END_SRC
 
 #+NAME: pgf_figure
@@ -683,13 +736,13 @@
     Both these computations are, as in other neural networks, linear
     combinations with some learned weights. This computation is repeated for
     each element in the sequence with the same weights. A network composed of
-    these kind of cells is called a Recurrent Neural Network (RNN), who can be
-    represented as very deep neural networks where each time step (an iteration
-    where the cell computation is performed) is a layer in this network and the
-    weights are shared across layers. This way, recurrent neural networks are
-    similar to deep neural networks.
+    these kind of cells is called a \gls{rnn}, who can be represented as very
+    deep neural networks where each time step (an iteration where the cell
+    computation is performed) is a layer in this network and the weights are
+    shared across layers. This way, recurrent neural networks are similar to
+    deep neural networks.
     
-    Simple RNNs have difficulty learning long-term relationships because of a
+    Simple \glspl{rnn} have difficulty learning long-term relationships because of a
     problem called the /vanishing gradient problem/ that also occurs in very
     deep neural networks. The LSTM (Long Short-Term Memory) cell solves this
     problem by splitting the state in two parts: one part is the output for
@@ -734,7 +787,7 @@
         (rnn_t) edge[thick] node[above] {$s_t$} (rnn_next)
         ;
       \end{tikzpicture}
-      \caption{\label{fig:rnn}A time slice of a Recurrent Neural Network (RNN). 
+      \caption{\label{fig:rnn}A time slice of a \glsfirst{rnn}.
         At each time step $t$, the network reads the current input $y_t$ and uses
         the state of the previous time step $s_{t-1}$ to compute the current output
         $y_t$ and current state $s_t$.}
@@ -745,7 +798,7 @@
      CLOSED: [2018-07-10 Tue 17:57]
 *** The Encoder-Decoder Architecture
     
-    RNNs are good at predicting the next time step or steps in a sequence,
+    \Glspl{rnn} are good at predicting the next time step or steps in a sequence,
     making them ideal for tasks such as text autocompletion, but they can also
     be used for more complex tasks. 
 
@@ -753,7 +806,7 @@
     The first is used to read a source sequence and the state from the final
     time step is then interpreted as a representation of the entire
     sequence---often referred to as the /thought vector/. This thought vector
-    then serves as input to a second RNN that again outputs a sequence but of a
+    then serves as input to a second \gls{rnn} that again outputs a sequence but of a
     different kind. This architecture is used in sequence-to-sequence problems
     where there is no one-to-one mapping between the steps in the source
     sequence and steps in the destination sequence. In machine translation, for
@@ -772,20 +825,15 @@
       \usetikzlibrary{shapes,arrows,backgrounds,fit}
 
       \begin{tikzpicture}[->, shorten >=1pt, auto, node distance=2cm, semithick, font=\headingfont]
-      \tikzstyle{my-circle} = [
-        circle, 
-        thick, minimum size=1cm,
-        fill=ugent-blue!10, draw=ugent-blue!80
-      ]
 
       \node (input) {};
-      \node (encoder) [block, right=4cm of input] {ENCODER};
+      \node (encoder) [block, right=4cm of input] {Encoder};
       \draw [dash pattern=on 10pt off 5pt on 16pt off 5pt on 13pt off 5pt on 8pt off 5pt] (input) -- (encoder);
 
-      \node (thought-vector) [my-circle, above of=encoder, text width=1.5cm, align=center] {Thought Vector};
+      \node (thought-vector) [variable block, above of=encoder, align=center] {Thought Vector};
       \draw (encoder) -> (thought-vector);
 
-      \node (decoder) [block, above of=thought-vector] {DECODER};
+      \node (decoder) [block, above of=thought-vector] {Decoder};
       \draw (thought-vector) -> (decoder);
       \node (output) [right=4cm of decoder] {};
       \draw [dash pattern=on 2pt off 5pt on 7pt off 5pt on 3pt off 5pt on 4pt off 5pt on 1pt off 5pt on 1pt off 5pt] (decoder) -- (output);
@@ -1607,7 +1655,7 @@
    decoders.
 
    The encoder is responsible for reading the input text and interpreting that
-   sequence into a thought vector. In one case, the encoder uses an RNN and a
+   sequence into a thought vector. In one case, the encoder uses an \gls{rnn} and a
    vocabulary based on the input data while in the other case, the encoder uses
    a pretrained sequence encoder.
 
@@ -1655,20 +1703,20 @@
         \centering
         \begin{tikzpicture}[semithick, font=\headingfont]
           \matrix [row sep=0.8cm, column sep=1.2cm] {
-            \node (thought) {Output}; \\
-            \node (rnn) [block] {RNN Cell}; \\
+            \node (thought) [variable block, align=center] {Output\\{\small(Thought Vector)}}; \\
+            \node (rnn) [block] {\Gls{rnn} Cell}; \\
             \node (embedder) [block] {Word Embedding Layer}; \\
             \node (lookup) [block] {Lookup}; \\
             \node (splitter) [block] {Splitter}; \\
-            \node (sentence) {Input}; \\
+            \node (sentence) [variable block, align=center] {Input\\{\small(Sentence)}}; \\
           };
 
           \path [->, thick]
-            (sentence) edge node[right] {Sentence} (splitter)
+            (sentence) edge (splitter)
             (splitter) edge node[right, xshift=12pt] {Normalized words} (lookup)
             (lookup) edge node[right, xshift=12pt] {Word Indices} (embedder)
             (embedder) edge node[right, xshift=12pt] {Word Embeddings} (rnn)
-            (rnn) edge node[right] {Thought Vector} (thought)
+            (rnn) edge (thought)
             (rnn) edge [loop right] ()
           ;
 
@@ -1687,14 +1735,16 @@
       \end{figure}
     #+END_SRC
 
-    \paragraph{RNN-based encoder} The RNN-based encoder processes the input
+    #+BEGIN_EXPORT latex
+    \paragraph{{\Gls{rnn}}-based encoder} The \gls{rnn}-based encoder processes the input
     text in four steps:
+    #+END_EXPORT
 
     1. Split the sentence into text objects.
     2. Use a vocabulary file to encode them with one-hot encoding [fn:one-hot].
     3. Create an /embedding/ of these text objects, representing them as a
        (dense) vector in a lower-dimensional feature space.
-    4. Read this sequence of embeddings with an RNN and return the thought
+    4. Read this sequence of embeddings with an \gls{rnn} and return the thought
        vector.
 
     The first design choice in the encoder is the definition of a /text object/.
@@ -1728,8 +1778,8 @@
     rest of the network. It can be expected that, after training, the embedded
     representations of words with similar gestures would be close to each other.
     
-    The final step is a single-layer RNN with Gated Recurrent Unit (GRU) cells,
-    which perform better than plain RNN cells on longer sequences and are less
+    The final step is a single-layer \gls{rnn} with Gated Recurrent Unit (GRU) cells,
+    which perform better than plain \gls{rnn} cells on longer sequences and are less
     complex to train cite:chung14_empir_evaluat_gated_recur_neural. 
     
     \paragraph{Pretrained encoder} The pretrained encoder uses Google's
@@ -1782,28 +1832,91 @@
         \centering
         \begin{tikzpicture}[semithick, font=\headingfont]
           \matrix [row sep=0.8cm, column sep=1.2cm] {
-            \node (logits) {Logits}; \\
+            \node (logits) [variable block, align=center] {Output\\{\small(Class Probabilities)}}; \\
             \node (dense2) [block] {Dense}; \\
             \node (dense1) [block] {Dense}; \\
             \node (dropout) [block] {Dropout}; \\
-            \node (thought) {Input}; \\
+            \node (thought) [variable block, align=center] {Input\\{\small(Thought Vector)}}; \\
           };
 
           \path [->, thick]
-            (thought) edge node[right] {Thought Vector} (dropout)
+            (thought) edge (dropout)
             (dropout) edge (dense1)
             (dense1) edge (dense2)
             (dense2) edge (logits)
           ;
 
         \end{tikzpicture}
-        \caption{\label{fig:class-decoder} The decoder network that decodes a thought
-          vector into a probability for each class.}
+        \caption{\label{fig:class-decoder} The class decoder decodes a thought vector
+          into a probability for each class.}
       \end{figure}
     #+END_SRC
     
     \paragraph{Sequence decoder} The other decoder directly generates gestures,
-    as a sequence of poses.
+    sequences of poses. The challenges when implementing this decoder are
+
+    - Generating sequential data which is of a different data type than the
+      input sequence (gestures are sequences of vectors in a continuous space,
+      while words are discrete).
+    - Learning the length of the sequence to be generated.
+    - Learning dependencies between the input sequence and output sequence, when
+      their length scales are different.
+
+    Previous work on models that input and output sequences, like the ~seq2seq~
+    framework for TensorFlow built by Google engineers as a general-purpose
+    encoder-decoder framework cite:Britz:2017 and the Seq2seq Library built-in
+    to TensorFlow cite:tf-seq2seq-library are built to generate sequences of
+    symbols (such as word objects) instead of sequences of continuous values.
+    Thus, while they can easily be used for various text generation tasks like
+    machine translation and image captioning, they cannot generate continuous
+    values like poses.
+    
+    In that sense, gesture synthesis is more akin to speech synthesis than
+    machine translation. One advantage of gesture synthesis over speech
+    synthesis is the much smaller time resolution: Google's WaveNet
+    text-to-speech synthesis network, for example, generates audio at 24,000
+    frames per second cite:oord17_paral_waven. As opposed to sound, motion
+    appears smooth to human perception at 25 frames per second and this might
+    even be reduced if a good interpolation of poses can be found. Note though
+    that poses have higher dimensionality than sound: a sound sample is a single
+    value while a pose is, in this case, a value per joint. Still, the time
+    dimensionality for gesture synthesis is two orders of magnitude less than
+    for raw audio synthesis.
+    
+    With that in mind, neither the text synthesis or speech synthesis systems
+    available can be easily adapted for this task but a specialized decoder
+    shall be built. autoref:fig:sequence-decoder shows a diagram of this
+    decoder. The data that flows through an \gls{rnn} is divided into two parts:
+    the input/output and the state. Both of these are updated in every time step
+    of processing but the state is internal. Intuitively, one can interpret the
+    state as the context while the input represents the progress of decoding.
+
+    In the sequence decoder, the initial state is given by the thought vector as
+    created by the encoder. The input is the pose from the previous time step
+    but in practice, this differs depending on the network structure. During the
+    training step, the ground truth pose is passed as input and during
+    inference, the generated pose from the previous time step is fed back into
+    the cell.
+    
+    Similar to previous research that animated 3D face meshes based on audio
+    input cite:karras17_audio_driven_facial_animat_by, the loss function used is
+    a sum of two terms: the /position loss/ and the /motion loss/. The position
+    loss is the squared error between the predicted pose and the ground truth
+    pose, while the motion loss measures the squared error of the difference
+    between consecutive frames. This way, the network is explicitly forced to
+    learn the correct speed of motion as well as the position of the joints.
+    These terms, defined in terms of the network input $x$ are, respectively:
+
+    \begin{align*}
+      P: x \mapsto &\sum_{t=0}^T\sum_{i=0}^{n-1} \Big[ y_i^{(t)}(x) - \hat{y}_i^{(t)}(x) \Big]^2 \\
+      M: x \mapsto &\sum_{t=0}^T\sum_{i=0}^{n-1} \Big[ \big(y_i^{(t)}(x) - y_i^{(t-1)}(x)\big) - 
+                   \big(\hat{y}_i^{(t)}(x) - \hat{y}_i^{(t-1)}(x)\big) \Big]^2.
+    \end{align*}
+    
+    Here, we defined $y: x \mapsto y(x)$ as the function that maps the input to
+    the ground truth output
+    
+    - [ ] TODO: Continue here
 
     Since the length (in terms of time) of the output cannot be determined
     beforehand, the network needs to learn this as well. To achieve this, an
@@ -1811,8 +1924,56 @@
     time left until the end of the sequence. For example, when a gesture is 50
     frames long, the value of the vector in the 11th timestep for this
     dimension is $1 - (1/50) \cdot 10 = 0.8$.
+    
+    #+BEGIN_SRC latex :exports results :results output
+      \begin{figure}
+        \centering
+        \begin{tikzpicture}[->, thick, x=\smallgridsize, y=\smallgridsize, font=\headingfont, center coordinate=(cell)]
+          \node (cell) [block] {\Gls{rnn} Cell};
 
-*** Classification-based vs. RNN
+          \draw[->]
+            (cell.160)++(-2, 0) node(state) [left] {State}
+            -- node(statejoincontrol)[pos=0.3]{}
+               node(statejoin)[pos=1.0]{}
+               (cell.160);
+
+          \draw[->]
+            (cell.200)++(-2, 0) node(input) [left] {Input}
+            -- node(inputjoincontrol)[pos=0.3]{}
+               node(inputjoin)[pos=1.0]{}
+               (cell.200);
+
+          \draw[->]
+            (cell.20)
+            -- node(newstatejoin)[pos=0]{}
+              ++(2, 0) node(newstate) [right] {State};
+
+          \draw[->] 
+            (cell.340)
+            -- node(outputjoin)[pos=0]{}
+               ++(2, 0) node(output)   [right] {Output};
+
+          \draw 
+            (state.east)++(0, 1) 
+            node (thoughtvector) [variable block, left, align=center] {Initial State\\{\small(Thought Vector)}}
+            .. controls +(1, 0) and (statejoincontrol) .. (statejoin.center);
+
+          \draw[draw-blue]
+            (input.east)++(0, -1)
+            node (groundtruth) [left, align=right] {Ground Truth\\{\small(Poses)}} 
+            .. controls +(1, 0) and (inputjoincontrol) .. (inputjoin.center);
+
+          \draw[looseness=3] (newstatejoin.center) to[out=0, in=0] ([shift=(up:1)] cell.north) to[out=180, in=180] (statejoin.center);
+          \draw[looseness=3, draw-green] (outputjoin.center) to[out=0, in=0] ([shift=(down:1)] cell.south) to[out=180, in=180] (inputjoin.center);
+
+        \end{tikzpicture}
+        \caption{\label{fig:sequence-decoder} The sequence decoder decodes a thought
+          vector into a sequence of poses. Green lines are connections present during
+          inference, while blue lines are present during training.}
+      \end{figure}
+    #+END_SRC
+
+*** Classification-based vs. \glsentrytext{rnn}
     :PROPERTIES:
     :Effort:   2:00
     :END:
