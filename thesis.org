@@ -13,7 +13,7 @@
 #+END_SRC
 
 #+BEGIN_SRC latex
-  \usetikzlibrary{shapes,arrows,backgrounds,fit}
+  \usetikzlibrary{shapes,arrows,backgrounds,fit,calc}
 
   \tikzset{
     center coordinate/.style={
@@ -22,6 +22,13 @@
                                     vertical line through={(current bounding box.east)})
               ([rotate around={180:#1}]perpendicular cs: horizontal line through={#1},
                                     vertical line through={(current bounding box.west)});}}}
+
+  \tikzset{
+    font=\headingfont,
+    x=\smallgridsize, y=\smallgridsize,
+    node distance=\smallgridsize,
+    semithick
+  }
 
   \tikzstyle{draw-blue} = [
     draw=ugent-blue
@@ -56,7 +63,8 @@
   ]
 
   \tikzstyle{base-block} = [
-    rectangle, 
+    rectangle,
+    font=\headingfont,
     thick, minimum width=1.5cm, minimum height=1cm,
     inner xsep=12pt, inner ysep=6pt
   ]
@@ -75,6 +83,11 @@
   \tikzstyle{variable block} = [
     base-block,
     draw-orange, fill-orange
+  ]
+
+  \tikzstyle{inline spacing} = [
+    inner xsep=4pt, inner ysep=2pt,
+    minimum width=0pt, minimum height=0pt
   ]
 
   \newacronym{rnn}{RNN}{Recurrent Neural Network}
@@ -742,6 +755,14 @@
     shared across layers. This way, recurrent neural networks are similar to
     deep neural networks.
     
+    autoref:fig:rnn shows a high-level diagram of an \gls{rnn}, where two time
+    steps are unrolled. In this figure and further diagrams, the convention will
+    be adopted that 
+    #+latex: \tikz[baseline]{\node[block,inline spacing,anchor=base]{grey rounded rectangles};} 
+    represent operations and 
+    #+latex: \tikz[baseline]{\node[variable block,inline spacing,anchor=base]{orange rectangles};} 
+    represent variables.
+    
     Simple \glspl{rnn} have difficulty learning long-term relationships because of a
     problem called the /vanishing gradient problem/ that also occurs in very
     deep neural networks. The LSTM (Long Short-Term Memory) cell solves this
@@ -756,7 +777,7 @@
       \begin{figure}[h]
       \centering
 
-      \begin{tikzpicture}[->, shorten >=1pt, auto, node distance=2.8cm, semithick, font=\headingfont]
+      \begin{tikzpicture}
       \matrix [row sep=0.8cm, column sep=1.2cm] {
         \node (y_t-2) {}; &
         \node (y_t-1) {$y_{t-1}$}; &
@@ -1852,8 +1873,11 @@
       \end{figure}
     #+END_SRC
     
-    \paragraph{Sequence decoder} The other decoder directly generates gestures,
-    sequences of poses. The challenges when implementing this decoder are
+    
+    \paragraph{Sequence decoder} 
+    
+    The other decoder directly generates gestures, sequences of poses. The
+    challenges when implementing this decoder are
 
     - Generating sequential data which is of a different data type than the
       input sequence (gestures are sequences of vectors in a continuous space,
@@ -1908,22 +1932,25 @@
     These terms, defined in terms of the network input $x$ are, respectively:
 
     \begin{align*}
-      P: x \mapsto &\sum_{t=0}^T\sum_{i=0}^{n-1} \Big[ y_i^{(t)}(x) - \hat{y}_i^{(t)}(x) \Big]^2 \\
-      M: x \mapsto &\sum_{t=0}^T\sum_{i=0}^{n-1} \Big[ \big(y_i^{(t)}(x) - y_i^{(t-1)}(x)\big) - 
+      P: x \mapsto &\sum_{t=0}^{T(x)-1}\sum_{i=0}^{n-1} \Big[ y_i^{(t)}(x) - \hat{y}_i^{(t)}(x) \Big]^2 \\
+      M: x \mapsto &\sum_{t=0}^{T(x)-1}\sum_{i=0}^{n-1} \Big[ \big(y_i^{(t)}(x) - y_i^{(t-1)}(x)\big) - 
                    \big(\hat{y}_i^{(t)}(x) - \hat{y}_i^{(t-1)}(x)\big) \Big]^2.
     \end{align*}
     
-    Here, we defined $y: x \mapsto y(x)$ as the function that maps the input to
-    the ground truth output
-    
-    - [ ] TODO: Continue here
+    Here, we defined $y$ and $\hat{y}$ as the functions that map the input to
+    the ground truth output and the network's prediction respectively. The
+    output of both of these functions is a temporal sequence of /frames/
+    $y^{(t)}, t \in \{0,\ldots,T(x)-1\}$, where $T$ is the length of the ground
+    truth sequence and thus dependent on $x$, and where each frame is a vector
+    of $n$ frames $y^{(t)}_i, i \in \{0,\ldots,n-1\}$.
 
-    Since the length (in terms of time) of the output cannot be determined
-    beforehand, the network needs to learn this as well. To achieve this, an
-    extra dimension was added to the gesture data containing the percentage of
-    time left until the end of the sequence. For example, when a gesture is 50
-    frames long, the value of the vector in the 11th timestep for this
-    dimension is $1 - (1/50) \cdot 10 = 0.8$.
+    Since the length of the time sequence in the output cannot be directly
+    determined from the input, the network needs to learn this as well. To
+    achieve this, an extra dimension is added to the gesture data containing
+    the percentage of time left until the end of the sequence. For example, when
+    a gesture is 50 frames long, the value of the vector in the 11th timestep
+    for this dimension is $1 - (1/50) \cdot 10 = 0.8$. The same loss function
+    can be used to learn this dimension.
     
     #+BEGIN_SRC latex :exports results :results output
       \begin{figure}
@@ -1931,8 +1958,8 @@
         \begin{tikzpicture}[->, thick, x=\smallgridsize, y=\smallgridsize, font=\headingfont, center coordinate=(cell)]
           \node (cell) [block] {\Gls{rnn} Cell};
 
-          \draw[->]
-            (cell.160)++(-2, 0) node(state) [left] {State}
+          \draw
+            (cell.160)++(-2, 0) node(state) [variable block, left, align=center, yshift=0.25\smallgridsize] {Initial State\\{\small(Thought Vector)}}
             -- node(statejoincontrol)[pos=0.3]{}
                node(statejoin)[pos=1.0]{}
                (cell.160);
@@ -1943,33 +1970,95 @@
                node(inputjoin)[pos=1.0]{}
                (cell.200);
 
-          \draw[->]
-            (cell.20)
-            -- node(newstatejoin)[pos=0]{}
-              ++(2, 0) node(newstate) [right] {State};
-
           \draw[->] 
             (cell.340)
             -- node(outputjoin)[pos=0]{}
                ++(2, 0) node(output)   [right] {Output};
-
-          \draw 
-            (state.east)++(0, 1) 
-            node (thoughtvector) [variable block, left, align=center] {Initial State\\{\small(Thought Vector)}}
-            .. controls +(1, 0) and (statejoincontrol) .. (statejoin.center);
 
           \draw[draw-blue]
             (input.east)++(0, -1)
             node (groundtruth) [left, align=right] {Ground Truth\\{\small(Poses)}} 
             .. controls +(1, 0) and (inputjoincontrol) .. (inputjoin.center);
 
-          \draw[looseness=3] (newstatejoin.center) to[out=0, in=0] ([shift=(up:1)] cell.north) to[out=180, in=180] (statejoin.center);
+          \draw[->,looseness=3] (cell.20) to[out=0, in=0] ([shift=(up:1)] cell.north) node [above] {State} to[out=180, in=180] (statejoin.center);
           \draw[looseness=3, draw-green] (outputjoin.center) to[out=0, in=0] ([shift=(down:1)] cell.south) to[out=180, in=180] (inputjoin.center);
 
         \end{tikzpicture}
         \caption{\label{fig:sequence-decoder} The sequence decoder decodes a thought
           vector into a sequence of poses. Green lines are connections present during
           inference, while blue lines are present during training.}
+      \end{figure}
+    #+END_SRC
+
+    One property of this encoder-decoder structure that is at least intuitively
+    restrictive is that the entire input sequence must be summarized as a single
+    vector and then expanded again by the decoder---especially considering that
+    people probably do not choose their gestures based on the summarized
+    "meaning" of the sentence they are saying, but rather as a combination of
+    gestures based on the words in that sentence.
+    
+    In response to this observation in the fields of image caption generation
+    and machine translation, for example, /attention-based models/ were proposed
+    as a solution
+    cite:wu16_googl_neural_machin_trans_system,xu15_show_atten_tell,bahdanau14_neural_machin_trans_by_joint.
+    These structures are most often used in combination with \glspl{rnn} and
+    have more recently even been used on their own
+    cite:vaswani17_atten_is_all_you_need. An attention model creates, for each
+    time step in the decoder, a /context vector/ that is a weighted combination
+    of the intermediate outputs from the \gls{rnn} in the encoder step (referred
+    to as /memory/). These weights are trainable and based on the previous state
+    from the \gls{rnn}. Then, the result is assigned to the new state of the
+    recurrent network. autoref:fix:attention-decoder shows how this works
+    conceptually.
+    
+    #+BEGIN_SRC latex :exports results :results output
+      \begin{figure}
+        \centering
+        \begin{tikzpicture}[->, thick, x=\smallgridsize, y=\smallgridsize, node distance=\smallgridsize, font=\headingfont, center coordinate=(cell)]
+
+          \node (cell) [block] {\Gls{rnn} Cell};
+          \node (attention) [block, above=\smallgridsize of cell] {Attention Mechanism};
+          \node (memory) [variable block, above=\smallgridsize of attention, align=center] {Memory\\{\small(Outputs from encoder)}};
+
+          % Input Line
+          \draw[->]
+            (cell.200)++(-2, 0) node(input) [left] {Input}
+            -- node(inputjoincontrol)[pos=0.3]{}
+               node(inputjoin)[pos=1.0]{}
+               (cell.200);
+
+          % Output Line
+          \draw[->] 
+            (cell.340)
+            -- node(outputjoin)[pos=0]{}
+               ++(2, 0) node(output)   [right] {Output};
+
+          % Right State Line
+          \draw[->,looseness=3] (cell.20)
+               to[out=0, in=0]
+               node [right] {State} (attention.east);
+
+          % Left State Line
+          \draw[->,looseness=3] (attention.west)
+               to[out=180, in=180]
+               node [left] {State} (cell.160);
+
+          % Input Loop
+          \draw[looseness=3] (outputjoin.center) to[out=0, in=0] ([shift=(down:1)] cell.south) to[out=180, in=180] (inputjoin.center);
+
+          % Memory Lines
+          \draw[->] ([xshift=-0.75\smallgridsize] memory.south) -- ([xshift=-0.75\smallgridsize] attention.north);
+          \draw[->] ([xshift=-0.5\smallgridsize] memory.south) -- ([xshift=-0.5\smallgridsize] attention.north);
+          \draw[->] ([xshift=0.75\smallgridsize] memory.south) -- ([xshift=0.75\smallgridsize] attention.north);
+          \draw[->] ([xshift=0.5\smallgridsize] memory.south) -- ([xshift=0.5\smallgridsize] attention.north);
+
+          \node at ($(memory)!0.5!(attention)$) {$\cdots$};
+
+        \end{tikzpicture}
+        \caption{\label{fig:attention-decoder} The attention-based decoder calculates
+          its new state by taking a weighted combination of all the outputs from the
+          encoder. Details about training/inference differences and initial states
+          omitted for clarity.}
       \end{figure}
     #+END_SRC
 
@@ -2049,11 +2138,12 @@
   :Effort:   2:00
   :END:
 
-** TODO Checklist
+** Checklist
    - [ ] Findings: What are the main results?
    - [ ] Take-home message: What should the reader remember?
    - [ ] Future work: what is the outlook?
 
-* References
+
 bibliographystyle:unsrt
-bibliography:/home/marcel/org/bibliography/references.bib
+\bibliography{/home/marcel/org/bibliography/references.bib}
+
