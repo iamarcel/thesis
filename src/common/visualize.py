@@ -493,6 +493,24 @@ def show_2d_pose(points, ax=None, add_labels=False):
   show2Dpose(points, ax, add_labels=add_labels)
 
 
+def create_2d_pose_plot(ax, point_list, fmt='h36m'):
+  pose = pose_utils.get_named_pose(point_list, fmt)
+
+  start_names = pose_utils.JOINTS[:, 0]
+  start_points = [pose[joint_name] for joint_name in start_names]
+
+  end_names = pose_utils.JOINTS[:, 1]
+  end_points = [pose[joint_name] for joint_name in end_names]
+
+  _mpl_setup_ax_2d(ax)
+
+  for start, end in zip(start_points, end_points):
+    x = [start[0], end[0]]
+    y = [start[1], end[1]]
+
+    ax.plot(x, y, lw=2, marker='o')
+
+
 def _mpl_reorder_poses(points):
   """Reorders points so Matplotlib shows them in the orientation we expect"""
   # Swap y and z axes because mpl shows z as height instead of depth
