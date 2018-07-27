@@ -560,9 +560,34 @@ def _floats_feature(values):
 
 
 def create_tfrecords(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
-                     tfrecords_path='clips.tfrecords'):
+                     tfrecords_path='./'):
   clips = common.data_utils.get_clips(clips_path)
-  writer = tf.python_io.TFRecordWriter(tfrecords_path)
+  n_clips = len(clips)
+
+  splits = [
+    (
+      0.7,
+      os.path.join(tfrecords_path, 'train.tfrecords')
+    ),
+    (
+      0.15,
+      os.path.join(tfrecords_path, 'test.tfrecords')
+    ),
+    (
+      0.15,
+      os.path.join(tfrecords_path, 'validate.tfrecords')
+    ),
+  ]
+
+  start_index = 0
+  for size, file_name in splits:
+    end_index = min(int(math.ceil(n_clips * size + start_index)), n_clips)
+    write_clips_to_tfrecords(clips[start_index:end_index], file_name)
+    start_index = end_index
+
+
+def write_clips_to_tfrecords(clips, file_name):
+  writer = tf.python_io.TFRecordWriter(file_name)
 
   for clip in clips:
     points_3d = np.asarray(clip['points_3d'])
@@ -594,15 +619,8 @@ def create_tfrecords(clips_path=common.data_utils.DEFAULT_CLIPS_PATH,
     example = tf.train.SequenceExample(
         context=context_features, feature_lists=sequence_features)
 
-    # fl_points = example.feature_lists.feature_list['points_3d'].feature
-    # fl_angles = example.feature_lists.feature_list['angles'].feature
-    # for frame_angles, frame_points in zip(angles, points_3d):
-    #     fl_points.add().float_list.value.append(frame_points)
-    #     fl_angles.add().float_list.value.append(frame_angles)
-
     serialized = example.SerializeToString()
     writer.write(serialized)
-
 
 def parse_tfrecord(serialized):
   context_features = {
@@ -685,7 +703,7 @@ def make_time_major(features, labels):
 
 
 def input_fn(filenames, batch_size=32, buffer_size=2048, n_epochs=None,
-             split_sentences=False):
+             split_sentences=False, do_shuffle=True):
   dataset = tf.data.TFRecordDataset(filenames=filenames)
 
   config_path = common.data_utils.DEFAULT_CONFIG_PATH
@@ -705,7 +723,8 @@ def input_fn(filenames, batch_size=32, buffer_size=2048, n_epochs=None,
   if split_sentences:
     dataset = dataset.map(split_subtitle)
   dataset = dataset.map(lambda x, y: normalize_angles(x, y, mean, std))
-  dataset = dataset.shuffle(buffer_size=buffer_size)
+  if do_shuffle:
+    dataset = dataset.shuffle(buffer_size=buffer_size)
   dataset = dataset.padded_batch(
       batch_size,
       padded_shapes=({
@@ -724,3 +743,8 @@ def input_fn(filenames, batch_size=32, buffer_size=2048, n_epochs=None,
   features, labels = iterator.get_next()
 
   return features, labels
+
+
+def count_tfrecords(file_name):
+  return sum(1 for _ in tf.python_io.tf_record_iterator(file_name))
+

@@ -13,7 +13,7 @@
 #+END_SRC
 
 #+BEGIN_SRC latex
-  \usetikzlibrary{shapes,arrows,backgrounds,fit}
+  \usetikzlibrary{shapes,arrows,backgrounds,fit,calc}
 
   \tikzset{
     center coordinate/.style={
@@ -22,6 +22,57 @@
                                     vertical line through={(current bounding box.east)})
               ([rotate around={180:#1}]perpendicular cs: horizontal line through={#1},
                                     vertical line through={(current bounding box.west)});}}}
+
+  \tikzset{
+    font=\headingfont,
+    every picture/.style={/utils/exec={\headingfont}},
+    x= \smallgridsize, y= \smallgridsize,
+    node distance=\smallgridsize,
+    semithick,
+    default matrix/.style = {
+      row sep = \smallgridsize,
+      column sep = \smallgridsize,
+      align = center,
+      nodes = {
+        anchor = center,
+        align = center
+      }
+    }
+  }
+
+  \pgfplotscreateplotcyclelist{default}{
+    thick, ugent-blue\\%
+    thick, ugent-green\\%
+    thick, ugent-orange\\%
+  }
+
+  \pgfplotsset{
+    compat=newest,
+    tick label style = {font=\headingfont, black!60},
+    every axis label = {font=\headingfont, black},
+    every axis legend/.append style = {legend cell align = left},
+    legend style = {
+      font=\headingfont\small, 
+      draw=none, 
+      text width=3\smallgridsize, 
+      align=left,
+      row sep=1ex,
+      /tikz/every odd column/.style={yshift=0.5ex},
+      /tikz/nodes={text depth=,anchor=base},
+    },
+    legend pos = outer north east,
+    legend cell align = left,
+    label style = {font=\headingfont},
+    width = 12\smallgridsize,
+    height = 6\smallgridsize,
+    axis x line = bottom,
+    axis y line = left,
+    axis line style = {thick, black!60},
+    every x tick/.style={thick, black!60},
+    every y tick/.style={thick, black!60},
+    enlargelimits = 0.1,
+    cycle list name = default
+  }
 
   \tikzstyle{draw-blue} = [
     draw=ugent-blue
@@ -56,7 +107,8 @@
   ]
 
   \tikzstyle{base-block} = [
-    rectangle, 
+    rectangle,
+    font=\headingfont,
     thick, minimum width=1.5cm, minimum height=1cm,
     inner xsep=12pt, inner ysep=6pt
   ]
@@ -75,6 +127,16 @@
   \tikzstyle{variable block} = [
     base-block,
     draw-orange, fill-orange
+  ]
+
+  \tikzstyle{inline spacing} = [
+    inner xsep=4pt, inner ysep=2pt,
+    minimum width=0pt, minimum height=0pt
+  ]
+
+  \tikzstyle{tight spacing} = [
+    inner xsep=6pt, inner ysep=4pt,
+    minimum width=0pt, minimum height=0pt
   ]
 
   \newacronym{rnn}{RNN}{Recurrent Neural Network}
@@ -742,6 +804,14 @@
     shared across layers. This way, recurrent neural networks are similar to
     deep neural networks.
     
+    autoref:fig:rnn shows a high-level diagram of an \gls{rnn}, where two time
+    steps are unrolled. In this figure and further diagrams, the convention will
+    be adopted that 
+    #+latex: \tikz[baseline]{\node[block,inline spacing,anchor=base]{grey rounded rectangles};} 
+    represent operations and 
+    #+latex: \tikz[baseline]{\node[variable block,inline spacing,anchor=base]{orange rectangles};} 
+    represent variables.
+    
     Simple \glspl{rnn} have difficulty learning long-term relationships because of a
     problem called the /vanishing gradient problem/ that also occurs in very
     deep neural networks. The LSTM (Long Short-Term Memory) cell solves this
@@ -756,7 +826,7 @@
       \begin{figure}[h]
       \centering
 
-      \begin{tikzpicture}[->, shorten >=1pt, auto, node distance=2.8cm, semithick, font=\headingfont]
+      \begin{tikzpicture}
       \matrix [row sep=0.8cm, column sep=1.2cm] {
         \node (y_t-2) {}; &
         \node (y_t-1) {$y_{t-1}$}; &
@@ -883,7 +953,7 @@
     ~word2vec~ algorithm and the /universal sentence encoder/ which processes
     greater-than-word length text cite:tfhub-text.
 
-** The Dataset label:sec-research-dataset
+** The Dataset label:sec:research-dataset
    :PROPERTIES:
    :Effort:   1:00
    :END:
@@ -1055,7 +1125,7 @@
    and builds upon. Previous work on gesture synthesis were examined in both
    robots and virtual agents; then a selected set of recent developments in
    machine learning was described, particularly in terms of language processing
-   and time-series data processing; in autoref:sec-research-dataset the
+   and time-series data processing; in autoref:sec:research-dataset the
    available data was examined and the tools to create a dataset for this
    problem were outlined; finally, in autoref:sec-research-clustering
    time-series clustering algorithms were explored that could simplify this
@@ -1075,41 +1145,56 @@
   then building a machine learning model that learns to predict these clusters
   from a given sentence. Finally, the resulting poses will be performed on a
   live robot. An overview of this pipeline is shown in autoref:fig:pipeline.
-
-  #+NAME: fig-pipeline
-  #+BEGIN_SRC dot :file ./img/thesis-pipeline.png
-    digraph {
-      // rankdir = LR;
-      splines = true;
-      node [shape = box];
-
-      yt [label = "YouTube"]
-      p2d [label = "2D Pose Estimation"]
-      p3d [label = "2D-to-3D Lifting"]
-      ang [label = "Calculating Angles"]
-      prim [label = "Clustering"]
-      model [label = "Learning Model"]
-      pred [label = "Predicted Gestures"]
-
-      yt -> p2d [label="Image Sequence"]
-      p2d -> p3d [label="2D Poses"]
-      p3d -> ang [label="3D Poses"]
-      ang -> prim [label="Angles"]
-
-      prim -> model [label="Clusters"]
-
-      yt -> model [label="Subtitles"]
-
-      model -> pred
-    }
-  #+END_SRC
   
-  # #+ATTR_LATEX: :width 0.323\textwidth :float wrap :placement {R}[2cm]{0.5\textwidth}
+  #+BEGIN_SRC latex :exports results :results output
+    \begin{figure}
+      \adjustbox{center}{\begin{tikzpicture}[center coordinate=(clustering)]
+        \matrix[default matrix] {
+          \node (video) [variable block] {Video}; &
+          \node (video-picker) [block] {Video Picker}; &
+          \node (detect-pose) [block] {2D Pose Estimation}; &
+          \node (lift-pose) [block] {2D-to-3D Pose Lifting}; \\
+          &
+          \node (angles) [block] {Pose-to-Angle Conversion}; &
+          \node (clustering) [block, anchor=south] at (0, 0.5\smallgridsize) {Clustering};
+          \node (sequence-predictor) [block, anchor=north, align=center] at (0, -0.5\smallgridsize) {Gesture Prediction\\{\small Sequence Decoder}};
+          &
+          \node (classification-predictor) [block, align=center, anchor=south] at (0, 0.5\smallgridsize) {Gesture Prediction\\{\small Classification Decoder}}; &
+          \node (gesture) [variable block] {Gesture}; \\
+        };
 
-  #+CAPTION: label:fig:pipeline Overview of the pipeline that processes the data and generates gestures
-  #+ATTR_LATEX: :width 0.323\textwidth
-  #+RESULTS: fig-pipeline
-  [[file:./img/thesis-pipeline.png]]
+        \path[->, above, outer sep=0.2\smallgridsize, every node/.append style={rounded rectangle, fill=white, fill opacity=0.6, text opacity=1, tight spacing}]
+          (video) edge (video-picker)
+          (video-picker) edge node {Images} (detect-pose)
+          (detect-pose) edge node {2D Poses} (lift-pose)
+
+          (angles) edge (clustering)
+          (clustering) edge node {Gesture Classes} (classification-predictor)
+
+          (angles) edge (sequence-predictor)
+          (classification-predictor) edge (gesture)
+
+          (sequence-predictor) edge (gesture)
+          ;
+
+        \draw[->]
+          (lift-pose.east)
+          .. controls ++(\smallgridsize, -2\smallgridsize)
+             and ($(angles.west) + (-\smallgridsize, 3\smallgridsize)$) ..
+          node [fill=white, tight spacing] {3D Poses}
+          (angles.west);
+
+        \draw node [tight spacing, right=6pt of angles.east] {Angles};
+        \draw node (subtitle) [variable block, tight spacing, anchor=center, below=0.25\smallgridsize of clustering] {Subtitle};
+        \draw[->] (subtitle) -- (sequence-predictor);
+        \draw[->] (subtitle) -- (classification-predictor);
+
+      \end{tikzpicture}}
+      \caption{\label{fig:pipeline} Overview of this project's pipeline. It starts
+        by processing a video to become part of the dataset, the result of which is
+        then used to predict a gesture based on some given text.}
+    \end{figure}
+  #+END_SRC
 
 ** Development Environment
    :PROPERTIES:
@@ -1642,7 +1727,7 @@
 
 **** DONE Figure: examples of extracted clusters
      CLOSED: [2018-07-23 ma 14:51]
-** Predicting Poses
+** Predicting Poses label:sec:pose-prediction
    
    Now the dataset is annotated with gesture classes, it is possible to build a
    machine learning model that can predict these. This section explains the
@@ -1664,7 +1749,8 @@
    output classes while in the other case, the decoder will return a sequence of
    poses, i.e., a gesture.
 
-*** TODO Figure: graph of the model(s)
+*** DONE Figure: graph of the model(s)
+    CLOSED: [2018-07-27 vr 08:36]
     :PROPERTIES:
     :Effort:   0:30
     :END:
@@ -1810,7 +1896,7 @@
     # multiplied element-wise with the inputs. This weight vector is a variable
     # that is optimized.
     
-*** The Decoder Network
+*** The Decoder Network label:sec:decoder
     
     Now that hidden representation of the subtitle has been created, this can be
     decoded to predict a class or sequence of poses.
@@ -1852,8 +1938,11 @@
       \end{figure}
     #+END_SRC
     
-    \paragraph{Sequence decoder} The other decoder directly generates gestures,
-    sequences of poses. The challenges when implementing this decoder are
+    
+    \paragraph{Sequence decoder} 
+    
+    The other decoder directly generates gestures, sequences of poses. The
+    challenges when implementing this decoder are
 
     - Generating sequential data which is of a different data type than the
       input sequence (gestures are sequences of vectors in a continuous space,
@@ -1908,22 +1997,25 @@
     These terms, defined in terms of the network input $x$ are, respectively:
 
     \begin{align*}
-      P: x \mapsto &\sum_{t=0}^T\sum_{i=0}^{n-1} \Big[ y_i^{(t)}(x) - \hat{y}_i^{(t)}(x) \Big]^2 \\
-      M: x \mapsto &\sum_{t=0}^T\sum_{i=0}^{n-1} \Big[ \big(y_i^{(t)}(x) - y_i^{(t-1)}(x)\big) - 
+      P: x \mapsto &\sum_{t=0}^{T(x)-1}\sum_{i=0}^{n-1} \Big[ y_i^{(t)}(x) - \hat{y}_i^{(t)}(x) \Big]^2 \\
+      M: x \mapsto &\sum_{t=0}^{T(x)-1}\sum_{i=0}^{n-1} \Big[ \big(y_i^{(t)}(x) - y_i^{(t-1)}(x)\big) - 
                    \big(\hat{y}_i^{(t)}(x) - \hat{y}_i^{(t-1)}(x)\big) \Big]^2.
     \end{align*}
     
-    Here, we defined $y: x \mapsto y(x)$ as the function that maps the input to
-    the ground truth output
-    
-    - [ ] TODO: Continue here
+    Here, we defined $y$ and $\hat{y}$ as the functions that map the input to
+    the ground truth output and the network's prediction respectively. The
+    output of both of these functions is a temporal sequence of /frames/
+    $y^{(t)}, t \in \{0,\ldots,T(x)-1\}$, where $T$ is the length of the ground
+    truth sequence and thus dependent on $x$, and where each frame is a vector
+    of $n$ frames $y^{(t)}_i, i \in \{0,\ldots,n-1\}$.
 
-    Since the length (in terms of time) of the output cannot be determined
-    beforehand, the network needs to learn this as well. To achieve this, an
-    extra dimension was added to the gesture data containing the percentage of
-    time left until the end of the sequence. For example, when a gesture is 50
-    frames long, the value of the vector in the 11th timestep for this
-    dimension is $1 - (1/50) \cdot 10 = 0.8$.
+    Since the length of the time sequence in the output cannot be directly
+    determined from the input, the network needs to learn this as well. To
+    achieve this, an extra dimension is added to the gesture data containing
+    the percentage of time left until the end of the sequence. For example, when
+    a gesture is 50 frames long, the value of the vector in the 11th timestep
+    for this dimension is $1 - (1/50) \cdot 10 = 0.8$. The same loss function
+    can be used to learn this dimension.
     
     #+BEGIN_SRC latex :exports results :results output
       \begin{figure}
@@ -1931,8 +2023,8 @@
         \begin{tikzpicture}[->, thick, x=\smallgridsize, y=\smallgridsize, font=\headingfont, center coordinate=(cell)]
           \node (cell) [block] {\Gls{rnn} Cell};
 
-          \draw[->]
-            (cell.160)++(-2, 0) node(state) [left] {State}
+          \draw
+            (cell.160)++(-2, 0) node(state) [variable block, left, align=center, yshift=0.25\smallgridsize] {Initial State\\{\small(Thought Vector)}}
             -- node(statejoincontrol)[pos=0.3]{}
                node(statejoin)[pos=1.0]{}
                (cell.160);
@@ -1943,27 +2035,17 @@
                node(inputjoin)[pos=1.0]{}
                (cell.200);
 
-          \draw[->]
-            (cell.20)
-            -- node(newstatejoin)[pos=0]{}
-              ++(2, 0) node(newstate) [right] {State};
-
           \draw[->] 
             (cell.340)
             -- node(outputjoin)[pos=0]{}
                ++(2, 0) node(output)   [right] {Output};
-
-          \draw 
-            (state.east)++(0, 1) 
-            node (thoughtvector) [variable block, left, align=center] {Initial State\\{\small(Thought Vector)}}
-            .. controls +(1, 0) and (statejoincontrol) .. (statejoin.center);
 
           \draw[draw-blue]
             (input.east)++(0, -1)
             node (groundtruth) [left, align=right] {Ground Truth\\{\small(Poses)}} 
             .. controls +(1, 0) and (inputjoincontrol) .. (inputjoin.center);
 
-          \draw[looseness=3] (newstatejoin.center) to[out=0, in=0] ([shift=(up:1)] cell.north) to[out=180, in=180] (statejoin.center);
+          \draw[->,looseness=3] (cell.20) to[out=0, in=0] ([shift=(up:1)] cell.north) node [above] {State} to[out=180, in=180] (statejoin.center);
           \draw[looseness=3, draw-green] (outputjoin.center) to[out=0, in=0] ([shift=(down:1)] cell.south) to[out=180, in=180] (inputjoin.center);
 
         \end{tikzpicture}
@@ -1973,87 +2055,290 @@
       \end{figure}
     #+END_SRC
 
-*** Classification-based vs. \glsentrytext{rnn}
-    :PROPERTIES:
-    :Effort:   2:00
-    :END:
-*** Hyperparameters
-    :PROPERTIES:
-    :Effort:   2:00
-    :END:
+    One property of this encoder-decoder structure that is at least intuitively
+    restrictive is that the entire input sequence must be summarized as a single
+    vector and then expanded again by the decoder---especially considering that
+    people probably do not choose their gestures based on the summarized
+    "meaning" of the sentence they are saying, but rather as a combination of
+    gestures based on the words in that sentence.
+    
+    In response to this observation in the fields of image caption generation
+    and machine translation, for example, /attention-based models/ were proposed
+    as a solution
+    cite:wu16_googl_neural_machin_trans_system,xu15_show_atten_tell,bahdanau14_neural_machin_trans_by_joint.
+    These structures are most often used in combination with \glspl{rnn} and
+    have more recently even been used on their own
+    cite:vaswani17_atten_is_all_you_need. An attention model creates, for each
+    time step in the decoder, a /context vector/ that is a weighted combination
+    of the intermediate outputs from the \gls{rnn} in the encoder step (referred
+    to as /memory/). These weights are trainable and based on the previous state
+    from the \gls{rnn}. Then, the result is assigned to the new state of the
+    recurrent network. autoref:fix:attention-decoder shows how this works
+    conceptually.
+    
+    #+BEGIN_SRC latex :exports results :results output
+      \begin{figure}
+        \centering
+        \begin{tikzpicture}[->, thick, x=\smallgridsize, y=\smallgridsize, node distance=\smallgridsize, font=\headingfont, center coordinate=(cell)]
 
-**** TODO Figure: effect of hyperparameters
+          \node (cell) [block] {\Gls{rnn} Cell};
+          \node (attention) [block, above=\smallgridsize of cell] {Attention Mechanism};
+          \node (memory) [variable block, above=\smallgridsize of attention, align=center] {Memory\\{\small(Outputs from encoder)}};
 
-** Play Back on Robot
+          % Input Line
+          \draw[->]
+            (cell.200)++(-2, 0) node(input) [left] {Input}
+            -- node(inputjoincontrol)[pos=0.3]{}
+               node(inputjoin)[pos=1.0]{}
+               (cell.200);
+
+          % Output Line
+          \draw[->] 
+            (cell.340)
+            -- node(outputjoin)[pos=0]{}
+               ++(2, 0) node(output)   [right] {Output};
+
+          % Right State Line
+          \draw[->,looseness=3] (cell.20)
+               to[out=0, in=0]
+               node [right] {State} (attention.east);
+
+          % Left State Line
+          \draw[->,looseness=3] (attention.west)
+               to[out=180, in=180]
+               node [left] {State} (cell.160);
+
+          % Input Loop
+          \draw[looseness=3] (outputjoin.center) to[out=0, in=0] ([shift=(down:1)] cell.south) to[out=180, in=180] (inputjoin.center);
+
+          % Memory Lines
+          \draw[->] ([xshift=-0.75\smallgridsize] memory.south) -- ([xshift=-0.75\smallgridsize] attention.north);
+          \draw[->] ([xshift=-0.5\smallgridsize] memory.south) -- ([xshift=-0.5\smallgridsize] attention.north);
+          \draw[->] ([xshift=0.75\smallgridsize] memory.south) -- ([xshift=0.75\smallgridsize] attention.north);
+          \draw[->] ([xshift=0.5\smallgridsize] memory.south) -- ([xshift=0.5\smallgridsize] attention.north);
+
+          \node at ($(memory)!0.5!(attention)$) {$\cdots$};
+
+        \end{tikzpicture}
+        \caption{\label{fig:attention-decoder} The attention-based decoder calculates
+          its new state by taking a weighted combination of all the outputs from the
+          encoder. Details about training/inference differences and initial states
+          omitted for clarity.}
+      \end{figure}
+    #+END_SRC
+
+** Playing Back on Robot
    :PROPERTIES:
    :Effort:   2:00
    :END:
+   :LOGBOOK:
+   CLOCK: [2018-07-27 vr 08:39]--[2018-07-27 vr 09:18] =>  0:39
+   :END:
    
-   Now that gestures have been generated, a real robot has to perform them. The
-   robot chosen here was the NAO robot developed by SoftBank Robotics because of
-   its popularity and straightforward Python API (NAOqi cite:TODO). To control
-   the robot's gestures, there are two options:
-
-   - The /cartesian control/ allows the user to specify positions in 3D space.
-     Then, the robot will move to that position itself. Note, however, that it
-     is only possible to specify the locations of the end effectors, i.e., the
-     hands.
-   - The /position control/ is a more low-level interface that allows the user
-     to specify the angles of the robot's actuators. The robot itself still
-     takes care of preventing self-collisions and balancing.
-
-   In this case, the position control is used because there are more degrees of
-   freedom and thus more expressiveness. In practice, once the correct angles
-   are determined, this is relatively straighforward: one connects to the robot
-   (or a simulated robot running on the local machine---the only difference is
-   the IP address and port number) and then sends the requested position to the
-   robot at the right time.
-
-   Though these angles might contain positions that are not reachable by the
-   robot or move too quickly, the NAO will move in a best-effort way. The
-   commands to specify position are asynchronous so they can be sent
-   frame-by-frame while the robot will try to keep up as best as he can.
+   When researching the dataset and data formats in
+   autoref:sec:research-dataset, it was decided that the representation of poses
+   throughout the project would be based on the joint angles of the NAO robot,
+   so they can directly be used on this robot.
    
    During most of the project, the results were tested on a virtual robot.
-   SoftBank provides the /Choregraphe/ application cite:TODO which provides a
-   visual programming interface and hosts a virtual robot with a 3D view.
+   SoftBank provides the /Choregraphe/ application cite:softbank_tools which
+   provides a visual programming interface and hosts a simulated robot with a 3D
+   view. 
+
+   Softbank's robots can be controlled over the local network, either wired or
+   over Wi-Fi. They provide the Python NAOqi API that adds an abstraction layer
+   to make controlling the robot straightforward. The simulation in Choregraphe
+   creates a virtual robot on the local machine and behaves mostly similar to
+   the real robot, except that:
+
+   - There is no network involved outside the development machine.
+   - The simulation does not include gravity or other environmental physics. The
+     robot will thus never fall over and its torso is always displayed upright.
+   - Some of NAO's capabilities cannot be simulated.
+   
+   Of these capabilities not supported in the simulation, though, two are
+   critical for this project: the gesture synthesis and the text-to-speech
+   engines. This means that to compare NAOqi's existing gesture synthesis system
+   with the ones created here a physical robot is needed.
+   
+   Controlling the robot's pose is done by setting the value of each joint's
+   angle through this API. Though these angles might contain positions that are
+   not reachable by the robot or move too quickly, the NAO will move in a
+   best-effort way. The commands to specify position are asynchronous so they
+   can be sent frame-by-frame while the robot will try to keep up as best as he
+   can. Thus, the robot's pose is sent in real time, frame-by-frame.
+   
+   In a production environment, this would not be a good solution. Spotty
+   network connections and a dependency on a separate computer for gesture
+   synthesis will make it diffifult in real life situations. Eventually, the
+   best solution would be that the gesture synthesis system is part of the robot
+   and has direct control over its pose. For this research, though, the method
+   used here works well.
 
 *** TODO Figure: screenshot of Choregraphe
    
 *** TODO Figure: photo of NAO
 * Evaluation label:sec:evaluation
   SCHEDULED: <2018-06-28 do>--<2018-06-29 vr>
-  
+  :LOGBOOK:
+  CLOCK: [2018-07-27 vr 09:18]--[2018-07-27 vr 11:56] =>  2:38
+  :END:
   
   While the metrics and many "sanity checks" used up until now give some
   confidence that the gesture generated look natural, that conclusion is clearly
-  subjective and should be verified with a proper test. This section covers the
-  setup and results for a Turing-like test that was performed to validate the
-  results produced.
+  subjective and should be verified with a proper test. This section starts by
+  covering the evaluation and optimization of the neural network discussed
+  previously, after which it explains the setup and results for a Turing-like
+  test that was performed to validate the results produced qualitatively by
+  sending a survey out.
+
+** Defining Good Results
+   
+   One of the biggest challenges in this project and machine learning in general
+   is defining what a "good result" is. In this case it is especially
+   ill-defined since human perception is involved and body language is by no
+   means a formal language. The most "real" measure of success would be
+   something like /"the majority of people agree that this robot gestures in a
+   natural way"/---which is not a precise measure and is influenced by a large
+   amount of factors we cannot control like culture differences, the physical
+   shape of the robot and the text-to-speech engine it uses.
+   
+   Yet, without an accessible measure it is not possible to compare different
+   results or have an idea about whether the outcome is actually something
+   useful. Three different "levels" of metrics are used throughout the project:
+
+   - Quick-and-dirty sanity checks :: The figures throughout autoref:sec:method
+        provide a quick, qualitative pass-or-fail answer that make sure the
+        results are at least somewhat meaningful. This was necessary because of
+        the many steps in the pipeline.
+   - Prediction loss functions :: The gesture synthesis models are trained and
+        evaluated based on their loss functions as defined in
+        autoref:sec:pose-prediction. These hard numbers drive the learning
+        mechanisms but differ from the ideal perception-based metric. In
+        autoref:sec:decoder-comparison, this difference is discussed some in
+        more detail.
+   - The survey :: By asking people's opinion, human perception is accounted for
+                   and the final results can be evaluated. Unfortunately, this
+                   is time-consuming for participants so the amount of
+                   approaches that can be compared is very limited.
+
+** Optimizing the Neural Network
   
-** Experiment setup
+   The gesture synthesis network has quite a few parameters, the first of which
+   is the network structure itself. \Fref[plain]{sec:pose-prediction} presented
+   the network as an encoder-decoder architecture and explained two encoders (a
+   recurrent text encoder and a pre-trained black box encoder) and two decoders
+   (a classification decoder and a sequence decoder). This results in four
+   possible network architectures.
+  
+   There is one special case in these four architectures. Since the
+   attention-based decoder model (see autoref:sec:decoder) requires access to
+   the results from the intermediate results of the encoder, it cannot be used
+   in combination with the black box pre-trained text encoder. In that case, the
+   decoder falls back to a "regular" recurrent neural network that only uses the
+   final output of the encoder to generate its predictions.
+  
+   The rest of this section shows the results from tweaking the hyperparameters
+   of the encoder and decoder networks. In these results, the differences
+   between these high-level network architectures will be shown as much as
+   possible. In order to do that, we first need to find a metric that can
+   compare the results from the two decoders who have different types of
+   outputs.
+  
+** Classification-based vs. \glsentrytext{rnn} label:sec:decoder-comparison
    :PROPERTIES:
    :Effort:   2:00
    :END:
-   
-*** TODO Figure: screenshot of survey
+
+   For the neural network, the loss functions are described in
+   autoref:sec:pose-prediction. The results from the two decoders can be
+   compared by comparing the generated gestures, when the gestures for the
+   classification decoder are generated by concatenating the centroids from the
+   preicted clusters. This implies that both the learning model and the
+   clustering method are evaluated simultaneously.
     
-** Results
-   :PROPERTIES:
-   :Effort:   2:00
-   :END:
-   
-*** TODO Figure: graph of results
-* Conclusions and Future Work label:sec:conclusion
+   Directly comparing the generated gestures with the ground truth data from the
+   dataset implies that there is only a single gesture possible (perhaps with
+   some noise) for each part of text, which is clearly not the case for humans.
+   A better solution would be to use an adversarial network model that has two
+   components: one that learns to predict gestures and another that learns what
+   kind of gestures humans perceive as being "natural". Sadly this approach was
+   determined as out of scope for the current project and is thus recommended as
+   one of the next steps in future works towards gesture synthesis
+   (autoref:sec:future-work).
+    
+   In order to compare the two decoders, this leaves us with comparing the
+   generated gestures using the position-motion-loss from the sequence decoder.
+   This is not a completely fair game since the minimum loss the classification
+   decoder can achieve is the loss during the clustering step, which is also
+   determined by the amount of clusters created.
+    
+   #+BEGIN_SRC latex :exports results :results output
+     \begin{figure}
+       \centering
+       \begin{tikzpicture}
+         \begin{axis}[
+           xlabel = {Step},
+           ylabel = {Gesture Loss},
+           ymode = log,
+           legend entries = {{Sequence Encoder, Classification Decoder}, {Sequence Encoder, Classification Decoder}, {Sequence Encoder, Sequence Decoder}}
+         ]
+           \addplot table [x=Step, y=Value, col sep=comma] {./img/data-decoder-comparison-classes.csv};
+           \addplot table [x=Step, y=Value, col sep=comma] {./img/data-decoder-comparison-classes-sequence-encoder.csv};
+           \addplot table [x=Step, y=Value, col sep=comma] {./img/data-decoder-comparison-sequence.csv};
+         \end{axis}
+       \end{tikzpicture}
+       \caption{\label{fig:classification-vs-sequence} The difference in gesture
+         error for the classification and sequence decoders.}
+     \end{figure}
+   #+END_SRC
+    
+   autoref:fig:classification-vs-sequence shows the results on the validation
+   set. The model with the sequence decoder clearly learns to predict the
+   gestures while the classification decoder does not learn (in terms of its
+   own loss function this decoder immediately starts to overfit the training
+   data).
+
+** Survey label:sec:survey
+
+   A better metric to validate this method is with qualitative results from
+   people, obtained through a survey. This section desribes the survey that was
+   created and its results.
+
+   An online survey was created that includes the following sections:
+
+   1. An introduction with an explanation of the project and the task
+   2. An attention checker question, where users are given the simple question
+      "what is your gender?" while they are instructed, in a long block of
+      text, to answer "orange penguin" instead of the true answer.
+   3. Six questions where
+      - A video was shown with a NAO robot performing four different animations
+        for the same subtitle: the ground truth, a baseline (the default NAO
+        animation), the result from the classification-based prediction and the
+        result from the sequence-based prediction.
+      - Users were asked to rate the human-ness of each animation on a 5-point
+        scale (from "stiff, robot-like" to "humanlike")
+      - Users were asked which of the animations they prefer
+   4. A final checker question that asked the color of the robot's shoulders
+
+   A screenshot of this questionnaire is shown in
+   autoref:fig:survey-screenshot.
+    
+   #+caption: label:fig:survey-screenshot Screenshot of one of the main questions from the survey used to qualitatively test the results of these gesture synthesis methods.
+   #+attr_latex: :width 1.2\textwidth,center
+   [[file:./img/survey-screenshot.png]]
+    
+* Conclusions and Future Work label:sec:conclusion label:sec:future-work
   :PROPERTIES:
   :Effort:   2:00
   :END:
 
-** TODO Checklist
+** Checklist
    - [ ] Findings: What are the main results?
    - [ ] Take-home message: What should the reader remember?
    - [ ] Future work: what is the outlook?
 
-* References
+
 bibliographystyle:unsrt
-bibliography:/home/marcel/org/bibliography/references.bib
+\bibliography{/home/marcel/org/bibliography/references.bib}
+
