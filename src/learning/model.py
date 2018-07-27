@@ -8,6 +8,12 @@ import logging
 import json
 import os.path
 
+# Itertools has a different name in Python 2/3
+try:
+  from itertools import zip_longest as zip_longest
+except:
+  from itertools import izip_longest as zip_longest
+
 import numpy as np
 import tensorflow as tf
 import tensorflow_hub as hub
@@ -24,6 +30,7 @@ from sequence_decoder import SequenceDecoder
 tf.logging.set_verbosity(tf.logging.INFO)
 
 LEARNING_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
+CLUSTER_CENTERS_PATH = '../cluster-centers.json'
 
 
 def rnn_model_fn(features, labels, mode, params):
@@ -66,15 +73,16 @@ def rnn_model_fn(features, labels, mode, params):
   train_op = None
   loss = None
   predictions = None
+
+  n_labels = params.n_labels
+
+  seq_labels = None
+  len_labels = None
+  seq_labels = labels['angles'] if labels and 'angles' in labels else None
+  len_labels = tf.cast(labels['n_frames'],
+                        tf.int32) if seq_labels is not None else None
+
   if params.output_type == 'sequences':
-    n_labels = params.n_labels
-
-    seq_labels = None
-    len_labels = None
-    seq_labels = labels['angles'] if labels and 'angles' in labels else None
-    len_labels = tf.cast(labels['n_frames'],
-                         tf.int32) if seq_labels is not None else None
-
     hidden_state = tf.layers.dense(hidden_state, n_labels)
 
     decoder = SequenceDecoder(
@@ -87,50 +95,63 @@ def rnn_model_fn(features, labels, mode, params):
 
     output = decoder.decode(seq_labels, len_labels)
 
-    if mode != tf.estimator.ModeKeys.PREDICT:
-      with tf.variable_scope('loss_parts'):
-        seq_weights = tf.tile(
-            tf.transpose([tf.sequence_mask(len_labels)]),
-            multiples=[1, 1, n_labels])
-
-        with tf.variable_scope('position'):
-          position_loss = tf.losses.mean_squared_error(
-              output, seq_labels, weights=seq_weights)
-        tf.summary.scalar('position', position_loss)
-
-        with tf.variable_scope('motion'):
-          output_diff = output[1:, :, :] - output[:-1, :, :]
-          label_diff = seq_labels[1:, :, :] - seq_labels[:-1, :, :]
-          motion_loss = tf.losses.mean_squared_error(
-              output_diff, label_diff, weights=seq_weights[:-1, :, :])
-        tf.summary.scalar('motion', motion_loss)
-
-      loss = ((1.0 - params.motion_loss_weight) * position_loss +
-              params.motion_loss_weight * motion_loss)
-
-    predictions = data.unnormalize(output, params.labels_mean,
-                                   params.labels_std)
-    tf.summary.histogram('predictions', predictions)
+    predicted_length = tf.where(output[:, 0, 0] < 0.3)[0]
+    tf.summary.histogram('predicted_length', predicted_length)
   elif params.output_type == 'classes':
-    dropout = tf.layers.dropout(
-        inputs=hidden_state,
+    logits = hidden_state
+    logits = tf.layers.dropout(
+        inputs=logits,
         rate=params.dropout,
         training=mode == tf.estimator.ModeKeys.PREDICT)
-    dropout = tf.layers.dense(
-        inputs=dropout, units=params.hidden_size, activation=tf.nn.relu)
     logits = tf.layers.dense(
-        inputs=dropout, units=params.n_classes, activation=tf.nn.relu)
+        inputs=logits, units=params.n_classes, activation=tf.nn.relu)
 
     if mode != tf.estimator.ModeKeys.PREDICT:
+      predicted_class = tf.argmax(input=logits, axis=1)
+      output = tf.gather(params.centers, predicted_class, axis=1)
+
+      # Pad/slice output so it matches ground truth
+      output = tf.pad(output, [[0, tf.maximum(0, tf.shape(labels['angles'])[0] - tf.shape(output)[0])], [0, 0], [0, 0]])
+      output = tf.slice(output, [0, 0, 0], tf.shape(labels['angles']))
+  else:
+    raise NotImplementedError("Output type must be one of: sequences, classes")
+
+  if mode != tf.estimator.ModeKeys.PREDICT:
+    with tf.variable_scope('gesture_loss'):
+      seq_weights = tf.tile(
+          tf.transpose([tf.sequence_mask(len_labels)]),
+          multiples=[1, 1, n_labels])
+
+      with tf.variable_scope('position'):
+        position_loss = tf.losses.mean_squared_error(
+            output, seq_labels, weights=seq_weights)
+      tf.summary.scalar('position', position_loss)
+
+      with tf.variable_scope('motion'):
+        output_diff = output[1:, :, :] - output[:-1, :, :]
+        label_diff = seq_labels[1:, :, :] - seq_labels[:-1, :, :]
+        motion_loss = tf.losses.mean_squared_error(
+            output_diff, label_diff, weights=seq_weights[:-1, :, :])
+      tf.summary.scalar('motion', motion_loss)
+
+      with tf.variable_scope('total'):
+        gesture_loss = ((1.0 - params.motion_loss_weight) * position_loss +
+                        params.motion_loss_weight * motion_loss)
+      tf.summary.scalar('total', gesture_loss)
+      gesture_loss_metric = tf.metrics.mean(gesture_loss)
+
+    if params.output_type == 'sequences':
+      loss = gesture_loss
+    else:
       onehot_labels = tf.one_hot(
           indices=tf.cast(labels['class'], tf.int32), depth=params.n_classes)
       loss = tf.losses.softmax_cross_entropy(
           onehot_labels=onehot_labels, logits=logits)
 
-    predictions = tf.argmax(input=logits, axis=1)
-    tf.summary.histogram("class", predictions)
-  else:
-    raise NotImplementedError("Output type must be one of: sequences, classes")
+    # Output needs to be unnormalized for predictions
+    predictions = data.unnormalize(output, params.labels_mean,
+                                    params.labels_std)
+    tf.summary.histogram('predictions', predictions)
 
   if mode == tf.estimator.ModeKeys.PREDICT:
     return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
@@ -142,7 +163,13 @@ def rnn_model_fn(features, labels, mode, params):
         loss=loss, global_step=tf.train.get_global_step())
 
     return tf.estimator.EstimatorSpec(
-        mode=mode, predictions=predictions, loss=loss, train_op=train_op)
+        mode=mode,
+        predictions=predictions,
+        loss=loss,
+        train_op=train_op,
+        eval_metric_ops={
+            'gesture_loss': gesture_loss_metric
+        })
 
 
 def generate_model_spec_name(params):
@@ -180,6 +207,24 @@ def setup_estimator(custom_params=dict()):
     mean = 0
     std = 1
 
+  # Preprocess centers
+  if os.path.isfile(CLUSTER_CENTERS_PATH):
+    with open(CLUSTER_CENTERS_PATH) as centers_file:
+      centers = json.load(centers_file)['clusters']
+      centers_lengths = [len(center) for center in centers]
+
+      centers = [([common.pose_utils.get_angle_list(frame) for frame in center]) for center in centers]
+      centers = [data.add_length_indicator(center) for center in centers]
+      centers = [data.normalize(np.array(center), mean, std) for center in centers]
+
+      # Pad until maximum length
+      frame_length = len(centers[0][0])
+      max_center_len = max(x.shape[0] for x in centers)
+      centers = np.array([np.concatenate([center, np.zeros((max_center_len - center.shape[0], frame_length))]) for center in centers])
+      centers = np.swapaxes(centers, 0, 1)
+  else:
+    raise ValueError('Cluster centers file is not present at {}'.format(CLUSTER_CENTERS_PATH))
+
   default_params = tf.contrib.training.HParams(
       feature_columns=[None],
       output_type='sequences',
@@ -195,6 +240,7 @@ def setup_estimator(custom_params=dict()):
       labels_std=std,
       use_pretrained_encoder=False,
       embedding_size=32,
+      centers=centers,
       note=None)
 
   model_params = default_params.override_from_dict(custom_params)
@@ -314,14 +360,32 @@ def run_experiment(custom_params=dict(), options=None):
 
   if options.train:
     # profiler_hook = tf.train.ProfilerHook(save_steps=200, output_dir='profile')
-    debug_hook = tf_debug.TensorBoardDebugHook("localhost:7000")
+    # debug_hook = tf_debug.TensorBoardDebugHook("localhost:7000")
     # debug_hook = tf_debug.LocalCLIDebugHook()
-    estimator.train(lambda: data.input_fn(
-        '../clips.tfrecords',
+
+    train_spec = tf.estimator.TrainSpec(
+      input_fn=lambda: data.input_fn(
+        '../train.tfrecords',
         batch_size=model_params.batch_size,
         n_epochs=512,
         split_sentences=(model_params.use_pretrained_encoder is False)
-    ), hooks=[])
+      ),
+      max_steps=15000)
+
+    eval_spec = tf.estimator.EvalSpec(
+      input_fn=lambda: data.input_fn(
+        '../validate.tfrecords',
+        batch_size=model_params.batch_size,
+        n_epochs=1,
+        split_sentences=(model_params.use_pretrained_encoder is False)
+      ),
+      start_delay_secs=60,
+      throttle_secs=120)
+
+    tf.estimator.train_and_evaluate(
+      estimator,
+      train_spec,
+      eval_spec)
 
   if options.predict:
     subtitle = 'no dont worry its something else'
@@ -375,23 +439,38 @@ if __name__ == '__main__':
     train=False,
     predict=False)
 
+  for embedding_size in [4, 8, 16, 32, 64, 128, 256]:
+    print("")
+    print("  ----------------")
+    print("  EXPERIMENT")
+    print("  embedding_size = {}".format(embedding_size))
+    print("  ----------------")
+    print("")
+
+    try:
+      run_experiment({
+          'output_type': 'sequences',
+          'motion_loss_weight': 0.9,
+          'rnn_cell': 'GRUCell',
+          'batch_size': 32,
+          'use_pretrained_encoder': False,
+          'hidden_size': 256,
+          'learning_rate': 0.001,
+          'dropout': 0.5,
+          'embedding_size': embedding_size,
+          'note': 'experiment_embedding_size'
+      }, parser.parse_args())
+    except:
+      print("ERR")
+
   # run_experiment({
-  #     'output_type': 'sequences',
-  #     'motion_loss_weight': 0.9,
-  #     'rnn_cell': 'GRUCell',
+  #     'output_type': 'classes',
+  #     'motion_loss_weight': 0.5,
+  #     'rnn_cell': 'BasicLSTMCell',
   #     'batch_size': 32,
   #     'use_pretrained_encoder': False,
-  #     'hidden_size': 128,
-  #     'learning_rate': 0.001,
+  #     'hidden_size': 8,
+  #     'embedding_size': 8,
   #     'dropout': 0.5,
-  #     'embedding_size': 64,
-  #     'note': '2_extra_layers'
+  #     'note': 'simple'
   # }, parser.parse_args())
-
-  run_experiment({
-      'output_type': 'classes',
-      'motion_loss_weight': 0.8,
-      'rnn_cell': 'BasicLSTMCell',
-      'batch_size': 32,
-      'use_pretrained_encoder': True
-  }, parser.parse_args())

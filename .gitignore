@@ -110,3 +110,7 @@ iamarcel
 /src/tfhub/
 /src/images/
 /src/output/
+/auto
+*.jsonl
+*.jsonl.bak
+*.tfrecords

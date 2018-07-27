@@ -200,7 +200,8 @@ if __name__ == '__main__':
       'create-primitives', 'create-vocabulary', 'create-question',
       'create-sfa-dataset', 'create-sanity-check-2d', 'create-sanity-check-2d-3d',
       'create-sanity-check-pipeline', 'create-pose-vector-plot',
-      'create-sanity-check-cluster-centers', 'create-sanity-check-cluster-samples'
+      'create-sanity-check-cluster-centers', 'create-sanity-check-cluster-samples',
+      'count-tfrecords'
   ]
 
   parser = argparse.ArgumentParser(description='Manipulate clip data files.')
@@ -370,5 +371,8 @@ if __name__ == '__main__':
     create_question(args.args[0]);
   elif command_name == 'create-sfa-dataset':
     common.data_utils.create_sfa_dataset(*args.args)
+  elif command_name == 'count-tfrecords':
+    import learning.data
+    print(learning.data.count_tfrecords(args.args[0]))
   else:
     logger.error("Command {} not found.".format(command_name))

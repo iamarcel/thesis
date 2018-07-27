@@ -1,6 +1,8 @@
+\usepackage{grffile}
 \usepackage{float}
 \usepackage{color}
 \usepackage{array,graphicx}
+\usepackage{wrapfig}
 \usepackage{tcolorbox}
 \usepackage{keycommand}
 \usepackage{tabularx}
@@ -8,6 +10,12 @@
 \usepackage{rotating}
 \usepackage{fancyref}
 \usepackage[font=small]{caption}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{baskervald}
+\usepackage{amsmath,amssymb}
+\usepackage{textcomp}
+\usepackage{capt-of}
 
 % https://styleguide.ugent.be/basisprincipes/grid-en-lay-out.html
 \newlength{\gridsize}
@@ -26,10 +34,11 @@
 % Main font
 \usepackage{fontspec}
 \setmainfont[Path=fonts/,
-    UprightFont=*.otf,
+    UprightFont=*-Regular.otf,
     ItalicFont=*-Italic.otf,
     BoldFont=*-Bold.otf,
-    Ligatures={NoDiscretionary, NoHistoric, NoRequired, NoContextual}]{BaskervaldADFStd}
+    Ligatures={}]{Alegreya}
+
 
 % Heading font
 \listfiles
