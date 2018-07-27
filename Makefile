@@ -31,6 +31,7 @@ cpustart: Dockerfile
 		--group-add $(shell getent group audio | cut -d: -f3) \
 		-p 8888:8888 \
 		-p 6006:6006 \
+		-p 192.168.2.199:9559:9559 \
 		thesis
 	xhost -local:root
 

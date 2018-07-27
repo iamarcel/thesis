@@ -2,6 +2,10 @@ FROM ubuntu:xenial
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
   apt-get update && apt-get install -y \
+  --no-install-recommends \
+  ubuntu-desktop \
+  curl \
+  build-essential \
 	python \
 	python-cairo \
 	python-dev \
@@ -15,6 +19,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 	gir1.2-gst-plugins-base-1.0 \
 	libgstreamer1.0-0 \
 	libgstreamer1.0-dev \
+  libxaw7 \
+  avahi-daemon \
 	gstreamer1.0-tools \
 	gstreamer1.0-plugins-good \
 	gstreamer1.0-plugins-ugly \
@@ -29,7 +35,16 @@ RUN curl -OL https://github.com/google/protobuf/releases/download/v3.5.1/protoc-
   mv protoc3/bin/* /usr/local/bin/ && \
   mv protoc3/include/* /usr/local/include/
 
+ADD pynaoqi-python2.7-2.5.5.5-linux64.tar.gz /opt/
+ADD choregraphe-suite-2.5.10.7-linux64-setup.run /opt/
+ADD naoqi-sdk-2.5.5.5-linux64.tar.gz /opt/
+RUN chmod +x /opt/choregraphe-suite-2.5.10.7-linux64-setup.run && \
+  /opt/choregraphe-suite-2.5.10.7-linux64-setup.run && \
+  rm /opt/choregraphe-suite-2.5.10.7-linux64-setup.run && \
+  echo 'export PYTHONPATH=${PYTHONPATH}:/opt/pynaoqi-python2.7-2.5.5.5-linux64' >> /root/.bash_profile
+
 ADD ./Pipfile.lock /root/dev/Pipfile.lock
+ADD ./Pipfile /root/dev/Pipfile
 WORKDIR /root/dev
 
 RUN echo "export TFHUB_CACHE_DIR=/root/dev/tfhub" >> /root/.bashrc && \
@@ -38,8 +53,9 @@ RUN echo "export TFHUB_CACHE_DIR=/root/dev/tfhub" >> /root/.bashrc && \
   mkdir -p /root/.jupyter/nbconfig && \
   echo '{ "CodeCell": { "cm_config": { "indentUnit": 2 } } }' > /root/.jupyter/nbconfig/notebook.json && \
   cd /root/dev && \
+  ls -l && \
   pipenv install --system --deploy --ignore-pipfile
-RUN echo 'export PYTHONPATH="${PYTHONPATH}:$HOME/dev/pynaoqi-python2.7-2.5.5.5-linux64/lib/python2.7/site-packages"' >> /root/.bash_profile
+RUN echo 'export PYTHONPATH="${PYTHONPATH}:/opt/pynaoqi-python2.7-2.5.5.5-linux64/lib/python2.7/site-packages"' >> /root/.bash_profile
 
 EXPOSE 8888
 EXPOSE 6006

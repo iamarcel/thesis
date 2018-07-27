@@ -9,6 +9,7 @@ import os
 import os.path
 import math
 import random
+import time
 import itertools
 
 import json
@@ -53,7 +54,7 @@ def create_primitives():
   return output
 
 
-def create_question(bot_port):
+def create_question(bot_port, do_record_screen=True, do_generate_tts=False):
   import learning.model
   import common.watson
 
@@ -87,20 +88,25 @@ def create_question(bot_port):
   print(subtitles)
   question_id = '.'.join(question['ids'])
 
-  # Generate TTS audio clip
-  file_names_speech = []
-  for i, sub in enumerate(subtitles):
-    file_name_speech = os.path.join(common.data_utils.DEFAULT_TTS_PATH, question['ids'][i] + '.wav')
-    common.watson.write_tts_clip(file_name_speech, subtitle)
-    file_names_speech += [file_name_speech]
+
+  if do_generate_tts:
+    # Generate TTS audio clip
+    file_names_speech = []
+    for i, sub in enumerate(subtitles):
+      file_name_speech = os.path.join(common.data_utils.DEFAULT_TTS_PATH, question['ids'][i] + '.wav')
+      common.watson.write_tts_clip(file_name_speech, subtitle)
+      file_names_speech += [file_name_speech]
 
   # Record clips
   # Define some functions
   from subprocess import Popen
   from common.bot import BotController
   bot = BotController(bot_port)
+  bot.leds_off()
 
   def record_screen(tag, time):
+    if not do_record_screen:
+      return None, None
     file_name = os.path.join(common.data_utils.DEFAULT_VIDEO_PATH, clip['id'] + '--' + tag + '.mp4')
     p_recording = Popen([
         'ffmpeg',
@@ -118,30 +124,55 @@ def create_question(bot_port):
     time = int(math.ceil(len(frames) / 25)) + 1  # Extra second for margin
     proc, file_name = record_screen(tag, time)
     bot.play_angles(frames)
-    output = proc.wait()
-    print(output)
+
+    if proc is not None:
+      output = proc.wait()
+      print(output)
 
     return file_name
 
+  def countdown(count=3, sleep_time=1):
+    print()
+    bot.leds_off()
+    while count > 0:
+      print('Counting down... {}'.format(count))
+      time.sleep(sleep_time)
+      count -= 1
+    print('BOOOM')
+    bot.leds_on()
+
   # Now, use them
   bot.reset_pose()
+  print('Playing expected')
+  bot.leds_on()
   file_name_expected = record_pose_animation(question['angles_expected'], 'expected')
+  bot.leds_off()
 
   bot.reset_pose()
   clusters = common.data_utils.get_clusters()
   predictions = learning.model.predict_classes(subtitles)
   animation = list(itertools.chain.from_iterable(clusters[x] for x in predictions))
+  print('Playing clustered')
+  bot.leds_on()
   file_name_cluster = record_pose_animation(animation, 'cluster')
+  bot.leds_off()
 
   bot.reset_pose()
   animation = list(itertools.chain.from_iterable(learning.model.predict_sequences(subtitles)))
+  print('Playing predicted')
+  bot.leds_on()
   file_name_predicted = record_pose_animation(animation, 'predicted')
+  bot.leds_off()
 
   bot.reset_pose()
   time_expected = int(math.ceil(len(question['angles_expected']) / 25)) + 1
+  print('Playing native')
+  bot.leds_on()
   proc, file_name_nao = record_screen('nao', time_expected)
   bot.say(subtitle)
-  output = proc.wait()
+  bot.leds_off()
+  if proc is not None:
+    proc.wait()
 
   def text_filter(text, start, end):
     text = text.replace('\'', '\\\'')
@@ -168,26 +199,28 @@ def create_question(bot_port):
 
   subtitles = ''.join(text_filter(sub, question['n_frames_expected'][i], end) for i, sub in enumerate(subtitles))
   print(subtitles)
-  video_file_names = [file_name_expected, file_name_cluster, file_name_predicted, file_name_nao]
-  proc = Popen([
-      'ffmpeg',
-      '-i', video_file_names[video_order[0]],
-      '-i', video_file_names[video_order[1]],
-      '-i', video_file_names[video_order[2]],
-      '-i', video_file_names[video_order[3]],
-      '-i', file_names_speech[0], '-itsoffset', str(math.ceil(question['n_frames_expected'][0] / 25)),
-      '-i', file_names_speech[1], '-itsoffset', str(math.ceil((question['n_frames_expected'][0] + question['n_frames_expected'][1]) / 25)),
-      '-i', file_names_speech[2],
-      '-filter_complex', ('[0:v][1:v][2:v][3:v]hstack=inputs=4[v]' +
-                          text_filters +
-                          ';[4:a][5:a][6:a]amix=3[a]'),
-      '-map', '[v]',
-      '-map', '[a]',
-      # '-map', '4:a:0',
-      os.path.join(common.data_utils.DEFAULT_VIDEO_PATH, clip['id'] + '--merged.mp4')
-  ])
-  proc.wait()
-  print("Recorded. Saved merged video file.")
+
+  if do_record_screen and do_generate_tts:
+    video_file_names = [file_name_expected, file_name_cluster, file_name_predicted, file_name_nao]
+    proc = Popen([
+        'ffmpeg',
+        '-i', video_file_names[video_order[0]],
+        '-i', video_file_names[video_order[1]],
+        '-i', video_file_names[video_order[2]],
+        '-i', video_file_names[video_order[3]],
+        '-i', file_names_speech[0], '-itsoffset', str(math.ceil(question['n_frames_expected'][0] / 25)),
+        '-i', file_names_speech[1], '-itsoffset', str(math.ceil((question['n_frames_expected'][0] + question['n_frames_expected'][1]) / 25)),
+        '-i', file_names_speech[2],
+        '-filter_complex', ('[0:v][1:v][2:v][3:v]hstack=inputs=4[v]' +
+                            text_filters +
+                            ';[4:a][5:a][6:a]amix=3[a]'),
+        '-map', '[v]',
+        '-map', '[a]',
+        # '-map', '4:a:0',
+        os.path.join(common.data_utils.DEFAULT_VIDEO_PATH, clip['id'] + '--merged.mp4')
+    ])
+    proc.wait()
+    print("Recorded. Saved merged video file.")
 
 
 if __name__ == '__main__':
@@ -367,7 +400,7 @@ if __name__ == '__main__':
   elif command_name == 'create-vocabulary':
     common.data_utils.create_vocabulary()
   elif command_name == 'create-question':
-    create_question(args.args[0]);
+    create_question(args.args[0], do_record_screen=False, do_generate_tts=False)
   elif command_name == 'create-sfa-dataset':
     common.data_utils.create_sfa_dataset(*args.args)
   else:

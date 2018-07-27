@@ -2,6 +2,8 @@ FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
   apt-get update && apt-get install -y \
+  --no-install-recommends \
+  ubuntu-desktop \
 	python \
 	python-cairo \
 	python-dev \
@@ -31,7 +33,13 @@ RUN curl -OL https://github.com/google/protobuf/releases/download/v3.5.1/protoc-
   mv protoc3/include/* /usr/local/include/
 
 # Install NAO dependencies
-# ADD pynaoqi-python2.7-2.5.5.5-linux64.tar.gz /root/
+ADD pynaoqi-python2.7-2.5.5.5-linux64.tar.gz /root/
+ADD choregraphe-suite-2.5.10.7-linux64-setup.run /root/
+RUN chmod +x /root/choregraphe-suite-2.5.10.7-linux64-setup.run && \
+  /root/choregraphe-suite-2.5.10.7-linux64-setup.run && \
+  rm /root/choregraphe-suite-2.5.10.7-linux64-setup.run && \
+  echo 'export PYTHONPATH=${PYTHONPATH}:/root/pynaoqi-python2.7-2.5.5.5-linux64'
+
 # ADD webots_2018a-rev2_amd64.deb /root/webots_2018a-rev2_amd64.deb
 # RUN dpkg -i /root/webots_2018a-rev2_amd64.deb && \
 #   rm /root/webots_2018a-rev2_amd64.deb && \

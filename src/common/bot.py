@@ -19,17 +19,20 @@ def frange(x, y, jump):
 
 
 class BotController:
-    def __init__(self, port=43155):
-        host = 'localhost'
+    def __init__(self, port=9559):
+        host = '192.168.2.198'
         port = int(port)
         self.tts = ALProxy('ALAnimatedSpeech', host, port)
         self.motion = ALProxy('ALMotion', host, port)
         self.posture = ALProxy('ALRobotPosture', host, port)
         self.life = ALProxy('ALAutonomousLife', host, port)
         self.speaking_movement = ALProxy('ALSpeakingMovement', host, port)
+        self.leds = ALProxy('ALLeds', host, port)
 
         # self.motion.setStiffnesses('Body', 1.0)
         self.motion.wakeUp()
+        self.life.setAutonomousAbilityEnabled('BasicAwareness', False)
+        self.speaking_movement.setEnabled(False)
         self.posture.goToPosture("StandInit", 0.5)
 
     def say(self, text):
@@ -107,6 +110,18 @@ class BotController:
     def reset_pose(self):
         self.motion.wakeUp()
         self.posture.goToPosture("StandInit", 0.5)
+
+    def leds_off(self):
+      self.leds.off('FaceLeds')
+
+    def leds_on(self):
+      self.leds.on('FaceLeds')
+
+    def blink_leds(self):
+      led_names = 'FaceLeds'
+      self.leds.off(led_names)
+      time.sleep(0.1)
+      self.leds.on(led_names)
 
 
 def map_pose_to_nao_frame(pose):
