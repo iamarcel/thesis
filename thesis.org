@@ -7,6 +7,7 @@
 #+LATEX_HEADER_EXTRA: \usepackage{animate}
 #+LATEX_HEADER: \input{ugent.tex}
 #+LATEX_HEADER: \addbibresource{/home/marcel/org/bibliography/references.bib}
+#+LATEX_HEADER: \makeglossaries
 
 #+BEGIN_SRC emacs-lisp :exports none :session python-env
    ;; If you have the pipenv package, this initalializes the environment so that
@@ -18,133 +19,140 @@
 #+END_SRC
 
 #+BEGIN_SRC latex
-  \usetikzlibrary{shapes,arrows,backgrounds,fit,calc}
+    \usetikzlibrary{shapes,arrows,backgrounds,fit,calc}
 
-  \tikzset{
-    center coordinate/.style={
-      execute at end picture={
-        \path ([rotate around={180:#1}]perpendicular cs: horizontal line through={#1},
-                                    vertical line through={(current bounding box.east)})
-              ([rotate around={180:#1}]perpendicular cs: horizontal line through={#1},
-                                    vertical line through={(current bounding box.west)});}}}
+    \tikzset{
+      center coordinate/.style={
+        execute at end picture={
+          \path ([rotate around={180:#1}]perpendicular cs: horizontal line through={#1},
+                                      vertical line through={(current bounding box.east)})
+                ([rotate around={180:#1}]perpendicular cs: horizontal line through={#1},
+                                      vertical line through={(current bounding box.west)});}}}
 
-  \tikzset{
-    font=\headingfont,
-    every picture/.style={/utils/exec={\headingfont}},
-    x= \smallgridsize, y= \smallgridsize,
-    node distance=\smallgridsize,
-    semithick,
-    default matrix/.style = {
-      row sep = \smallgridsize,
-      column sep = \smallgridsize,
-      align = center,
-      nodes = {
-        anchor = center,
-        align = center
+    \tikzset{
+      font=\headingfont,
+      every picture/.style={/utils/exec={\headingfont}},
+      x= \smallgridsize, y= \smallgridsize,
+      node distance=\smallgridsize,
+      semithick,
+      default matrix/.style = {
+        row sep = \smallgridsize,
+        column sep = \smallgridsize,
+        align = center,
+        nodes = {
+          anchor = center,
+          align = center
+        }
       }
     }
-  }
 
-  \pgfplotscreateplotcyclelist{default}{
-    thick, ugent-blue\\%
-    thick, ugent-green\\%
-    thick, ugent-orange\\%
-  }
+    \pgfplotscreateplotcyclelist{default}{
+      thick, ugent-blue\\%
+      thick, ugent-green\\%
+      thick, ugent-orange\\%
+    }
 
-  \pgfplotsset{
-    compat=newest,
-    tick label style = {font=\headingfont, black!60},
-    every axis label = {font=\headingfont, black},
-    every axis legend/.append style = {legend cell align = left},
-    legend style = {
-      font=\headingfont\small, 
-      draw=none, 
-      text width=3\smallgridsize, 
-      align=left,
-      row sep=1ex,
-      /tikz/every odd column/.style={yshift=0.5ex},
-      /tikz/nodes={text depth=,anchor=base},
-    },
-    legend pos = outer north east,
-    legend cell align = left,
-    label style = {font=\headingfont},
-    width = 12\smallgridsize,
-    height = 6\smallgridsize,
-    axis x line = bottom,
-    axis y line = left,
-    axis line style = {thick, black!60},
-    every x tick/.style={thick, black!60},
-    every y tick/.style={thick, black!60},
-    enlargelimits = 0.1,
-    cycle list name = default
-  }
+    \pgfplotsset{
+      compat=newest,
+      tick label style = {font=\headingfont, black!60},
+      every axis label = {font=\headingfont, black},
+      every axis legend/.append style = {legend cell align = left},
+      legend style = {
+        font=\headingfont\small, 
+        draw=none, 
+        text width=3\smallgridsize, 
+        align=left,
+        row sep=1ex,
+        /tikz/every odd column/.style={yshift=0.5ex},
+        /tikz/nodes={text depth=,anchor=base},
+      },
+      legend pos = outer north east,
+      legend cell align = left,
+      label style = {font=\headingfont},
+      width = 12\smallgridsize,
+      height = 6\smallgridsize,
+      axis x line = bottom,
+      axis y line = left,
+      axis line style = {thick, black!60},
+      every x tick/.style={thick, black!60},
+      every y tick/.style={thick, black!60},
+      enlargelimits = 0.1,
+      cycle list name = default
+    }
 
-  \tikzstyle{draw-blue} = [
-    draw=ugent-blue
-  ]
+    \tikzstyle{draw-blue} = [
+      draw=ugent-blue
+    ]
 
-  \tikzstyle{fill-blue} = [
-    fill=ugent-blue!10
-  ]
+    \tikzstyle{fill-blue} = [
+      fill=ugent-blue!10
+    ]
 
-  \tikzstyle{draw-green} = [
-    draw=ugent-green
-  ]
+    \tikzstyle{draw-green} = [
+      draw=ugent-green
+    ]
 
-  \tikzstyle{fill-green} = [
-    fill=ugent-green!10
-  ]
+    \tikzstyle{fill-green} = [
+      fill=ugent-green!10
+    ]
 
-  \tikzstyle{draw-orange} = [
-    draw=ugent-orange
-  ]
+    \tikzstyle{draw-orange} = [
+      draw=ugent-orange
+    ]
 
-  \tikzstyle{fill-orange} = [
-    fill=ugent-orange!10
-  ]
+    \tikzstyle{fill-orange} = [
+      fill=ugent-orange!10
+    ]
 
-  \tikzstyle{draw-black} = [
-    draw=black!60
-  ]
+    \tikzstyle{draw-black} = [
+      draw=black!60
+    ]
 
-  \tikzstyle{fill-black} = [
-    fill=black!6
-  ]
+    \tikzstyle{fill-black} = [
+      fill=black!6
+    ]
 
-  \tikzstyle{base-block} = [
-    rectangle,
-    font=\headingfont,
-    thick, minimum width=1.5cm, minimum height=1cm,
-    inner xsep=12pt, inner ysep=6pt
-  ]
+    \tikzstyle{base-block} = [
+      rectangle,
+      font=\headingfont,
+      thick, minimum width=1.5cm, minimum height=1cm,
+      inner xsep=12pt, inner ysep=6pt
+    ]
 
-  \tikzstyle{block} = [
-    base-block,
-    rounded rectangle,
-    draw-black, fill-black
-  ]
+    \tikzstyle{block} = [
+      base-block,
+      rounded rectangle,
+      draw-black, fill-black
+    ]
 
-  \tikzstyle{blue-block} = [
-    block, 
-    draw-blue, fill-blue
-  ]
+    \tikzstyle{blue-block} = [
+      block, 
+      draw-blue, fill-blue
+    ]
 
-  \tikzstyle{variable block} = [
-    base-block,
-    draw-orange, fill-orange
-  ]
+    \tikzstyle{variable block} = [
+      base-block,
+      draw-orange, fill-orange
+    ]
 
-  \tikzstyle{inline spacing} = [
-    inner xsep=4pt, inner ysep=2pt,
-    minimum width=0pt, minimum height=0pt
-  ]
+    \tikzstyle{inline spacing} = [
+      inner xsep=4pt, inner ysep=2pt,
+      minimum width=0pt, minimum height=0pt
+    ]
 
-  \tikzstyle{tight spacing} = [
-    inner xsep=6pt, inner ysep=4pt,
-    minimum width=0pt, minimum height=0pt
-  ]
+    \tikzstyle{tight spacing} = [
+      inner xsep=6pt, inner ysep=4pt,
+      minimum width=0pt, minimum height=0pt
+    ]
 
-  \newacronym{rnn}{RNN}{Recurrent Neural Network}
+    \newacronym{rnn}{RNN}{Recurrent Neural Network}
+    \newglossaryentry{motion-primitive}{
+      name=motion primitive,
+      description={A fundamental unit of motion or, in this context, of gesture. For
+      example, someone might perform the motion primitive of holding both hands
+      together and the moving them outwards to the sides while speaking the words
+      ``bigger than.''}
+    }
 
 #+END_SRC
 
@@ -169,19 +177,24 @@
 ** DONE Voorlopig is het waarschijnlijk best dat je de monologen gebruikt. Vermeld de use-case:monoloog voor een publiek
    CLOSED: [2018-07-28 za 08:16]
 
-** Leg uit hoe je nieuwe trainingsdata kan maken
+** DONE Leg uit hoe je nieuwe trainingsdata kan maken
+   CLOSED: [2018-07-28 za 10:00]
 
-** Erken probleem in de clustering: de gebaren die er uit komen zin /gemiddelden/ (lauwe gebaren)
+** CANCELLED Erken probleem in de clustering: de gebaren die er uit komen zin /gemiddelden/ (lauwe gebaren)
+   CLOSED: [2018-07-28 za 10:00]
+   - State "CANCELLED"  from              [2018-07-28 za 10:00] \\
+     Geen gemiddelden maar echte elementen van de dataset
    Iconische gebaren verdwijnen met deze methode uit het repertoire van de robot.
 
-** Vermeld dat bepaalde heel belangrijke elementen die we willen hebben, worden uitgemiddeld
+** DONE Vermeld dat bepaalde heel belangrijke elementen die we willen hebben, worden uitgemiddeld
+   CLOSED: [2018-07-28 za 10:18]
 
 *** Mogelijkheid: dataset biasen met extra trainignsdata
 
 *** In RNN kan je bijvoorbeeld een veel hardere gradient met voor die specifieke woorden geven (1/0.03)
 
-** Meet de afstanden van de clusters tot de ground truth (niet alleen klassen)
-   DEADLINE: <2018-07-02 ma>
+** DONE Meet de afstanden van de clusters tot de ground truth (niet alleen klassen)
+   CLOSED: [2018-07-28 za 10:19] DEADLINE: <2018-07-02 ma>
    Toon dat die afstand kleiner wordt. Dus twee evaluaties:
 
    1. Toon dat er geen bug zit in je algoritme, dat ze wel dichter komen bij de trainingsdata
@@ -195,7 +208,8 @@
 
 ** Vraag voor mezelf: hoe kan ik meer tussentijds cijfers geven over hoe goed het werkt?
 
-** 2-10 juli is buffer voor het extra werk dat Tony mee geeft
+** DONE 2-10 juli is buffer voor het extra werk dat Tony mee geeft
+   CLOSED: [2018-07-28 za 10:19]
 
 ** Data storage
    - src
@@ -434,7 +448,7 @@
    recognize their emotion and are used in a broad range of places like
    introductory classes for STEM education and hotel lobbies. NAO is about 60
    centimeters high and can walk on his feet, while Pepper is 1.20 meters high
-   and moves around using three wheels under its "skirt" (See autoref:fig:pepper).
+   and moves around using three wheels under its "skirt" (See cref:fig:pepper).
    
    #+CAPTION: label:fig:pepper Softbank's social robot Pepper, one of the most popular advanced robots today.
    #+NAME: fig:pepper
@@ -493,7 +507,7 @@
    communication. Third, communicating on an intuitive level reduces the need
    for training people who need to work with these robots.
 
-** Current State of Robot Gesture Synthesis label:sec-state-robot-synthesis
+** Current State of Robot Gesture Synthesis label:sec:state-robot-synthesis
 
    To understand the state of current gesture synthesis technologies, one can
    look at both gesture synthesis in robot and in virtual agents. Translating
@@ -602,43 +616,42 @@
    type of gesture---perhaps this category alone is enough in order to make the
    robot seem alive.
 
-   Imagining the ideal gesture synthesis system in a robot, it could then have
-   the following structure: both speech and gesture are generated
-   simultaneously, with access to information about the robot's intent and
-   contextual information like, possibly, the positions of objects to be pointed
-   at or cultural background. It could then use beat gestures as a baseline for
-   its movement and combine those with iconic, metaphoric and deictic gestures
-   using information from the context to make more precise gestures.
+** Synthesizing Gestures with Deep Learning
 
-** The Goal: Gesture Synthesis with Deep Learning
+   # Imagining the ideal gesture synthesis system in a robot, it could then have
+   # the following architecture: both speech and gesture are generated
+   # simultaneously, with access to information about the robot's intent and
+   # contextual information like, possibly, the positions of objects to be pointed
+   # at, cultural background or the emotional context. It could then use beat
+   # gestures as a baseline for its movement and combine those with iconic,
+   # metaphoric and deictic gestures using information from the context to make
+   # more precise gestures.
+   
+   The nature of this problem is in some sense very similar to that of other
+   problems where intuitive human abilities are to be imitated like speech
+   synthesis, bipedal locomotion and image recognition. In all of these tasks,
+   machine learning-based approaches have proven to be very successful
+   cite:hintin-need-ml so adopting a similar approach here seems promising.
 
-    The goal of this project is to build a system that can synthesize gestures
-    for any text, in a continuous fashion and related to the content of what is
-    being communicated. An approach based on labor-intensive animation, text
-    tagging or manual gesture analysis and research is not desired; it should be
-    able to handle arbitrary input text and even synthesize motion for words it
-    has never encountered.
+   Especially the generation of beat gestures might benefit from a deep learning
+   approach: a neural network could learn a general sense of how people move,
+   which can be used as a starting point for other methods to add their more
+   specific gestures to (like deictic ones) or it might even be able to learn
+   iconic and metaphoric gestures given enough of the right data is present.
+   
+   Based on this premise---the power of machine learning---this thesis proposes
+   a novel system for gesture synthesis, creates a proof of concept and reports
+   on the initial results. This system uses a deep learning-based approach to
+   synthesize gestures for a robot to perform while it is talking based on the
+   content of its spoken words.
 
-    The nature of this problem is in some sense very similar to that of other
-    problems where intuitive human abilities are to be imitated like speech
-    synthesis, bipedal locomotion and image recognition. In all of these tasks,
-    machine learning-based approached have proven to be very successful
-    cite:hintin-need-ml so adopting a similar approach here seems promising.
-
-    Especially the generation of beat gestures might benefit from a deep
-    learning approach---a neural network could learn a general sense of how
-    people move, which can be used as a starting point for other methods to add
-    their more specific gestures (like deictic ones) to; or it might even be
-    able to learn iconic and metaphoric gestures given enough of the right data
-    is present.
-
-    autoref:chap:literature-research covers a more detailed analysis of gesyure
-    synthesis methods, explores recent advances in machine learning and provides
-    background information on the technologies and methods used throughout the
-    process. autoref:chap:method explains the process used in this project in
-    detail, while autoref:chap:evaluation evaluates the results. Finally,
-    autoref:chap:conclusion concludes this thesis and provides opportunities for
-    future work.
+   Cref:chap:literature-research covers a more detailed analysis of gesture
+   synthesis methods, explores recent advances in machine learning and provides
+   background information on the technologies and methods used throughout the
+   process. Cref:chap:method explains the process used in this project in
+   detail, while cref:chap:evaluation evaluates the results. Finally,
+   cref:chap:conclusion concludes this thesis and provides opportunities for
+   future work.
     
 ** TODO Checklist
    - [ ] Context: Where does this fit in the state of the art?
@@ -649,6 +662,20 @@
 * Literature Research
   label:chap:literature-research
 
+  Every great dish starts with a set of fresh, high-quality ingredients. This
+  chapter takes a walk through the proverbial grocery store and collects the
+  elements needed to build this system. After a quick look at existing recipes
+  for gesture synthesis in
+  cref:sec:gesture-synthesis-robots,sec:gesture-synthesis-va, all the components
+  necessary for this project are sourced and examined. First, in
+  cref:sec:ml-research, recent advances in machine learning and, in particular,
+  deep learning methods, are explored to find which types of architectures could
+  be able to produce the results we are looking for. Then,
+  cref:sec:research-dataset attempts to find the right dataset but will find
+  that this does not exist yet, resulting in a search for a method to create it.
+  Finally, cref:sec:research-clustering looks at an alternative approach that
+  might dramatically simplify the problem.
+
 ** Gesture Synthesis in Robots
    :PROPERTIES:
    :Effort:   0:30
@@ -656,15 +683,18 @@
    :LOGBOOK:
    CLOCK: [2018-07-07 za 17:23]--[2018-07-07 za 18:06] =>  0:43
    :END:
+   label:sec:gesture-synthesis-robots
 
-   An overview of current gesture synthesis sytems was given in
-   autoref:sec-state-robot-synthesis. This section will provide a deeper look at
-   how two of these systems work in practice.
+   \Cref{sec:state-robot-synthesis} evaluated the current gesture synthesis
+   systems qualitatively, concluding that the methods investigated lack in one
+   or more of the desired properties of continuity, variability and congruence.
+   Below, the inner workings of two gesture synthesis---those of the Kismet and
+   SoftBank robots---are explained in more detail.
 
    Kismet's range of gestures is limited: it can only move its face actuators
    and move its head with the neck motors. Its movements are organized into
    /skills/, each of which is a finite state machine of positions where a
-   transition is a certain /motion primitive/, a unit of gesture. These skills
+   transition is a certain gls:motion-primitive, a unit of gesture. These skills
    and the transitions between them are activated by the robot's other
    behavioral systems and external stimuli as specified in the finite state
    machine cite:breazeal04_desig.
@@ -714,12 +744,13 @@
    CLOCK: [2018-07-10 di 09:51]--[2018-07-10 di 10:15] =>  0:24
    CLOCK: [2018-07-09 ma 17:35]--[2018-07-09 ma 18:11] =>  0:36
    :END:
+   label:sec:gesture-synthesis-va
 
    One of the most advanced gesture synthesis systems is the Articulated
    Communication Engine (ACE) cite:kopp04_synth_multim_utter_conver_agent. In
    this system, one annotates the text to be spoken with gestures and how they
    should be timed in an XML language called MURML (see
-   autoref:fig:ace-murml-example). The ACE system combines the information from
+   cref:fig:ace-murml-example). The ACE system combines the information from
    the text-to-speech engine with the gestures and information given in the
    speech/gesture definition, allowing it to create movements that are
    well-timed with the text being spoken (for example, stretching the arm while
@@ -773,6 +804,7 @@
    CLOCK: [2018-07-10 di 11:10]--[2018-07-10 di 12:00] =>  0:50
    CLOCK: [2018-07-10 di 10:26]--[2018-07-10 di 10:54] =>  0:28
    :END:
+   label:sec:ml-research
 
    Over the past ten years, tremendous progress has been made in the field of
    machine learning. With the invention of effective training algorithms such as
@@ -812,7 +844,7 @@
     shared across layers. This way, recurrent neural networks are similar to
     deep neural networks.
     
-    autoref:fig:rnn shows a high-level diagram of an gls:rnn, where two time
+    Cref:fig:rnn shows a high-level diagram of an gls:rnn, where two time
     steps are unrolled. In this figure and further diagrams, the convention will
     be adopted that 
     #+latex: \tikz[baseline]{\node[block,inline spacing,anchor=base]{grey rounded rectangles};} 
@@ -961,10 +993,11 @@
     ~word2vec~ algorithm and the /universal sentence encoder/ which processes
     greater-than-word length text cite:tfhub-text.
 
-** The Dataset label:sec:research-dataset
+** The Dataset
    :PROPERTIES:
    :Effort:   1:00
    :END:
+   label:sec:research-dataset
 
    The dataset is a crucial component of any machine learning project. In this
    case, the model should be trained to predict gestures from a sentence as
@@ -1103,10 +1136,11 @@
     code is available on GitHub and written with TensorFlow so it could be
     adapted for use within the rest of this project.
 
-** Time Series Clustering label:sec-research-clustering
+** Time Series Clustering
    :PROPERTIES:
    :Effort:   0:30
    :END:
+   label:sec:research-clustering
 
    Instead of directly predicting poses, the problem of gesture synthesis can be
    much simplified if we break down movement into a sequence of motion
@@ -1155,9 +1189,9 @@
    and builds upon. Previous work on gesture synthesis were examined in both
    robots and virtual agents; then a selected set of recent developments in
    machine learning was described, particularly in terms of language processing
-   and time-series data processing; in autoref:sec:research-dataset the
+   and time-series data processing; in cref:sec:research-dataset the
    available data was examined and the tools to create a dataset for this
-   problem were outlined; finally, in autoref:sec-research-clustering
+   problem were outlined; finally, in cref:sec:research-clustering
    time-series clustering algorithms were explored that could simplify this
    problem by discretizing it into a set of motion primitives.
 
@@ -1175,7 +1209,7 @@
   by applying pose estimation to YouTube videos, then clustering these poses and
   then building a machine learning model that learns to predict these clusters
   from a given sentence. Finally, the resulting poses will be performed on a
-  live robot. An overview of this pipeline is shown in autoref:fig:pipeline.
+  live robot. An overview of this pipeline is shown in cref:fig:pipeline.
   
   #+BEGIN_SRC latex :exports results :results output
     \begin{figure}
@@ -1361,7 +1395,7 @@
     model OpenPose used cite:openpose_output. This list is specified for each
     person detected in the image. If, in a clip, one or more joint positions
     have a very small confidence, that clip is not used further to avoid errant
-    results later on in the process. autoref:fig:pose-format-comparison shows
+    results later on in the process. Cref:fig:pose-format-comparison shows
     the order of keypoints in this list.
 
     Note that there is no stability in the detected people, i.e., people can
@@ -1369,7 +1403,7 @@
     change throughout frames. This is why the user must specify the center of
     the target person while selecting video clips in the video picker.
     
-    autoref:fig:sanity_check_openpose shows an example result from this step of
+    Cref:fig:sanity_check_openpose shows an example result from this step of
     the pipeline. This "sanity check" was performed on a subset of the captured
     clips in order to verify whether the data was sent to and processed by
     OpenPose correctly.
@@ -1519,10 +1553,10 @@
     NAOqi SDK that is used to control this robot. Controlling the pose of a NAO
     robot is done by setting the angles of its actuators, so these angles could
     be measured from the position representation of the 3D poses.
-    autoref:fig:nao-angles shows the definition of these angles and
-    autoref:tab:pose-to-angle shows the details of how they can be calculated from
-    the Cartesian coordinates. The joints mentioned in autoref:tab:pose-to-angle
-    are interpreted as vectors, which autoref:fig:pose-angles visualizes.
+    cref:fig:nao-angles shows the definition of these angles and
+    cref:tab:pose-to-angle shows the details of how they can be calculated from
+    the Cartesian coordinates. The joints mentioned in cref:tab:pose-to-angle
+    are interpreted as vectors, which cref:fig:pose-angles visualizes.
 
     Note that when axes are specified, this is in the reference coordinate
     system of the poses returned from 3D Pose Baseline, not the coordinate
@@ -1637,7 +1671,7 @@
      were not found by the author so the implementation in this project clusters
      across /whole/ samples instead of subsequences.
 
-     As mentioned in autoref:sec-research-clustering, the ~dtwclust~ R package
+     As mentioned in cref:sec:research-clustering, the ~dtwclust~ R package
      allows experimenting with different distance metrics. Those that support
      sequences of varying lengths are described below.
 
@@ -1702,7 +1736,7 @@
 
      The results described here were obtained using the GAK distance metric, PAM
      centroid method and a partition in eight clusters.
-     autoref:fig:clustering-results-histogram shows the distribution of clusters
+     Cref:fig:clustering-results-histogram shows the distribution of clusters
      across the dataset. Two of the clusters are very small, two are very big and
      the other four have a size roughly 1/8th of the dataset.
     
@@ -1740,11 +1774,11 @@
 
      #+END_SRC
     
-     autoref:fig:cluster-centers shows a frame for the centroid of each of the
-     clusters and autoref:fig:cluster-samples shows, for each of the eight
+     Cref:fig:cluster-centers shows a frame for the centroid of each of the
+     clusters and cref:fig:cluster-samples shows, for each of the eight
      clusters, a frame from four random samples in that cluster. While it is
      difficult to evaluate based on single frames, looking at the animated
-     version of autoref:fig:cluster-samples reveals that thhe results from
+     version of cref:fig:cluster-samples reveals that the results from
      clustering are good in some cases and not that good in others. For example,
      one of the poses in cluster 3 (where the person's right upper arm is
      extended to the right and their lower arm is pointing downwards) would make
@@ -1758,8 +1792,26 @@
      For now, these results will be used for the rest of the project since
      building the entire flow that collects and processes data and generates
      gestures from that is deemed more important. As explained in
-     autoref:sec:video-picker, collecting more data is time-consuming but
+     cref:sec:video-picker, collecting more data is time-consuming but
      straightforward.
+     
+     A noteworthy consequence of a clustering method is the tendency to produce
+     smoothed, average results instead of outliers: the cluster representatives
+     are close to the average of all the elements in that cluster. While this is
+     often a desired property, that might not be the case here. Humans have a
+     repertoire of specific, iconic gestures such as waving while saying
+     "hello." If the clustering or prediction algorithm would be able to
+     reproduce these gestures this would give a high confidence in its ability
+     to accurately synthesize gestures, but this averaging property impedes
+     this.
+
+     In order to still gain the ability to perform these iconic gestures, the
+     dataset could be biased to include a large amount of samples for each of
+     these gestures. That would both help the clustering algorithm recognize
+     these gestures and help a direct gesture synthesis machine learning model
+     learn these gestures. It would also be possible annotate the data and to
+     bias the learning algorithm to weight these iconic gestures more heavily,
+     forcing it to learn them.
 
 ***** DONE Figure: examples of extracted clusters
       CLOSED: [2018-07-23 ma 14:51]
@@ -2041,7 +2093,7 @@
     
      With that in mind, neither the text synthesis or speech synthesis systems
      available can be easily adapted for this task but a specialized decoder
-     shall be built. autoref:fig:sequence-decoder shows a diagram of this
+     shall be built. Cref:fig:sequence-decoder shows a diagram of this
      decoder. The data that flows through an gls:rnn is divided into two parts:
      the input/output and the state. Both of these are updated in every time step
      of processing but the state is internal. Intuitively, one can interpret the
@@ -2140,7 +2192,7 @@
      of the intermediate outputs from the gls:rnn in the encoder step (referred
      to as /memory/). These weights are trainable and based on the previous state
      from the gls:rnn. Then, the result is assigned to the new state of the
-     recurrent network. autoref:fig:attention-decoder shows how this works
+     recurrent network. Cref:fig:attention-decoder shows how this works
      conceptually.
      
      #+BEGIN_SRC latex :exports results :results output
@@ -2203,7 +2255,7 @@
    :END:
    
    When researching the dataset and data formats in
-   autoref:sec:research-dataset, it was decided that the representation of poses
+   cref:sec:research-dataset, it was decided that the representation of poses
    throughout the project would be based on the joint angles of the NAO robot,
    so they can directly be used on this robot.
    
@@ -2275,15 +2327,15 @@
    results or have an idea about whether the outcome is actually something
    useful. Three different "levels" of metrics are used throughout the project:
 
-   - Quick-and-dirty sanity checks :: The figures throughout autoref:chap:method
+   - Quick-and-dirty sanity checks :: The figures throughout cref:chap:method
         provide a quick, qualitative pass-or-fail answer that make sure the
         results are at least somewhat meaningful. This was necessary because of
         the many steps in the pipeline.
    - Prediction loss functions :: The gesture synthesis models are trained and
         evaluated based on their loss functions as defined in
-        autoref:sec:pose-prediction. These hard numbers drive the learning
+        cref:sec:pose-prediction. These hard numbers drive the learning
         mechanisms but differ from the ideal perception-based metric. In
-        autoref:sec:decoder-comparison, this difference is discussed some in
+        cref:sec:decoder-comparison, this difference is discussed some in
         more detail.
    - The survey :: By asking people's opinion, human perception is accounted for
                    and the final results can be evaluated. Unfortunately, this
@@ -2293,14 +2345,14 @@
 ** Optimizing the Neural Network
   
    The gesture synthesis network has quite a few parameters, the first of which
-   is the network structure itself. \Fref[plain]{sec:pose-prediction} presented
+   is the network structure itself. \Cref{sec:pose-prediction} presented
    the network as an encoder-decoder architecture and explained two encoders (a
    recurrent text encoder and a pre-trained black box encoder) and two decoders
    (a classification decoder and a sequence decoder). This results in four
    possible network architectures.
   
    There is one special case in these four architectures. Since the
-   attention-based decoder model (see autoref:sec:decoder) requires access to
+   attention-based decoder model (see cref:sec:decoder) requires access to
    the results from the intermediate results of the encoder, it cannot be used
    in combination with the black box pre-trained text encoder. In that case, the
    decoder falls back to a "regular" recurrent neural network that only uses the
@@ -2319,7 +2371,7 @@
    :END:
 
    For the neural network, the loss functions are described in
-   autoref:sec:pose-prediction. The results from the two decoders can be
+   cref:sec:pose-prediction. The results from the two decoders can be
    compared by comparing the generated gestures, when the gestures for the
    classification decoder are generated by concatenating the centroids from the
    preicted clusters. This implies that both the learning model and the
@@ -2333,7 +2385,7 @@
    kind of gestures humans perceive as being "natural". Sadly this approach was
    determined as out of scope for the current project and is thus recommended as
    one of the next steps in future works towards gesture synthesis
-   (autoref:chap:conclusion).
+   (cref:chap:conclusion).
     
    In order to compare the two decoders, this leaves us with comparing the
    generated gestures using the position-motion-loss from the sequence decoder.
@@ -2361,7 +2413,7 @@
      \end{figure}
    #+END_SRC
     
-   autoref:fig:classification-vs-sequence shows the results on the validation
+   Cref:fig:classification-vs-sequence shows the results on the validation
    set. The model with the sequence decoder clearly learns to predict the
    gestures while the classification decoder does not learn (in terms of its
    own loss function this decoder immediately starts to overfit the training
@@ -2390,7 +2442,7 @@
    4. A final checker question that asked the color of the robot's shoulders
 
    A screenshot of this questionnaire is shown in
-   autoref:fig:survey-screenshot.
+   cref:fig:survey-screenshot.
     
    #+caption: label:fig:survey-screenshot Screenshot of one of the main questions from the survey used to qualitatively test the results of these gesture synthesis methods.
    #+attr_latex: :width 1.2\textwidth,center
@@ -2412,6 +2464,10 @@
 
    /Collect more data./ The dataset used here is very small. A larger dataset is
    probably a prerequisite for most of the other improvements.
+   
+   /Add samples for specific gestures to the dataset./ Explicitly adding samples
+   for specific iconic gestures, like waving while saying "hello" or nodding
+   while saying "yes," could teach this system to generate these gestures.
         
    /Find or create and implement a clustering algorithm that clusters
    subsequences./ One major drawback of the clustering algorithm used in this
@@ -2449,4 +2505,14 @@
   
   @@latex: \addcontentsline{toc}{chapter}{References}@@
   
-\printbibliography[heading=none]
+  \printbibliography[heading=none]
+  
+* Glossary
+  :PROPERTIES:
+  :UNNUMBERED: t
+  :END:
+  
+  @@latex: \addcontentsline{toc}{chapter}{Glossary}@@
+  
+  \renewcommand{\glossarysection}[2][]{}
+  \printglossaries
