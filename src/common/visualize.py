@@ -13,10 +13,16 @@ from matplotlib.animation import FuncAnimation
 import matplotlib.image as img
 from mpl_toolkits.mplot3d import Axes3D, proj3d
 from matplotlib.patches import FancyArrowPatch
+import matplotlib.patheffects as PathEffects
+from matplotlib import rcParams
 import numpy as np
+from adjustText import adjust_text
 
 from common.pose_utils import load_clip_keypoints, openpose_to_baseline, get_confidences, get_positions, Pose
 from . import data_utils, pose_utils
+
+rcParams['font.family'] = 'sans-serif'
+rcParams['font.sans-serif'] = ['UGent Panno Text', 'Tahoma']
 
 UGENT_BLUE = "#1E64C8"
 UGENT_YELLOW = "#FFD200"
@@ -127,6 +133,30 @@ def preview_clip(n=-1, openpose_output_dir='../output/'):
       print(e)
       print("Trying another clip...")
       n = random.randint(0, len(clips))
+
+
+def create_pose_format_comparison(clip):
+  poses = pose_utils.load_clip_keypoints(
+      clip,
+      openpose_output_dir='./openpose/src/output/')
+  image = get_clip_image_paths(clip)[0]
+  if not os.path.isfile(image):
+    raise ValueError('No image for this frame present.')
+
+  fig = plt.figure(figsize=(6, 3), dpi=300)
+  ax_h36m = fig.add_subplot(121)
+  ax_h36m.axis('off')
+  ax_coco = fig.add_subplot(122)
+  ax_coco.axis('off')
+
+  poses = np.array(poses)
+  pose = np.reshape(poses[0, 0, :], (-1, 3))
+  create_2d_pose_plot(ax_coco, pose, fmt='coco', joint_labels=True, joint_label_type='index')
+
+  pose = np.reshape(openpose_to_baseline(poses)[0, :], (-1, 3))
+  create_2d_pose_plot(ax_h36m, pose, fmt='h36m', joint_labels=True, joint_label_type='index')
+
+  _save_for_report(fig, 'pose-format-comparison')
 
 
 def create_sanity_check_2d(clip):
@@ -493,22 +523,36 @@ def show_2d_pose(points, ax=None, add_labels=False):
   show2Dpose(points, ax, add_labels=add_labels)
 
 
-def create_2d_pose_plot(ax, point_list, fmt='h36m'):
+def create_2d_pose_plot(ax, point_list, fmt='h36m', joint_labels=False, joint_label_type='name'):
   pose = pose_utils.get_named_pose(point_list, fmt)
+  joints = pose_utils.JOINTS if fmt == 'h36m' else pose_utils.COCO_JOINTS
+  point_names = pose_utils.H36M_NAMES if fmt == 'h36m' else pose_utils.COCO_BODY_PARTS
 
-  start_names = pose_utils.JOINTS[:, 0]
+  start_names = joints[:, 0]
   start_points = [pose[joint_name] for joint_name in start_names]
 
-  end_names = pose_utils.JOINTS[:, 1]
+  end_names = joints[:, 1]
   end_points = [pose[joint_name] for joint_name in end_names]
 
-  _mpl_setup_ax_2d(ax)
+  _mpl_setup_ax_2d(ax, radius=None)
 
   for start, end in zip(start_points, end_points):
     x = [start[0], end[0]]
     y = [start[1], end[1]]
 
-    ax.plot(x, y, lw=2, marker='o')
+    ax.plot(x, y, lw=2, marker='o', color=UGENT_BLUE)
+
+  # Annotate
+  if joint_labels:
+    texts = []
+    for k, v in pose.items():
+      texts.append(ax.text(
+        v[0],
+        v[1],
+        k if joint_label_type == 'name' else point_names.index(k),
+        path_effects=[PathEffects.withStroke(linewidth=3, foreground="w")]
+      ))
+    adjust_text(texts, ax=ax)
 
 
 def _mpl_reorder_poses(points):
@@ -528,8 +572,9 @@ def _mpl_reorder_pose(points):
 
 def _mpl_setup_ax_2d(ax, radius=0.5, add_labels=False):
 
-  ax.set_xlim([-radius, radius])
-  ax.set_ylim([-radius, radius])
+  if radius is not None:
+    ax.set_xlim([-radius, radius])
+    ax.set_ylim([-radius, radius])
 
   ax.set_aspect('equal')
 

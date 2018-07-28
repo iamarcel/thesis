@@ -48,6 +48,15 @@ JOINTS = np.array([
   ['LElbow', 'LWrist'], ['Thorax', 'RShoulder'], ['RShoulder', 'RElbow'],
   ['RElbow', 'RWrist']])
 
+COCO_JOINTS = np.array([
+  ['RHip', 'RKnee'], ['RKnee', 'RFoot'],
+  ['LHip', 'LKnee'], ['LKnee', 'LFoot'], ['RHip', 'Thorax'],
+  ['LHip', 'Thorax'], ['Thorax', 'Neck/Nose'],
+  ['Thorax', 'LShoulder'], ['LShoulder', 'LElbow'],
+  ['LElbow', 'LWrist'], ['Thorax', 'RShoulder'], ['RShoulder', 'RElbow'],
+  ['RElbow', 'RWrist'], ['Neck/Nose', 'LEye'], ['Neck/Nose', 'REye'],
+  ['LEye', 'LEar'], ['REye', 'REar']])
+
 LEFT_FRONT_BODY_PARTS = [
   'Hip',
   'LHip',

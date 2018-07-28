@@ -234,7 +234,7 @@ if __name__ == '__main__':
       'create-sfa-dataset', 'create-sanity-check-2d', 'create-sanity-check-2d-3d',
       'create-sanity-check-pipeline', 'create-pose-vector-plot',
       'create-sanity-check-cluster-centers', 'create-sanity-check-cluster-samples',
-      'count-tfrecords'
+      'count-tfrecords', 'create-pose-format-comparison'
   ]
 
   parser = argparse.ArgumentParser(description='Manipulate clip data files.')
@@ -261,6 +261,14 @@ if __name__ == '__main__':
     common.data_utils.add_clips_to(*args.args)
   elif command_name == 'merge':
     common.data_utils.add_clips_to(*args.args)
+  elif command_name == 'create-pose-format-comparison':
+    clips = common.data_utils.get_clips()
+    for clip in clips:
+      try:
+        common.visualize.create_pose_format_comparison(clip)
+        break
+      except (ValueError, IOError) as e:
+        print(e)
   elif command_name == 'create-sanity-check-2d':
     clips = common.data_utils.get_clips()
     for clip in clips:

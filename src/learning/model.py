@@ -57,6 +57,7 @@ def rnn_model_fn(features, labels, mode, params):
     if params.use_pretrained_encoder:
       hidden_state = tf.feature_column.input_layer(features, params.feature_columns)
       memory = None
+      sequence_length = None
     else:
       batch_major_hidden_state, sequence_length = tf.contrib.feature_column.sequence_input_layer(features, params.feature_columns)
       real_batch_size = tf.shape(batch_major_hidden_state)[0]
@@ -69,6 +70,7 @@ def rnn_model_fn(features, labels, mode, params):
         memory, hidden_state = encoder.encode(hidden_state)
         memory = tf.layers.dense(memory, params.hidden_size)
         memory = tf.layers.dense(memory, params.hidden_size)
+        memory = tf.nn.dropout(memory, 1.0 - params.dropout)
 
   train_op = None
   loss = None
@@ -89,7 +91,7 @@ def rnn_model_fn(features, labels, mode, params):
         output_size=n_labels,
         initial_state=hidden_state,
         cell_type=params.rnn_cell,
-        memory=tf.nn.dropout(memory, 1.0 - params.dropout),
+        memory=memory,
         memory_sequence_length=sequence_length,
         label_lengths=len_labels)
 
@@ -439,29 +441,26 @@ if __name__ == '__main__':
     train=False,
     predict=False)
 
-  for embedding_size in [4, 8, 16, 32, 64, 128, 256]:
+  for dropout in [0.0, 0.2, 0.4, 0.5, 0.6, 0.9]:
     print("")
     print("  ----------------")
     print("  EXPERIMENT")
-    print("  embedding_size = {}".format(embedding_size))
+    print("  dropout = {}".format(dropout))
     print("  ----------------")
     print("")
 
-    try:
-      run_experiment({
-          'output_type': 'sequences',
-          'motion_loss_weight': 0.9,
-          'rnn_cell': 'GRUCell',
-          'batch_size': 32,
-          'use_pretrained_encoder': False,
-          'hidden_size': 256,
-          'learning_rate': 0.001,
-          'dropout': 0.5,
-          'embedding_size': embedding_size,
-          'note': 'experiment_embedding_size'
-      }, parser.parse_args())
-    except:
-      print("ERR")
+    run_experiment({
+        'output_type': 'sequences',
+        'motion_loss_weight': 0.9,
+        'rnn_cell': 'GRUCell',
+        'batch_size': 32,
+        'use_pretrained_encoder': False,
+        'hidden_size': 256,
+        'learning_rate': 0.001,
+        'dropout': dropout,
+        'embedding_size': 128,
+        'note': 'experiment_dropout'
+    }, parser.parse_args())
 
   # run_experiment({
   #     'output_type': 'classes',
