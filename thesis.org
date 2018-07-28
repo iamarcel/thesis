@@ -1146,16 +1146,16 @@
    much simplified if we break down movement into a sequence of motion
    primitives. This way, a two-step process appears:
 
-   1. Extract motion primitives from the pose data
-   2. Predict motion primitives from parts of text
+   1. Extract glspl:motion-primitive from the pose data
+   2. Predict glspl:motion-primitive from parts of text
 
-   To extract these motion primitives from the data, an unsupervised clustering
+   To extract these glspl:motion-primitive from the data, an unsupervised clustering
    algorithm could be used to find clusters of (subsequences of) gestures.
    Clustering, even with a large amount of features, is a well-understood
    problem and even one of the first techniques taught in most introductions to
    machine learning. /Time series/ clustering, however, introduces its own
    challenges cite:zolhavarieh14_review_subseq_time_series_clust. In order to be
-   able to identify these motion primitives, the algorithm needs to be able to
+   able to identify these glspl:motion-primitive, the algorithm needs to be able to
    look at small parts of these sequences and find similar-looking subsequences
    in other pose animations. One can compare this to anomaly detection, albeit
    with more labels than thw two of "normal" and "exceptional".
@@ -1185,45 +1185,60 @@
 
 ** Conclusion
 
-   This chapter provided an overview of the previous work that this thesis uses
-   and builds upon. Previous work on gesture synthesis were examined in both
-   robots and virtual agents; then a selected set of recent developments in
-   machine learning was described, particularly in terms of language processing
-   and time-series data processing; in cref:sec:research-dataset the
-   available data was examined and the tools to create a dataset for this
-   problem were outlined; finally, in cref:sec:research-clustering
-   time-series clustering algorithms were explored that could simplify this
-   problem by discretizing it into a set of motion primitives.
+   Current recipes for gesture synthesis either make random moves or play back
+   predetermined gestures based on annotated text but the ingredients for a more
+   powerful gesture synthesis method are available. Glspl:rnn can handle
+   sequential data and have previously successfully been used in tasks like
+   machine translation and text-to-speech synthesis. A dataset of gestures
+   performed while talking is not available but can be produced by taking
+   internet videos and using pose estimation tools to extract the gestures
+   performed. The problem can be greatly simplified and presented as a
+   classification problem if poses can be represented as glspl:motion-primitive,
+   but techniques to find these in an unsupervised way are not accessible yet
+   and clustering entire clips might not yield good results. A joint angle-based
+   representation of poses has a lower dimensionality than a joint
+   position-based one, is unaffected by body shape and can be directly used by
+   NAOqi robots so this representation is chosen for the dataset.
+   
+   With that, the /mise en place/ is finished. These components can now be
+   assembled into a pipeline that performs all the steps necessary to build a
+   model that can synthesize gestures based on a subtitle and play them back on
+   a robot.
 
-   With these starting points in place, an architecture begins to take shape
-   that could complete the desired task. In the next section, these components
-   will be combined in a pipeline that performs gesture synthesis.
-
-* A Modern Approach to Gesture Synthesis
+* A Modern Method for Gesture Synthesis
   SCHEDULED: <2018-07-02 ma>--<2018-07-15 zo>
   label:chap:method
 
-  The goal of this project is to synthesize natural gestures on a robot in a
-  continuous fashion, that carry some relation to what the robot is saying. This
-  will be done by first building a dataset of clips ((subtitle, pose)-pairs)
-  by applying pose estimation to YouTube videos, then clustering these poses and
-  then building a machine learning model that learns to predict these clusters
-  from a given sentence. Finally, the resulting poses will be performed on a
-  live robot. An overview of this pipeline is shown in cref:fig:pipeline.
-  
+  The ingredients collected in cref:chap:literature-research need to be combined
+  in the right order to build a system for gesture synthesis. This chapter
+  explains how the pipeline was created that connects the pieces and builds a
+  system to create a dataset, build a gesture prediction model and perform these
+  gestures on a robot. Cref:sec:dataset walks through the steps needed to create
+  the dataset, introducing an application designed to simplify finding suitable
+  videos, showing how these video clips are processed and explaining how the
+  data is prepared for use in the prediction model. This model is explained in
+  cref:sec:pose-prediction, where two methods to process the features
+  and two methods to generate the gestures are shown. Finally, cref:sec:playback
+  closes this chapter by performing the resulting gestures on a live robot.
+  Cref:fig:pipeline shows an overview of all the components involved and how
+  data flows between them.
+
   #+BEGIN_SRC latex :exports results :results output
     \begin{figure}
       \adjustbox{center}{\begin{tikzpicture}[center coordinate=(clustering)]
         \matrix[default matrix] {
           \node (video) [variable block] {Video}; &
           \node (video-picker) [block] {Video Picker}; &
-          \node (detect-pose) [block] {2D Pose Estimation}; &
-          \node (lift-pose) [block] {2D-to-3D Pose Lifting}; \\
-          &
-          \node (angles) [block] {Pose-to-Angle Conversion}; &
-          \node (clustering) [block, anchor=south] at (0, 0.5\smallgridsize) {Clustering};
+          \node (detect-pose) [block] {Pose Estimation}; &
+          \node (lift-pose) [block] {Pose Lifting}; \\
+          \node (angle-conversion) [block, align=center] {Position $\rightarrow$ Angle\\{\small conversion}}; &
+          \node (dataset) [variable block, rectangle split, rectangle split parts = 3] {
+            Dataset
+            \nodepart{second} {\small Subtitles}
+            \nodepart{third}  {\small Angle-Based Gestures}
+          }; &
+          \node (clustering) [block, anchor=south] at (0, 0.5\smallgridsize) {Clustering}; &
           \node (sequence-predictor) [block, anchor=north, align=center] at (0, -0.5\smallgridsize) {Gesture Prediction\\{\small Sequence Decoder}};
-          &
           \node (classification-predictor) [block, align=center, anchor=south] at (0, 0.5\smallgridsize) {Gesture Prediction\\{\small Classification Decoder}}; &
           \node (gesture) [variable block] {Gesture}; \\
         };
@@ -1232,11 +1247,14 @@
           (video) edge (video-picker)
           (video-picker) edge node {Images} (detect-pose)
           (detect-pose) edge node {2D Poses} (lift-pose)
+          (angle-conversion) edge (dataset)
 
-          (angles) edge (clustering)
+          (dataset.second east) edge (clustering)
+          (dataset.third east) edge (classification-predictor)
           (clustering) edge node {Gesture Classes} (classification-predictor)
 
-          (angles) edge (sequence-predictor)
+          (dataset.second east) edge (sequence-predictor)
+          (dataset.third east) edge (sequence-predictor)
           (classification-predictor) edge (gesture)
 
           (sequence-predictor) edge (gesture)
@@ -1245,14 +1263,14 @@
         \draw[->]
           (lift-pose.east)
           .. controls ++(\smallgridsize, -2\smallgridsize)
-             and ($(angles.west) + (-\smallgridsize, 3\smallgridsize)$) ..
+             and ($(angle-conversion.west) + (-\smallgridsize, 3\smallgridsize)$) ..
           node [fill=white, tight spacing] {3D Poses}
-          (angles.west);
+          (angle-conversion.west);
 
-        \draw node [tight spacing, right=6pt of angles.east] {Angles};
-        \draw node (subtitle) [variable block, tight spacing, anchor=center, below=0.25\smallgridsize of clustering] {Subtitle};
-        \draw[->] (subtitle) -- (sequence-predictor);
-        \draw[->] (subtitle) -- (classification-predictor);
+        % \draw node [tight spacing, right=6pt of angles.east] {Angles};
+        % \draw node (subtitle) [variable block, tight spacing, anchor=center, below=0.25\smallgridsize of clustering] {Subtitle};
+        % \draw[->] (subtitle) -- (sequence-predictor);
+        % \draw[->] (subtitle) -- (classification-predictor);
 
       \end{tikzpicture}}
       \caption{\label{fig:pipeline} Overview of this project's pipeline. It starts
@@ -1261,52 +1279,73 @@
     \end{figure}
   #+END_SRC
 
-** Development Environment
-   :PROPERTIES:
-   :Effort:   0:30
-   :END:
+  \paragraph{A Note on the Source Code}
 
-   As this research is designed to be built upon, having easily accessible
-   source code and data is important. All the code used in this project is made
-   available on the GitHub repository https://github.com/iamarcel/thesis. The
-   source for this report is also present.
+  As this research is designed to be built upon, having easily accessible
+  source code and data is important. All the code used in this project is made
+  available on the GitHub repository https://github.com/iamarcel/thesis. The
+  source for this report is also present.
 
-   To maximize ease of use for the author and future users of this work, Pipenv
-   cite:pipenv was used to manage the project's Python dependencies and is used
-   for most of the code. Using OpenPose required some more system-level
-   dependencies such as the NVIDIA CUDA and CuDNN libraries, so the environment
-   for using OpenPose was created as a Docker container.
+  To maximize ease of use for the author and future users of this work, Pipenv
+  cite:pipenv was used to manage the project's Python dependencies and is used
+  for most of the code. Using OpenPose required some more system-level
+  dependencies such as the NVIDIA CUDA and CuDNN libraries, so the environment
+  for using OpenPose was created as a Docker container.
 
-   Information on how to use the code is available in the source code
-   repository.
+  Information on how to use the code is available in the source code
+  repository.
 
 ** Creating the Dataset
+   label:sec:dataset
 
-   Below, the process from finding video on YouTube to extracting the gesture
-   data in a useful form is detailed. First, the Video Picker application that
-   helps with data extraction is introduced. Then the process of extracting the
-   3D poses is explained. Finally, these 3D poses will be converted to joint
-   angles for further ease of use and complexity reduction.
+   Most people do not need to explicitly be taught how to behave in a humanlike
+   manner. Robots, however, have less luck and need explicit programming or, in
+   our case, a large collection of carefully crafted examples. These examples
+   should allow a deep learning model to predict a gesture based on a piece of
+   text as input---which is referred to as the /subtitle/---so this is a pair of
+   a subtitle and corresponding gesture or a reference to the
+   gls:motion-primitive.
+   
+   In the first step a set of /clips/ will be collected that form the elements
+   of the dataset. A clip is a part of the video corresponding to one line in
+   its subtitles. The following steps will extract information like the gesture
+   performed by the subject in the video, but the whole of the video and other
+   associated information will still be referred to as the "clip". This means
+   that each of the steps below will add information to the clip. An overview of
+   the fields of a clip is shown in cref:fig:clip-structure.
+   
+   #+BEGIN_EXPORT latex
+   \begin{figure}[h]
+     \adjustbox{center}{
+       \begin{tikzpicture}
+         \draw node (clip) [variable block, 
+             rectangle split, rectangle split parts = 8,
+             font = \small,
+             minimum width = 2\gridsize, rectangle split part align = left] {
+           {\large Clip}
+           \nodepart{two}   {ID}
+           \nodepart{three} {Video Reference (Start and End Frames)}
+           \nodepart{four}  {Subtitle}
+           \nodepart{five}  {Poses, 2D Points}
+           \nodepart{six}   {Poses, 3D Points}
+           \nodepart{seven} {Poses, Angles}
+           \nodepart{eight} {Gesture Class}
+         };
+       \end{tikzpicture}
+     }
+     \caption{\label{fig:clip-structure} The unit of data in the dataset is the
+       \emph{clip}, which has the fields as shown here.}
+   \end{figure}
+   #+END_EXPORT
 
-   Throughout this section, the main unit of data will be called a "clip". A
-   clip is the extracted data from the part of a video that corresponds with one
-   line in its subtitles and consists of the following fields:
+   Having defined the data structure, the time has come to start browsing
+   through the wealth of videos available on YouTube (for science).
 
-   - An identifier (for tracking its source, preventing duplicates and
-     identifying extracted frame images, which are stored separately)
-   - Start and end points in the original video
-   - The subtitle
-   - The 2D poses
-   - The 3D poses
-   - The joint angles
-   - The class to which this movement belongs
-
-   Throughout the following steps, all fields of the clip will be filled in.
-
-*** The Video Picker label:sec:video-picker
+*** The Video Picker
     :PROPERTIES:
     :Effort:   1:00
     :END:
+    label:sec:video-picker
 
     While there is indeed a lot of video material available on YouTube, the
     requirements for the dataset are very specific:
@@ -1315,8 +1354,8 @@
     - The person should talk English and subtitles should be available
     - The person should be visible in its entirety (as will be explained below,
       this is necessary for further steps in the pipeline)
-    - The clip should be a single contiguous shot, i.e. the camera cannot move
-      during the shot
+    - The clip should be a single contiguous shot, i.e., the video cannot cut
+      to a shot from another angle
 
     Whole videos that fulfill these needs are scarce but since the data has to
     be cut into clips, videos can be processed to extract only the parts that
@@ -1326,27 +1365,37 @@
     When a video with suitable parts is found on YouTube and downloaded using
     ~youtube-dl~ cite:youtube_dl, it is first examined by the scene detection
     algorithm in ~ffprobe~ cite:ffprobe. Usually, a person is similarly framed
-    throughout a single shot so Video Picker can run semi-automatically when a
-    suitable shot is chosen and save all the clips in a single scene/shot.
+    throughout a single scene (most scenes do not pan or zoom to the point that
+    parts of the person are cut off) so the next step can use these results from
+    the scene detection algorithm and run semi-automatically when a suitable
+    shot is chosen and save all the clips in a single scene.
+    
+    The term /scene/ as used in the scene detection algorithm can be confusing.
+    Since this tool detects sudden changes between video frames, it rather
+    detects /shots/ (video sequences recorded continuously by one camera). In
+    films, a scene is often comprised of multiple shots. Thus, from now on, the
+    term "shot" will be used. Also remark that, since the speaker can say
+    multiple sentences during a single shot, a shot will contain multiple clips.
 
-    Then, the video is opened in Video Picker. The video picker is a GUI in
-    which the user can scrub through the video or navigate by shot. When he has
-    found a suitable shot, he can point at the person of interest with the
-    mouse cursor and start recording this scene. Since the pose detection
-    algorithm can detect multiple people in the scene (audience, for example)
-    the user needs to point his cursor closest to the person he is interested
-    in. This will be used later to filter out only the person of interest.
+    Then, the video is opened in Video Picker. The video picker is a GUI (see
+    cref:fig:video-picker for a screenshot) in which the user can scrub through
+    the video or navigate by shot. When he has found a suitable shot, he can
+    point at the person of interest with the mouse cursor and start recording
+    it. Since the pose detection algorithm can detect multiple people in the
+    image (it could recognize people in the audience, for example) the user
+    needs to point his cursor closest to the person he is interested in. This
+    will be used later to filter out only the person of interest.
 
     The video picker then starts extracting the clips from the current shot.
     Every clip is saved in a JSON Lines format cite:jsonlines (where every line
     in the file is a JSON-formatted object; this is much faster than reading and
-    parsing an entire JSON object at once) and the image frames are extracted
-    and saved with ~ffmpeg~ cite:ffmpeg automatically by the application.
-
-    The user can also explicitly pick a single clip or stop extracting when the
-    shot has changed but the scene detection algorithm had not detected that
-    change. This happens, for example, when there is a smooth transition between
-    shots.
+    parsing an entire JSON object at once). The image frames are extracted and
+    with ~ffmpeg~ cite:ffmpeg automatically by the application, and saved in a
+    specific folder. The information in the JSON object just created can be used
+    to find these images. The user can also explicitly pick a single clip or
+    stop extracting when the shot has changed but the scene detection algorithm
+    had not detected that change. This happens, for example, when there is a
+    smooth transition between shots.
 
     Below the surface, the video picker is a Python application using the GTK+
     cite:gtk and GStreamer cite:gstreamer frameworks for building the GUI and
@@ -1364,7 +1413,7 @@
     gesturing.
 
     It would likely be possible to train this pipeline on a different set of
-    specialized gestures, such as gestures of someone telling fairy tales, which
+    specialized gestures such as gestures of someone telling fairy tales, which
     the model could then learn to imitate. This proof of concept, though, is
     focused on the use case for a monologue in front of an audience.
     
@@ -1384,7 +1433,7 @@
     clips. The authors of OpenPose included a sample application that, once
     compiled, can read a directory of images and write the poses in each image
     to a JSON file. This "demo" program is run on the output directory of the
-    video picker application and afterwards, the pose data from OpenPose is
+    images Video Picker extracted and afterwards, the pose data from OpenPose is
     added to the database of clips. When adding the results from OpenPose to the
     clips, the location of interest that the user specified when extracting the
     clip in the video picker is used to select the desired person if multiple
@@ -1633,17 +1682,17 @@
     vastly reduce the model complexity by turning it into a classification
     problem? How would the results compare?
 
-    Gesture synthesis can be interpreted as a classification problem if the space
-    of possible movements is reduced to a sequence of predefined /motion
+    Gesture synthesis can be interpreted as a classification problem if the
+    space of possible movements is reduced to a sequence of predefined /motion
     primitives/. Instead of producing a continuous sequence of angles, the model
-    could classify a sentence under a motion primitive and then concatenate these
-    motion primitives into a coherent, continuous whole. This approach poses two
-    more questions:
+    could classify a sentence under a gls:motion-primitive and then concatenate
+    these glspl:motion-primitive into a coherent, continuous whole. This
+    approach poses two more questions:
 
     - Can we make this look continuous? Continuity was one of the main
       objectives but given the discrete nature of a sequence of motion
       primitives, this appears not to be trivial.
-    - Is it possible to extract a set of these motion primitives from our
+    - Is it possible to extract a set of these glspl:motion-primitive from our
       dataset? I.e., can we cluster our dataset into motion patterns?
 
     The first question might have a straightforward answer as the NAOqi software
@@ -1657,9 +1706,9 @@
      CLOCK: [2018-07-21 za 08:48]--[2018-07-21 za 09:01] =>  0:13
      :END:
 
-     These motion primitives can be extracted from the captured gestures by
-     performing unsupervised clustering on the dataset. The range of algorithms
-     available is determined by the properties of this dataset:
+     These glspl:motion-primitive can be extracted from the captured gestures
+     by performing unsupervised clustering on the dataset. The range of
+     algorithms available is determined by the properties of this dataset:
 
      - It is a collection in which samples are time series
      - The samples have varying lengths
@@ -1788,12 +1837,12 @@
     
      The author suspects that much better results can be achieved with a larger
      dataset or if an algorithm could be implemented that can extract clusters
-     from subsequences of the gestures, which would be real motion primitives.
-     For now, these results will be used for the rest of the project since
-     building the entire flow that collects and processes data and generates
-     gestures from that is deemed more important. As explained in
-     cref:sec:video-picker, collecting more data is time-consuming but
-     straightforward.
+     from subsequences of the gestures, which would be real
+     glspl:motion-primitive. For now, these results will be used for the rest
+     of the project since building the entire flow that collects and processes
+     data and generates gestures from that is deemed more important. As
+     explained in cref:sec:video-picker, collecting more data is time-consuming
+     but straightforward.
      
      A noteworthy consequence of a clustering method is the tendency to produce
      smoothed, average results instead of outliers: the cluster representatives
@@ -1843,8 +1892,8 @@
        the angle-based representation and calculate statistics for
        normalization.
     4. Run the clustering algorithm to classify the gestures and create
-       the centroids representing motion primitives.
-** Predicting Poses label:sec:pose-prediction
+       the centroids representing glspl:motion-primitive.
+** Predicting Gestures label:sec:pose-prediction
    
    Now the dataset is annotated with gesture classes, it is possible to build a
    machine learning model that can predict these. This section explains the
@@ -2253,6 +2302,7 @@
    :LOGBOOK:
    CLOCK: [2018-07-27 vr 08:39]--[2018-07-27 vr 09:18] =>  0:39
    :END:
+   label:sec:playback
    
    When researching the dataset and data formats in
    cref:sec:research-dataset, it was decided that the representation of poses
@@ -2472,7 +2522,7 @@
    /Find or create and implement a clustering algorithm that clusters
    subsequences./ One major drawback of the clustering algorithm used in this
    thesis is that it compares entire clips at once. With an algroithm that can
-   cluster subsequences, true motion primitives could be found.
+   cluster subsequences, true glspl:motion-primitive could be found.
 
    /Build a Generative Adversarial Network around the current network./ Building
    an adversarial network allows the machine learning model to train towards a
