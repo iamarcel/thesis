@@ -151,10 +151,10 @@ def create_pose_format_comparison(clip):
 
   poses = np.array(poses)
   pose = np.reshape(poses[0, 0, :], (-1, 3))
-  create_2d_pose_plot(ax_coco, pose, fmt='coco', joint_labels=True, joint_label_type='index')
+  plot_2d_pose(ax_coco, pose, fmt='coco', joint_labels=True, joint_label_type='index')
 
   pose = np.reshape(openpose_to_baseline(poses)[0, :], (-1, 3))
-  create_2d_pose_plot(ax_h36m, pose, fmt='h36m', joint_labels=True, joint_label_type='index')
+  plot_2d_pose(ax_h36m, pose, fmt='h36m', joint_labels=True, joint_label_type='index')
 
   _save_for_report(fig, 'pose-format-comparison')
 
@@ -173,16 +173,32 @@ def create_sanity_check_2d(clip):
   ax_img = plt.imshow(img.imread(image))
 
   ax_skel = fig.add_subplot(122)
+  plot_2d_pose(ax_skel, poses[0], fmt='coco')
 
-  show_2d_pose(openpose_to_baseline(poses), ax=ax_skel)
+  _save_for_report(fig, 'sanity-check-openpose')
 
-  fig.tight_layout(pad=0)
-  plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
-  plt.axis('off')
-  plt.savefig('../img/sanity-check-openpose.png', pad_inches=0)
-  plt.savefig('../img/sanity-check-openpose.pgf', pad_inches=0)
 
-  print("Don't forget to check the image include path in the generated .pgf file")
+def create_crappy_3d_detection_plot(clips_path='clips.dirty.jsonl', n_poses=3):
+  fig = plt.figure(figsize=(3 * n_poses, 3), dpi=300)
+
+  for i in range(n_poses):
+    points = data_utils.get_crappy_3d_prediction(clips_path)
+    ax_3d = fig.add_subplot(1, n_poses, i + 1, projection='3d')
+    ax_3d.invert_zaxis()
+    show_3d_pose(points[0, :], ax=ax_3d, radius=None)
+
+  _save_for_report(fig, 'crappy-3d-detection')
+
+
+def create_crappy_3d_detection_animation(clips_path='clips.dirty.jsonl', n_gestures=3):
+  gestures = [data_utils.get_crappy_3d_prediction(clips_path) for _ in range(n_gestures)]
+  return create_sanity_check_gesture_grid_animation(
+    gestures,
+    'crappy-3d-detections',
+    fmt='position',
+    figsize=(n_gestures * 3, 3),
+    n_rows=1,
+    radius=None)
 
 
 def create_sanity_check_2d_3d(clip):
@@ -196,17 +212,16 @@ def create_sanity_check_2d_3d(clip):
   ax_3d = fig.add_subplot(122, projection='3d')
   ax_3d.axis('off')
 
+  pose_2d = poses[0][0]
+  if 0 in pose_2d:
+    raise ValueError('There\'s a zero, not cool.')
   pose_3d = np.array(clip['points_3d'])[0, :]
 
-  show_2d_pose(openpose_to_baseline(poses), ax=ax_2d)
+  plot_2d_pose(ax_2d, poses[0], fmt='coco')
   show_3d_pose(pose_3d, ax=ax_3d, radius=0.3)
   ax_3d.invert_zaxis()
 
-  fig.tight_layout(pad=0)
-  plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
-  plt.axis('off')
-  plt.savefig('../img/sanity-check-3d.png', pad_inches=0)
-  plt.savefig('../img/sanity-check-3d.pgf', pad_inches=0)
+  _save_for_report(fig, 'sanity-check-3d')
 
 
 def create_sanity_check_pipeline(clip, openpose_output_dir='../output/'):
@@ -245,6 +260,66 @@ def create_sanity_check_pipeline(clip, openpose_output_dir='../output/'):
   plt.savefig('../img/sanity-check-pipeline.pgf', pad_inches=0)
 
   print("Don't forget to check the image include path in the generated .pgf file")
+
+
+def create_sanity_check_pipeline_animation(clip, openpose_output_dir='../output/'):
+  # Set up the data
+  name = 'sanity-check-pipeline'
+  images = get_clip_image_paths(clip)
+  points_2d = pose_utils.load_clip_keypoints(
+      clip,
+      openpose_output_dir=openpose_output_dir)
+
+  images = get_clip_image_paths(clip)
+  print(images)
+  if not os.path.isfile(images[0]):
+    raise ValueError('No image for this clip present.')
+
+  # Set up the plot
+  fig = plt.figure(figsize=(10, 5), dpi=300)
+  ax_img = fig.add_subplot(131)
+  ax_img.axis('off')
+  ax_img = plt.imshow(img.imread(images[0]), animated=True)
+
+  ax_2d = fig.add_subplot(132)
+  ax_2d.axis('off')
+  ax_3d = fig.add_subplot(133, projection='3d')
+  ax_3d.axis('off')
+
+  fig.suptitle(u"“" + clip['subtitle'] + u"”", fontsize=16)
+
+  # Prepare the data
+  points_3d = np.array(clip['points_3d'])
+  # points_2d = pose_utils.get_all_positions(openpose_to_baseline(points_2d))
+  # points_2d = [get_positions(Pose(x, fmt='coco').as_list(fmt='h36m')) for x in points_2d]
+
+  # Create the animation
+  spec_2d = get_2d_pose_animation_spec(points_2d, fmt='coco')
+  setup_2d, update_2d = spec_2d
+  setup_2d(ax_2d)
+
+  spec_3d = get_pose_animation_spec(points_3d, radius=0.3)
+  setup_3d, update_3d = spec_3d
+  setup_3d(ax_3d)
+
+  def update(i):
+    ax_img.set_data(img.imread(images[i]))
+    update_2d(ax_2d, i)
+    update_3d(ax_3d, i)
+
+    if i == 1:
+      _save_for_report(fig, name, do_close=False)
+
+  animation = FuncAnimation(
+    fig,
+    update,
+    interval=40,
+    save_count=len(images))
+
+  fig.tight_layout(pad=0)
+  plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
+  animation.save('../img/{}.mp4'.format(name))
+
 
 
 def create_pose_vector_plot(clip):
@@ -304,21 +379,27 @@ showing the first frame)"""
   for i, gesture in enumerate(gestures):
     ax = axes[i]
     # Pick random frame from the gesture
-    points = Pose(random.choice(gesture)).pose_list
+    points = Pose(random.choice(gesture)).as_list(fmt='h36m')
     show_3d_pose(points, ax=ax, radius=0.3)
     ax.invert_zaxis()
 
   _save_for_report(fig, name)
 
 
-def create_sanity_check_gesture_grid_animation(gestures, name, figsize=(6, 3)):
+def create_sanity_check_gesture_grid_animation(
+    gestures,
+    name,
+    fmt='angles',
+    figsize=(6, 3),
+    n_rows=2,
+    radius=0.3):
   """Creates a grid of frames of the given gesture (one grid point per gesture,
 showing the first frame)"""
 
   n_gestures = len(gestures)
 
   fig = plt.figure(figsize=figsize, dpi=300)
-  axes = create_plot_grid(2, n_gestures / 2, fig=fig)
+  axes = create_plot_grid(n_rows, n_gestures / n_rows, fig=fig)
   axes = flatten(axes)
 
   animation_specs = []
@@ -326,10 +407,11 @@ showing the first frame)"""
 
   for i, gesture in enumerate(gestures):
     ax = axes[i]
-    gesture = [Pose(frame).pose_list for frame in gesture]
+    if fmt == 'angles':
+      gesture = [Pose(frame).as_list('h36m') for frame in gesture]
     max_gesture_length = max(max_gesture_length, len(gesture))
 
-    spec = get_pose_animation_spec(gesture)
+    spec = get_pose_animation_spec(gesture, radius=radius)
     animation_specs.append(spec)
     setup, update = spec
     setup(ax)
@@ -408,6 +490,26 @@ def get_pose_animation_spec(gesture, add_labels=False, radius=0.3):
   return (setup, update)
 
 
+def get_2d_pose_animation_spec(gesture, fmt):
+  gesture = np.asarray(gesture)
+
+  def setup(ax):
+    points = gesture[0, :]
+    plot_2d_pose(ax, points, fmt=fmt)
+    ax.axis('off')
+
+  def update(ax, i):
+    if i >= gesture.shape[0]:
+      return
+
+    ax.clear()
+    points = gesture[i, :]
+    plot_2d_pose(ax, points, fmt=fmt)
+    ax.axis('off')
+
+  return (setup, update)
+
+
 def show_3d_pose(points, ax=None, add_labels=False, radius=0.5):
   points = np.asarray(points)
   points = _mpl_reorder_pose(points)
@@ -454,7 +556,7 @@ def show3Dpose(channels,
   for i in np.arange(len(I)):
     x, y, z = [np.array([vals[I[i], j], vals[J[i], j]]) for j in range(3)]
     ax.plot(
-        x, y, z, linewidth=0.5, marker='o', markersize=1, c=lcolor if LR[i] else rcolor)
+        x, y, z, lw=2, marker='o', c=lcolor if LR[i] else rcolor)
     # print_line_lengths([x, y, z], I[i], J[i])
 
 
@@ -463,7 +565,8 @@ def show2Dpose(channels,
                lcolor=UGENT_BLUE,
                rcolor=UGENT_EA,
                add_labels=False,
-               confidences=None):
+               confidences=None,
+               radius=0.3):
   """
     Visualize a 2d skeleton
 
@@ -482,14 +585,15 @@ def show2Dpose(channels,
   ) * 2, "channels should have 64 entries, it has %d instead" % channels.size
   vals = np.reshape(channels, (len(pose_utils.H36M_NAMES), -1))
 
-  _mpl_setup_ax_2d(ax)
+  _mpl_setup_ax_2d(ax, radius=radius)
 
   I = np.array(
       [1, 2, 3, 1, 7, 8, 1, 13, 14, 14, 18, 19, 14, 26, 27],
       dtype=int) - 1  # start points
   J = np.array(
       [2, 3, 4, 7, 8, 9, 13, 14, 16, 18, 19, 20, 26, 27, 28],
-      dtype=int) - 1  # end points
+
+    dtype=int) - 1  # end points
   LR = np.array([1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1], dtype=bool)
 
   # Make connection matrix
@@ -523,7 +627,7 @@ def show_2d_pose(points, ax=None, add_labels=False):
   show2Dpose(points, ax, add_labels=add_labels)
 
 
-def create_2d_pose_plot(ax, point_list, fmt='h36m', joint_labels=False, joint_label_type='name'):
+def plot_2d_pose(ax, point_list, fmt='h36m', joint_labels=False, joint_label_type='name'):
   pose = pose_utils.get_named_pose(point_list, fmt)
   joints = pose_utils.JOINTS if fmt == 'h36m' else pose_utils.COCO_JOINTS
   point_names = pose_utils.H36M_NAMES if fmt == 'h36m' else pose_utils.COCO_BODY_PARTS
@@ -534,7 +638,13 @@ def create_2d_pose_plot(ax, point_list, fmt='h36m', joint_labels=False, joint_la
   end_names = joints[:, 1]
   end_points = [pose[joint_name] for joint_name in end_names]
 
-  _mpl_setup_ax_2d(ax, radius=None)
+  values = np.asarray(pose.values())
+  radius_x = np.max(values[:, 0]) - np.min(values[:, 0])
+  radius_y = np.max(values[:, 1]) - np.min(values[:, 1])
+  radius = max(radius_x, radius_y) * 0.5 * 1.3
+  center = np.mean([pose['LHip'], pose['RHip']], axis=0)
+
+  _mpl_setup_ax_2d(ax, radius=radius, center=center)
 
   for start, end in zip(start_points, end_points):
     x = [start[0], end[0]]
@@ -570,13 +680,13 @@ def _mpl_reorder_pose(points):
   return points
 
 
-def _mpl_setup_ax_2d(ax, radius=0.5, add_labels=False):
+def _mpl_setup_ax_2d(ax, radius=0.5, add_labels=False, center=[0., 0.]):
+
+  ax.set_aspect('equal', 'box')
 
   if radius is not None:
-    ax.set_xlim([-radius, radius])
-    ax.set_ylim([-radius, radius])
-
-  ax.set_aspect('equal')
+    ax.set_xlim([center[0] - radius, center[0] + radius])
+    ax.set_ylim([center[1] - radius, center[1] + radius])
 
   if add_labels:
     ax.set_xlabel("x")
@@ -596,9 +706,10 @@ def _mpl_setup_ax_2d(ax, radius=0.5, add_labels=False):
 def _mpl_setup_ax_3d(ax, radius=0.5, add_labels=False):
   _mpl_setup_ax_2d(ax, radius, add_labels)
 
-  ax.set_xlim3d([-radius, radius])
-  ax.set_zlim3d([-radius, radius])
-  ax.set_ylim3d([-radius, radius])
+  if radius is not None:
+    ax.set_xlim3d([-radius, radius])
+    ax.set_zlim3d([-radius, radius])
+    ax.set_ylim3d([-radius, radius])
 
   if add_labels:
     ax.set_zlabel("z")

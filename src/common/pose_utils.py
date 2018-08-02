@@ -222,7 +222,7 @@ def openpose_to_baseline(coco_frames):
     Args:
       coco_frames: ndarray (?x, 18*3) - for every body part xi, yi, ci
     Returns:
-      b36m_frames: ndarray (?x, 32*3) - for every H36M body part xi, yi, ci
+      h36m_frames: ndarray (?x, 32*3) - for every H36M body part xi, yi, ci
     """
   coco_frames = np.squeeze(np.asarray(coco_frames))
   if coco_frames.shape[1] != len(COCO_BODY_PARTS) * 3:
@@ -271,29 +271,34 @@ def openpose_to_baseline(coco_frames):
 
 
 def get_named_pose(in_pose, fmt='h36m'):
+  in_pose = np.asarray(in_pose)
+
   names = []
   if fmt == 'h36m':
     names = H36M_NAMES
   elif fmt == 'coco':
     names = COCO_BODY_PARTS
+  elif fmt == 'angle':
+    return {ANGLE_NAMES_ORDER[i]: v for i, v in enumerate(angle_list)}
   elif fmt == 'sh':
     raise NotImplementedError("Doesn't support SH yet")
   else:
     raise ValueError("Unrecognized pose format {}".format(fmt))
 
   out_pose = {}
+  in_pose = np.reshape(in_pose, (len(names), -1))
   for i, name in enumerate(names):
     if name is None or name == '':
       continue
-    out_pose[name] = in_pose[i]
+    out_pose[name] = in_pose[i, :]
 
   return out_pose
 
 
-def get_pose_angles(pose):
+def get_pose_angles(pose, fmt='h36m'):
   """Returns angles as understood by NAOqi from a H36M-formatted pose.
     """
-  pose = get_named_pose(pose)
+  pose = get_named_pose(pose, fmt=fmt)
   pose = {k: np.asarray(v) for k, v in pose.iteritems()}
   angles = {}
 
@@ -336,25 +341,49 @@ def get_pose_angles(pose):
   return angles
 
 
-def get_angle_list(angles):
+def get_angle_list(pose_dict, fmt='angles'):
+  if fmt != 'angles':
+    angles = get_pose_angles(pose_dict, fmt)
+  else:
+    angles = pose_dict
+
   return [angles[k] for k in ANGLE_NAMES_ORDER]
 
 
-def get_pose_angle_list(pose):
-  angles = get_pose_angles(pose)
-  return get_angle_list(angles)
+def get_point_list(joint_dict, fmt='h36m'):
+  format_template = None
+  if fmt == 'h36m':
+    format_template = H36M_NAMES
+  elif fmt == 'coco':
+    format_template = COCO_BODY_PARTS
+  else:
+    raise NotImplementedError('Cannot convert to format {}'.format(fmt))
+
+  joint_shape = list(np.asarray(joint_dict.itervalues().next()).shape)
+
+  pose = np.zeros([len(format_template)] + joint_shape)
+  for i, joint_name in enumerate(format_template):
+    if joint_name == '':
+      continue
+    if joint_name not in joint_dict:
+      logger.warn('Joint {} is not in this dict'.format(joint_name))
+    else:
+      pose[i, :] = np.asarray(joint_dict[joint_name])
+
+  if fmt == 'h36m' and joint_shape[0] == 3:
+    # Reorder axes so they correspond with the H36M frame
+    pose[:, 0], pose[:, 1], pose[:, 2] = pose[:, 1].copy(), -pose[:, 2].copy(), -pose[:, 0].copy()
+
+  return pose
 
 
-def get_named_angles(angle_list):
-  return {ANGLE_NAMES_ORDER[i]: v for i, v in enumerate(angle_list)}
-
-
-def get_pose_from_angles(angles):
-  """Returns a dict of 3d joint positions, with NAO's skeleton and in his frame
+def get_pose_from_angles(angles, axis_frame='nao'):
+  """Returns a dict of 3d joint positions, with NAO's skeleton and in `axis_frame` frame
     of reference.
 
     Params:
       angles: dict of angles
+      axis_frame: either 'nao' (default) or 'h36m'
     Returns:
       pose: dict of np.array([x, y, z]) coordinates
     """
@@ -435,6 +464,10 @@ def get_pose_from_angles(angles):
         angles=[(PITCH_AXIS, -angles['HeadPitch']), (YAW_AXIS,
                                                      -angles['HeadYaw'])])
 
+  if axis_frame != 'nao':
+    pose = {k: lambda v: np.stack([pose[1, :], -pose[2, :], -pose[0, :]]) for
+            k, v in pose.iteritems()}
+
   return pose
 
 
@@ -454,45 +487,53 @@ def rotation_matrix(axis, theta):
                    [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
 
 
-def get_encoded_pose(joint_dict, format_type='h36m'):
-  format_template = None
-  if format_type == 'h36m':
-    format_template = H36M_NAMES
-  else:
-    raise NotImplementedError()
-
-  pose = np.zeros((len(format_template), 3))
-  for i, joint_name in enumerate(format_template):
-    if joint_name == '':
-      continue
-    if joint_name not in joint_dict:
-      logger.warn('Joint {} is not in this dict'.format(joint_name))
-    pose[i, :] = np.asarray(joint_dict[joint_name])
-
-  if format_type == 'h36m':
-    # Reorder axes so they correspond with the H36M frame
-    pose[:, 0], pose[:, 1], pose[:, 2] = pose[:, 1].copy(), -pose[:, 2].copy(), -pose[:, 0].copy()
-
-  return pose
-
-
 class Pose(object):
+  """A pose is a single frame representing how a person is standing.
 
-  def __init__(self, angle_dict):
-    self.angles = angle_dict
+  The internal representation for this object is a dictionary that maps either
+  the angle names or the joint names to its angle or position, respectively.
+  There are no manipulations done on the actual data (no conversion between
+  angle and points) if it is not necessary.
 
-  @staticmethod
-  def from_angle_list(angle_list):
-    return Pose(get_named_angles(angle_list))
+  """
 
-  @staticmethod
-  def from_pose(pose_list):
-    return Pose(get_pose_angles(pose_list))
+  def __init__(self, data, fmt='angle'):
+    if isinstance(data, dict):
+      self.data = data
+    else:
+      self.data = get_named_pose(data, fmt)
 
-  @property
-  def angle_list(self):
-    return get_angle_list(self.angles)
+    self.fmt = fmt
 
-  @property
-  def pose_list(self):
-    return get_encoded_pose(get_pose_from_angles(self.angles))
+  def as_list(self, fmt='h36m'):
+    if fmt == 'angles':
+      return get_angle_list(self.data, fmt=self.fmt)
+    else:
+      return get_point_list(self.data, fmt=fmt)
+
+  def as_dict(self, fmt='h36m'):
+    if fmt == self.fmt:
+      return self.data
+    elif self.fmt == 'angle':
+      # Returns in the axis frame of reference for H36M points
+      return get_pose_from_angles(self.data, axis_frame='h36m')
+    elif fmt == 'angle':
+      return get_pose_angles(self.data, fmt)
+    else:
+      raise ValueError('Cannot determine which pose conversion to do')
+
+
+class Gesture(object):
+  """A Gesture represents a movement, i.e., a sequence of frames, each a Pose.
+
+  """
+
+  def __init__(self, frames, fmt='angle'):
+    self.frames = list(map(lambda x: Pose(x, fmt), frames))
+    self.fmt = fmt
+
+  def as_list(self, fmt='h36m'):
+    return list(map(lambda x: x.as_list(fmt), self.frames))
+
+  def as_dict(self, fmt='h36m'):
+    return list(map(lambda x: x.as_dict(fmt), self.frames))

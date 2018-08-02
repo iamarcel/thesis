@@ -1,3 +1,26 @@
+## Modified 3D Pose Baseline
+
+This code is originally obtained from
+[ArashHosseini/3d-pose-basline](https://github.com/ArashHosseini/3d-pose-baseline),
+which is a fork of the original author's code containing some code to use
+OpenPose-formatted input. The original README is still present below but some
+substantive changes were made during this thesis.
+
+To use this, you should download the H36M dataset used for 3D Pose Baseline. The
+process is explained below but I'll paste the code here again for your
+convenience:
+
+```bash
+# From this directory
+mkdir data
+cd data
+wget https://www.dropbox.com/s/e35qv3n6zlkouki/h36m.zip
+unzip h36m.zip
+rm h36m.zip
+```
+
+---
+
 ## 3d-pose-baseline
 
 This is the code for the paper

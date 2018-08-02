@@ -7,8 +7,10 @@ import os
 import logging
 import json
 import os.path
+import csv
 
 # Itertools has a different name in Python 2/3
+import itertools
 try:
   from itertools import zip_longest as zip_longest
 except:
@@ -26,11 +28,17 @@ from sequence_encoder import SequenceEncoder
 from sequence_embedder import SequenceEmbedder
 from sequence_decoder import SequenceDecoder
 
-# logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARN)
 tf.logging.set_verbosity(tf.logging.INFO)
 
 LEARNING_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 CLUSTER_CENTERS_PATH = '../cluster-centers.json'
+
+
+def merge_two_dicts(x, y):
+    z = x.copy()   # start with x's keys and values
+    z.update(y)    # modifies z with y's keys and values & returns None
+    return z
 
 
 def rnn_model_fn(features, labels, mode, params):
@@ -97,24 +105,30 @@ def rnn_model_fn(features, labels, mode, params):
 
     output = decoder.decode(seq_labels, len_labels)
 
-    predicted_length = tf.where(output[:, 0, 0] < 0.3)[0]
+    # Add 0 at the end to make sure *some* value indicates the end frame
+    length_indicator = tf.concat([output[:, 0, 0], [0]], axis=0)
+    length_indicator = tf.Print(length_indicator, [length_indicator], '=== LENGTH INDICATOR')
+    end_indices = tf.where(length_indicator < 0.3)
+    end_indices = tf.Print(end_indices, [end_indices], '=== END INDICES ')
+    predicted_length = end_indices[0]
     tf.summary.histogram('predicted_length', predicted_length)
   elif params.output_type == 'classes':
-    logits = hidden_state
-    logits = tf.layers.dropout(
-        inputs=logits,
-        rate=params.dropout,
-        training=mode == tf.estimator.ModeKeys.PREDICT)
-    logits = tf.layers.dense(
-        inputs=logits, units=params.n_classes, activation=tf.nn.relu)
+    with tf.variable_scope('classification_decoder'):
+      logits = hidden_state
+      logits = tf.layers.dropout(
+          inputs=logits,
+          rate=params.dropout,
+          training=mode == tf.estimator.ModeKeys.PREDICT)
+      logits = tf.layers.dense(
+          inputs=logits, units=params.n_classes, activation=tf.nn.relu)
 
-    if mode != tf.estimator.ModeKeys.PREDICT:
-      predicted_class = tf.argmax(input=logits, axis=1)
-      output = tf.gather(params.centers, predicted_class, axis=1)
+      if mode != tf.estimator.ModeKeys.PREDICT:
+        predicted_class = tf.argmax(input=logits, axis=1)
+        output = tf.gather(params.centers, predicted_class, axis=1)
 
-      # Pad/slice output so it matches ground truth
-      output = tf.pad(output, [[0, tf.maximum(0, tf.shape(labels['angles'])[0] - tf.shape(output)[0])], [0, 0], [0, 0]])
-      output = tf.slice(output, [0, 0, 0], tf.shape(labels['angles']))
+        # Pad/slice output so it matches ground truth
+        output = tf.pad(output, [[0, tf.maximum(0, tf.shape(labels['angles'])[0] - tf.shape(output)[0])], [0, 0], [0, 0]])
+        output = tf.slice(output, [0, 0, 0], tf.shape(labels['angles']))
   else:
     raise NotImplementedError("Output type must be one of: sequences, classes")
 
@@ -150,10 +164,10 @@ def rnn_model_fn(features, labels, mode, params):
       loss = tf.losses.softmax_cross_entropy(
           onehot_labels=onehot_labels, logits=logits)
 
-    # Output needs to be unnormalized for predictions
-    predictions = data.unnormalize(output, params.labels_mean,
-                                    params.labels_std)
-    tf.summary.histogram('predictions', predictions)
+  # Output needs to be unnormalized for predictions
+  predictions = data.unnormalize(output, params.labels_mean,
+                                  params.labels_std)
+  tf.summary.histogram('predictions', predictions)
 
   if mode == tf.estimator.ModeKeys.PREDICT:
     return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
@@ -177,9 +191,9 @@ def rnn_model_fn(features, labels, mode, params):
 def generate_model_spec_name(params):
   name = ''
   name += 'output_type={},'.format(params.output_type)
+  name += 'hidden_size={},'.format(params.hidden_size)
 
   if params.output_type == 'sequences':
-    name += 'hidden_size={},'.format(params.hidden_size)
     name += 'cell={},'.format(params.rnn_cell)
     name += 'motion_loss_weight={},'.format(params.motion_loss_weight)
   elif params.output_type == 'classes':
@@ -197,7 +211,7 @@ def generate_model_spec_name(params):
   return name
 
 
-def setup_estimator(custom_params=dict()):
+def setup_estimator(custom_params=dict(), cluster_centers_path=CLUSTER_CENTERS_PATH):
   # Load normalization parameters
   config_path = common.data_utils.DEFAULT_CONFIG_PATH
   if os.path.isfile(config_path):
@@ -210,8 +224,8 @@ def setup_estimator(custom_params=dict()):
     std = 1
 
   # Preprocess centers
-  if os.path.isfile(CLUSTER_CENTERS_PATH):
-    with open(CLUSTER_CENTERS_PATH) as centers_file:
+  if os.path.isfile(cluster_centers_path):
+    with open(cluster_centers_path) as centers_file:
       centers = json.load(centers_file)['clusters']
       centers_lengths = [len(center) for center in centers]
 
@@ -225,7 +239,7 @@ def setup_estimator(custom_params=dict()):
       centers = np.array([np.concatenate([center, np.zeros((max_center_len - center.shape[0], frame_length))]) for center in centers])
       centers = np.swapaxes(centers, 0, 1)
   else:
-    raise ValueError('Cluster centers file is not present at {}'.format(CLUSTER_CENTERS_PATH))
+    raise ValueError('Cluster centers file is not present at {}'.format(cluster_centers_path))
 
   default_params = tf.contrib.training.HParams(
       feature_columns=[None],
@@ -279,14 +293,14 @@ def setup_estimator(custom_params=dict()):
   return estimator, model_params
 
 
-def predict_classes(subtitles):
+def predict_classes(subtitles, cluster_centers_path=CLUSTER_CENTERS_PATH):
     estimator, model_params = setup_estimator({
        'output_type': 'classes',
        'motion_loss_weight': 0.8,
        'rnn_cell': 'BasicLSTMCell',
        'batch_size': 32,
        'use_pretrained_encoder': True
-    })
+    }, cluster_centers_path=cluster_centers_path)
 
     predict_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={
@@ -338,7 +352,7 @@ def predict_sequences(subtitles):
       n_frames = end_markers[0]
     print("Length: {} frames.".format(n_frames))
     frames = preds[:n_frames, 1:].tolist()
-    angles = list(map(common.pose_utils.get_named_angles, frames))
+    angles = list(map(lambda x: common.pose_utils.get_named_pose(x, fmt='angle'), frames))
 
     return angles
 
@@ -365,29 +379,34 @@ def run_experiment(custom_params=dict(), options=None):
     # debug_hook = tf_debug.TensorBoardDebugHook("localhost:7000")
     # debug_hook = tf_debug.LocalCLIDebugHook()
 
+    train_input_fn = lambda: data.input_fn(
+      '../train.tfrecords',
+      batch_size=model_params.batch_size,
+      n_epochs=512,
+      split_sentences=(model_params.use_pretrained_encoder is False)
+    )
     train_spec = tf.estimator.TrainSpec(
-      input_fn=lambda: data.input_fn(
-        '../train.tfrecords',
-        batch_size=model_params.batch_size,
-        n_epochs=512,
-        split_sentences=(model_params.use_pretrained_encoder is False)
-      ),
+      input_fn=train_input_fn,
       max_steps=15000)
 
+    eval_input_fn = lambda: data.input_fn(
+      '../validate.tfrecords',
+      batch_size=model_params.batch_size,
+      n_epochs=1,
+      split_sentences=(model_params.use_pretrained_encoder is False)
+    )
     eval_spec = tf.estimator.EvalSpec(
-      input_fn=lambda: data.input_fn(
-        '../validate.tfrecords',
-        batch_size=model_params.batch_size,
-        n_epochs=1,
-        split_sentences=(model_params.use_pretrained_encoder is False)
-      ),
+      input_fn=eval_input_fn,
       start_delay_secs=60,
       throttle_secs=120)
 
-    tf.estimator.train_and_evaluate(
-      estimator,
-      train_spec,
-      eval_spec)
+    # tf.estimator.train_and_evaluate(
+    #   estimator,
+    #   train_spec,
+    #   eval_spec)
+
+    estimator.train(train_input_fn, max_steps=15000)
+    return estimator.evaluate(eval_input_fn)
 
   if options.predict:
     subtitle = 'no dont worry its something else'
@@ -412,7 +431,7 @@ def run_experiment(custom_params=dict(), options=None):
       print("Length: {} frames.".format(n_frames))
       frames = preds[:n_frames, 0, 1:].tolist()
       n_frames = 500
-      angles = list(map(common.pose_utils.get_named_angles, frames))
+      angles = list(map(lambda x: common.pose_utils.get_named_pose(x, fmt='angle'), frames))
 
       with open("predicted_angles.json", "w") as write_file:
         serialized = json.dumps({'clip': angles}).decode('utf-8')
@@ -420,7 +439,7 @@ def run_experiment(custom_params=dict(), options=None):
         print("Wrote angles to predicted_angles.json")
 
       pose = list(
-          map(common.pose_utils.get_encoded_pose,
+          map(common.pose_utils.get_point_list,
               map(common.pose_utils.get_pose_from_angles, angles)))
       common.visualize.animate_3d_poses(pose, save=True)
     elif model_params.output_type == 'classes':
@@ -437,39 +456,46 @@ if __name__ == '__main__':
                       dest='predict',
                       action='store_true',
                       help='whether do a prediction (after training)')
+  parser.add_argument('--subtitle',
+                      dest='subtitle',
+                      action='store',
+                      help='the subtitle to use for prediction')
   parser.set_defaults(
     train=False,
     predict=False)
 
-  for dropout in [0.0, 0.2, 0.4, 0.5, 0.6, 0.9]:
-    print("")
-    print("  ----------------")
-    print("  EXPERIMENT")
-    print("  dropout = {}".format(dropout))
-    print("  ----------------")
-    print("")
+  cmd_options = parser.parse_args()
 
-    run_experiment({
-        'output_type': 'sequences',
-        'motion_loss_weight': 0.9,
-        'rnn_cell': 'GRUCell',
-        'batch_size': 32,
-        'use_pretrained_encoder': False,
-        'hidden_size': 256,
-        'learning_rate': 0.001,
-        'dropout': dropout,
-        'embedding_size': 128,
-        'note': 'experiment_dropout'
-    }, parser.parse_args())
+  space = dict(
+    hidden_size=[8, 64, 128, 512],
+    output_type=['sequences', 'classes'],
+    embedding_size=[8, 16, 32, 256],
+    dropout=[0.2, 0.5, 0.8],
+    motion_loss_weight=[0.1, 0.5, 0.9]
+  )
 
-  # run_experiment({
-  #     'output_type': 'classes',
-  #     'motion_loss_weight': 0.5,
-  #     'rnn_cell': 'BasicLSTMCell',
-  #     'batch_size': 32,
-  #     'use_pretrained_encoder': False,
-  #     'hidden_size': 8,
-  #     'embedding_size': 8,
-  #     'dropout': 0.5,
-  #     'note': 'simple'
-  # }, parser.parse_args())
+  stars = itertools.product(*space.values())
+  names = space.keys()
+  csv_names = list(names) + ['loss', 'gesture_loss', 'global_step']
+
+  finished_stars = []
+  with open('hp-results.csv') as in_file:
+    reader = csv.DictReader(in_file, fieldnames=csv_names)
+    for constellation in reader:
+      finished_stars.append(constellation)
+
+  with open('hp-results.csv', 'ab') as out_file:
+    writer = csv.DictWriter(out_file, fieldnames=csv_names)
+    writer.writeheader()
+
+    for constellation in stars:
+      setup = dict(zip(names, constellation))
+
+      if setup in finished_stars:
+        print('Already calculated: {}'.format(setup))
+        continue
+
+      results = run_experiment(setup, cmd_options)
+      results_to_write = merge_two_dicts(results, setup)
+      print(results_to_write)
+      writer.writerow(results_to_write)

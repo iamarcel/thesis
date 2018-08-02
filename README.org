@@ -1,13 +1,295 @@
 * Thesis
 
-** Setup
-Code is executed in a Docker container. Since we need access to the GPU on your
-device, you'll need to install ~nvidia-docker~.
+** Installation
+   
+   The simplest way to get started is by using the virtualenv, managed with
+   pipenv:
 
-On an Ubuntu machine:
+   #+BEGIN_SRC shell
+     pip install --user pipenv
+     pipenv install
+     pipenv shell
+   #+END_SRC
 
-#+BEGIN_SRC sh
-git clone git@github.com:ryanolson/bootstrap.git
-cd bootstrap
-./bootstrap.sh
-#+END_SRC
+   This will take in all the Python dependencies and could take a while. The
+   last command opens the virtualenv so you can start using all these
+   dependencies.
+   
+   This project was developed on a machine running Ubuntu 16.04 LTS. Most things
+   will work on other distributions too. However, I've found that Choregraphe,
+   SoftBank's robot simulator, might not work on distributions with newer
+   versions of certain packages (I can't remember which, however on my machine
+   running the latest Fedora it doesn't work). Some parts of the project, like
+   the Video Picker, also require system-level dependencies which aren't managed
+   by Pipenv.
+
+   If you have difficulties with dependencies, you can run the code in a Docker
+   contaier instead. There are two options:
+
+   - The machine specified in ~Dockerfile~ requires installation of
+     ~nvidia-docker~ and thus requires an NVIDIA GPU. This also uses
+     ~tensorflow-gpu~ to exploit your graphics card.
+   - The machine specified in ~Dockerfile.cpu~ uses the regular Ubuntu 16.04
+     image and runs the CPU variant of TensorFlow.
+
+   To set up the Docker machine, run ~make build~ or ~make cpubuild~ and to
+   start it, run ~make start~ or ~make cpustart~, respectively.
+
+   Note that these Docker containers install the NAOqi SDK's and Choregraphe but
+   since I can't host them here, you should download them yourself from the
+   SoftBank website and place them in the root directory of this repository.
+   Double-check the file names in the Dockerfile to make sure the version
+   mentioned there is the same one as you downloaded.
+
+*** Running OpenPose
+    For OpenPose, a separate Dockerfile is present in ~src/openpose~. This
+    builds OpenPose as part of the Docker build process, so you can immediately
+    start using the compiled binaries.
+
+*** Installing ~nvidia-docker~
+
+    If you are running Ubuntu, installation is easy:
+
+    #+BEGIN_SRC sh
+      git clone git@github.com:ryanolson/bootstrap.git
+      cd bootstrap
+      ./bootstrap.sh
+    #+END_SRC
+
+    If you have another setup, the installation is probably quite simple too
+    (but not /this/ simple :wink:).
+    
+** Running
+
+*** Building the Dataset
+
+**** Collect video
+
+     First, find a suitable video on YouTube. It should have the following
+     properties:
+
+     - Is in English (actually this is not strictly necessary, but don't start
+       messing with multiple languages :wink:)
+     - Has subtitles available (the download script downloads the automatically
+       generated subtitles do if there are built-in ones that you want to use,
+       you have to modify it)
+     - Has at least one shot of a person who is fully visible in frame (from
+       head to toe)
+
+     For these steps you need ~youtube-dl~ and ~ffmpeg~ installed. Open a
+     command line in the ~src/video~ directory and run:
+     
+     #+BEGIN_SRC sh
+       ./download.sh '$YOUTUBE_URL'
+       ./detect-shots.sh $NEW_VIDEO_FILE
+     #+END_SRC
+     
+     If there are quotes in the file name created after running ~download.sh~,
+     this might cause trouble in the next step. I recommend removing them first.
+     Keep the YouTube ID at the end of the file since it is used by other parts
+     of the project.
+
+**** Extract Video Clips
+     
+     The Video Picker assists with selecting the right parts of a video and
+     saves the initial data for the dataset. You need some system-level
+     dependencies such as FFmpeg, Cairo, Gstreamer and the Python GTK libraries.
+     You can refer to the Dockerfiles to see which packages this are or just run
+     this from the Docker container if you don't want to install them yourself.
+
+     Browse to the ~src/video-picker~ directory and run ~main.py~:
+
+     #+BEGIN_SRC sh
+       python main.py
+     #+END_SRC
+     
+     Click the =Open= icon or press =Ctrl+O= to open a video file. Then, the
+     video will start playing and the program should look something like this:
+
+     [[file:./img/video-picker-screenshot.png]]
+
+     The most ergonomic way to extract video is to hold your left hand above
+     your keyboard (you only need its left half anyways) and hold your mouse
+     with your right hand.
+
+     Point the cursor roughly at the hip of the person you're interested in. You
+     can adjust the size of the rectangle by scrolling. (This information is
+     saved but is not used anymore. It was in a previous version. So the size of
+     the rectangle doesn't really matter.)
+
+     #+BEGIN_QUOTE
+     *Some terminoligy.* The ~detect-shots.sh~ script you ran above runs a
+      /scene detection/ algorithm which detects the *shots* in a video. A shot
+      is a single continuous piece of video. So, there is another shot if the
+      camera cuts to another angle, for example. Sometimes these changes are not
+      detected, for example, when there is a fading animation in betwen shots.
+     #+END_QUOTE
+     
+     Navigate and record with the following shortcuts:
+
+     - ~Ctrl+D~ go to the previous shot
+     - ~Crtl+F~ go to the next shot
+     - ~Ctrl+R~ record the current shot (rewinds to the start of this shot
+       first)
+     - ~Ctrl+R~ (while recording) stop recording immediately. Use this when
+       there is a new shot the scene detection algorithm didn't pick up.
+
+     While Video Picker is recording, just let it play until it stops recording.
+     The cursor changes color according to what state it's in:
+
+     - Red cursor :: recording
+     - Semi-transparent cursor :: this clip is unusable (probably because the
+          subtitle is present during a change of shot) and is thus not being
+          recorded
+     - Green cursor :: this clip is already recorded
+
+**** Perform 2D Pose Detection with OpenPose
+
+     Move the ~src/video-picker/images~ folder to ~src/openpose/src/images~.
+
+     Go so ~src/openpose~ in your command line and set up the container:
+     
+     #+BEGIN_SRC sh
+       make build
+       make start
+     #+END_SRC
+
+     Once you're in the container, run OpenPose on the images extracted by the
+     Video Picker:
+
+     #+BEGIN_SRC sh
+       cd openpose
+       ./build/examples/openpose/openpose.bin --image_dir ~/dev/images/ --write_json ~/dev/output/
+     #+END_SRC
+
+**** Lift the poses to 3D with 3D Pose Baseline
+
+     The 3D Pose Baseline will read the output directory from OpenPose and save
+     the lifted 3D poses into the ~clips.jsonl~ file created by the Video
+     Picker.
+
+     Go to the ~src/openpose-baseline~ folder and simply run ~make~.
+
+**** Clean the data
+     
+     Go to the ~src/~ folder and run:
+     
+     #+BEGIN_SRC sh
+       ./util.py dataset preprocess
+     #+END_SRC
+
+**** Detect the clusters
+
+     Go to the ~src/clustering~ folder and run:
+     
+     #+BEGIN_SRC sh
+       R detect-clusters.r
+     #+END_SRC
+
+     You need to have R installed but R dependencies will be installed with
+     Pacman.
+
+**** Create the TFRecord dataset
+     
+     Go to the ~src/~ folder and run:
+
+     #+BEGIN_SRC sh
+       ./util.py create-tfrecords
+     #+END_SRC
+
+     Phew! The dataset is ready.
+
+*** Using the model
+
+**** Training
+
+    Go to the ~src/learning~ model and run:
+
+    #+BEGIN_SRC sh
+      python model.py --train
+    #+END_SRC
+
+    Modify the parameters at the bottom of ~model.py~ if you want to.
+
+**** Evaluating
+
+     Results are automatically evaluated at the end of trainig. You can inspect
+     them by starting TensorBoard:
+
+     #+BEGIN_SRC sh
+       make board
+     #+END_SRC
+     
+     Then, navigate to [http://localhost:6006](http://localhost:6006). Note that
+     you can run TensorBoard while training and look at the results while
+     training.
+
+**** Inference
+     
+     To plot the pose for a subtitle of your choice, run:
+     
+     #+BEGIN_SRC sh
+       python model.py --predict --subtitle 'robots are smarter with machine learning'
+     #+END_SRC
+
+*** Performing gestures on a robot
+
+    In ~src/util.py~ a few functions are implemented to play back poses. To
+    specify how to connect the nao, use the ~--bot_address~ and ~--bot_port~
+    options. Defaults are ~127.0.0.1~ and 9559, respectively.
+    
+    #+BEGIN_SRC sh
+      ./util.py bot play-random-clip  # Take a random clip and play the ground truth gesture
+      ./util.py bot play-clusters     # Play the clusters from `cluster-centers.json`
+    #+END_SRC
+
+**** TODO Add a method to play back predictions
+
+*** Preparing the survey
+
+    There is a single ~create question~ functions that prepares the gestures
+    needed for a question in the survey. Such a question contains a video
+    recording of the robot performing 3 clips immediately after each other, in
+    four different scenarios:
+
+    - Ground truth (3D pose detections)
+    - Baseline (built-in robot animations)
+    - Classification-based prediction (uses the clusters)
+    - Sequence-based prediction (directly predicts the gesture)
+
+    The ~create question~ will make the robot perform these scenarios after each
+    other. While performing a gesture, its eye LED's will be active and in
+    between performances they will be turned off. It will also print the
+    associated (combined) subtitle and save the metadata for the question in
+    ~questions.jsonl~.
+
+    Go to ~src/~ and run:
+    
+    #+BEGIN_SRC sh
+      ./util.py survey create-question
+    #+END_SRC
+
+
+**** Using a virtual robot
+
+     It is possible to generate a question using a virtual robot from a running
+     Choregraphe instance.
+
+     Run the ~create_question~ function in ~src/survey.py~ with
+     ~do_record_screen=True, do_generate_tts=True~. You will probably need to
+     update the code to make sure the correct region of your display is
+     captured. In order to generate the TTS speech, the IBM Watson API is used
+     (since the SoftBank TTS engine is not available in the simulator). For that
+     to work, you need to sign up for an account and set up the following
+     environment variables:
+
+     #+BEGIN_SRC sh
+       export WATSON_TTS_USERNAME='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+       export WATSON_TTS_PASSWORD='xxxxxxxxxxxx'
+     #+END_SRC
+     
+     *Tip:* Save this in a file ~.env~ in the root directory of this project.
+      Pipenv will automatically load the environment variables when running
+      ~pipenv shell~. You'll need load them manually, though, if you're running
+      this in a Docker container (since there's no virtual environment in that
+      case).

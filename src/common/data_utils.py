@@ -10,9 +10,11 @@ import re
 import json
 import jsonlines
 import collections
+import random
 from random import randint
 
 from . import pose_utils, vector
+from pose_utils import Pose, Gesture
 
 logger = logging.getLogger(__name__)
 
@@ -198,7 +200,7 @@ def add_clip_angles(read_path=DEFAULT_CLIPS_PATH,
     n_clips_in += 1
     try:
       points = np.asarray(clip['points_3d'])
-      angles = list(map(pose_utils.get_pose_angles, points))
+      points = Gesture(points, fmt='h36m').as_list(fmt='angles')
       clip['angles'] = angles
       writer.send(clip)
       n_clips_out += 1
@@ -275,9 +277,30 @@ def normalize_clips(read_path=DEFAULT_CLIPS_PATH,
   logger.info("Saved statistics to {}".format(config_path))
 
 
-def oneliner_rotation_matrix(axis, theta):
-  return scipy.linalg.expm(
-      np.cross(np.eye(3), axis / scipy.linalg.norm(axis) * theta))
+def get_crappy_3d_prediction(read_path='clips.dirty.jsonl'):
+  clips = get_clips(read_path)
+
+  for _ in range(len(clips)):
+    try:
+      clip = random.choice(clips)
+
+      if 'points_3d' not in clip:
+        continue
+
+      points = np.asarray(clip['points_3d'])
+      if len(points.shape) < 2:
+        continue
+
+      points = list(map(straighten_pose, points))
+      points = patch_poses(points)
+      points = straighten_frames(points)
+
+      # If this didn't fail, try again
+    except ValueError as e:
+      logger.info(e)
+      return np.asarray(clip['points_3d'])
+
+  logger.warn('No crappy 3D predictions found.')
 
 
 def straighten_pose(points_3d):
@@ -429,22 +452,20 @@ def get_random_clip():
   return clip
 
 
-def get_clusters():
-  with open("cluster-centers.json") as centers_file:
+def get_clusters(centers_path="cluster-centers.json"):
+  with open(centers_path) as centers_file:
     centers = json.load(centers_file)['clusters']
 
   return centers
 
 
-def create_sfa_dataset(file_name='clips_sfa.txt'):
-  clips = get_clips();
-  with open(file_name, 'w') as f:
-    for i, clip in enumerate(clips):
-      for j, frame in enumerate(clip['angles']):
-        f.write(str(i) + " ")  # Example ID
-        f.write(str(j) + " ")  # Time index
-        f.write("1 ")          # Label
-
-        frame_arr = pose_utils.get_angle_list(frame)
-        f.write(" ".join(str(x) for x in frame_arr))
-        f.write("\n")
+def try_for_random_clip(fn, clips_path=DEFAULT_CLIPS_PATH):
+  clips = get_clips()
+  for _ in range(len(clips)):
+    try:
+      clip = random.choice(clips)
+      fn(clip)
+      break
+    except (ValueError, IOError) as e:
+      logger.error(e)
+      logger.info('Will try another clip...')
