@@ -6,8 +6,6 @@
 #+LATEX_CLASS: report-noparts
 #+LATEX_HEADER_EXTRA: \usepackage{animate}
 #+LATEX_HEADER: \input{ugent.tex}
-#+LATEX_HEADER: \addbibresource{/home/marcel/org/bibliography/references.bib}
-#+LATEX_HEADER: \makeglossaries
 
 #+BEGIN_SRC emacs-lisp :exports none :session python-env
    ;; If you have the pipenv package, this initalializes the environment so that
@@ -18,149 +16,11 @@
    (setq do-fancy-export nil)
 #+END_SRC
 
-#+BEGIN_SRC latex
-    \usetikzlibrary{shapes,arrows,backgrounds,fit,calc}
-
-    \tikzset{
-      center coordinate/.style={
-        execute at end picture={
-          \path ([rotate around={180:#1}]perpendicular cs: horizontal line through={#1},
-                                      vertical line through={(current bounding box.east)})
-                ([rotate around={180:#1}]perpendicular cs: horizontal line through={#1},
-                                      vertical line through={(current bounding box.west)});}}}
-
-    \tikzset{
-      font=\headingfont,
-      every picture/.style={/utils/exec={\headingfont}},
-      x= \smallgridsize, y= \smallgridsize,
-      node distance=\smallgridsize,
-      semithick,
-      default matrix/.style = {
-        row sep = \smallgridsize,
-        column sep = \smallgridsize,
-        align = center,
-        nodes = {
-          anchor = center,
-          align = center
-        }
-      }
-    }
-
-    \pgfplotscreateplotcyclelist{default}{
-      thick, ugent-blue\\%
-      thick, ugent-green\\%
-      thick, ugent-orange\\%
-    }
-
-    \pgfplotsset{
-      compat=newest,
-      tick label style = {font=\headingfont, black!60},
-      every axis label = {font=\headingfont, black},
-      every axis legend/.append style = {legend cell align = left},
-      legend style = {
-        font=\headingfont\small, 
-        draw=none, 
-        text width=3\smallgridsize, 
-        align=left,
-        row sep=1ex,
-        /tikz/every odd column/.style={yshift=0.5ex},
-        /tikz/nodes={text depth=,anchor=base},
-      },
-      legend pos = outer north east,
-      legend cell align = left,
-      label style = {font=\headingfont},
-      width = 12\smallgridsize,
-      height = 6\smallgridsize,
-      axis x line = bottom,
-      axis y line = left,
-      axis line style = {thick, black!60},
-      every x tick/.style={thick, black!60},
-      every y tick/.style={thick, black!60},
-      enlargelimits = 0.1,
-      cycle list name = default
-    }
-
-    \tikzstyle{draw-blue} = [
-      draw=ugent-blue
-    ]
-
-    \tikzstyle{fill-blue} = [
-      fill=ugent-blue!10
-    ]
-
-    \tikzstyle{draw-green} = [
-      draw=ugent-green
-    ]
-
-    \tikzstyle{fill-green} = [
-      fill=ugent-green!10
-    ]
-
-    \tikzstyle{draw-orange} = [
-      draw=ugent-orange
-    ]
-
-    \tikzstyle{fill-orange} = [
-      fill=ugent-orange!10
-    ]
-
-    \tikzstyle{draw-black} = [
-      draw=black!60
-    ]
-
-    \tikzstyle{fill-black} = [
-      fill=black!6
-    ]
-
-    \tikzstyle{base-block} = [
-      rectangle,
-      font=\headingfont,
-      thick, minimum width=1.5cm, minimum height=1cm,
-      inner xsep=12pt, inner ysep=6pt
-    ]
-
-    \tikzstyle{block} = [
-      base-block,
-      rounded rectangle,
-      draw-black, fill-black
-    ]
-
-    \tikzstyle{blue-block} = [
-      block, 
-      draw-blue, fill-blue
-    ]
-
-    \tikzstyle{variable block} = [
-      base-block,
-      draw-orange, fill-orange
-    ]
-
-    \tikzstyle{inline spacing} = [
-      inner xsep=4pt, inner ysep=2pt,
-      minimum width=0pt, minimum height=0pt
-    ]
-
-    \tikzstyle{tight spacing} = [
-      inner xsep=6pt, inner ysep=4pt,
-      minimum width=0pt, minimum height=0pt
-    ]
-
-    \newacronym{rnn}{RNN}{Recurrent Neural Network}
-    \newglossaryentry{motion-primitive}{
-      name=motion primitive,
-      description={A fundamental unit of motion or, in this context, of gesture. For
-      example, someone might perform the motion primitive of holding both hands
-      together and the moving them outwards to the sides while speaking the words
-      ``bigger than.''}
-    }
-
-#+END_SRC
-
 #+NAME: pgf_figure
 #+BEGIN_SRC latex :var var_name="" var_caption="" :exports none
   \begin{figure}
     \centering
-    \adjustbox{center}{%
+    \adjustbox{max width=1.2\linewidth, center}{%
       \input{./img/var_name.pgf}%
     }
     \caption{\label{fig:var_name} var_caption}
@@ -170,7 +30,7 @@
 
 
 * Notes :noexport:
-
+  
 ** DONE Leg uit in de thesis: in het begin is het belangrijk dat we heel monotone beelden gebruiken
    CLOSED: [2018-07-28 za 08:14]
 
@@ -315,17 +175,44 @@
 **** DONE Decode + geef tussen-states mee aan decoder
      CLOSED: [2018-07-20 vr 15:04]
 
-* TODO Extended Abstract
-  :PROPERTIES:
-  :Effort:   5:00
-  :UNNUMBERED: t
-  :END:
-
 * TODO Preface
   :PROPERTIES:
   :UNNUMBERED: t
   :Effort:   2:00
   :END:
+
+* Abstract
+  :PROPERTIES:
+  :UNNUMBERED: t
+  :Effort:   2:00
+  :END:
+
+  When humanoid robots interact with humans in an intuitive manner, these robots
+  are perceived as more likable, communicate more effectively and minimizes the
+  need to adapt to the robot's particular manners of communication. Body
+  language is a crucial component of human-human communication and implementing
+  nonverbal cues for robots is a key research goal in the field of human-robot
+  interaction.
+
+  Existing methods for gesture synthesis either require detailed manual
+  descriptions of gestures or are generated randomly and thus lack context. This
+  thesis approaches the problem from the angle of machine learning and uses a
+  deep-learning approach to automatically learn and generate gestures for a
+  given part of text to be pronounced by the robot.
+  
+  First, a dataset is constructed from online video sources by using the
+  available subtitles and using pose estimation techniques to extract the
+  gestures. Second, a deep learning model is trained to predict these gestures,
+  either directly or by predicting one of several gesture clusters, whom were
+  estimated by an unsupervised clustering algorithm. Finally, since human
+  perception is difficult to measure quantitatively, a survey was conducted to
+  evaluate responsent's perception of humanness.
+
+  Results show that TODO. While these results are preliminary, this method could
+  lay the foundation for future developments in gesture synthesis and points out
+  a direction with a lot of potential.
+  
+** TODO Add in results
 * Introduction
   :PROPERTIES:
   :Effort:   1:00
@@ -502,7 +389,7 @@
 
    This presents opportunities to significantly improve the quality of
    communication between humans and machines. First, human-like motion improves
-   people's perception of the robot. Secon, gesturing can provide additional
+   people's perception of the robot. Second, gesturing can provide additional
    information that is not conveyed in speech and improve the quality of
    communication. Third, communicating on an intuitive level reduces the need
    for training people who need to work with these robots.
@@ -685,7 +572,7 @@
    :END:
    label:sec:gesture-synthesis-robots
 
-   \Cref{sec:state-robot-synthesis} evaluated the current gesture synthesis
+   Cref:sec:state-robot-synthesis evaluated the current gesture synthesis
    systems qualitatively, concluding that the methods investigated lack in one
    or more of the desired properties of continuity, variability and congruence.
    Below, the inner workings of two gesture synthesis---those of the Kismet and
@@ -762,10 +649,44 @@
    specification is defined, the avatar does not move. This makes the ACE system
    useful when a high level of precision is required, such as for deictic
    gestures, but less for free-form text.
-
-   #+CAPTION: label:fig:ace-murml-example Example of MURML multi-modal specification (adapted from cite:salem10_gener)
+   
    #+NAME: fig:ace-murml-example
-   [[file:img/ace-murml-example.png]]
+   #+CAPTION: label:fig:ace-murml-example Example of MURML multi-modal gesture and speech specification.
+   #+LABEL: fig:ace-murml-example
+   #+attr_latex: :width center
+   #+BEGIN_SRC xml :exports code
+     <utterance>
+       <specification>
+         And now take <time id="t1"/> this bar <time id="t2" chunkborder="true"/>
+         and make it <time id="t3"/> this big. <time id="t4"/>
+       </specification>
+
+       <behaviorspec id="gesture_1">
+         <gesture>
+           <affiliate onset="t1" end="t2" focus="this"/>
+           <function name="refer_to_loc">
+             <param name="refloc" value="$Loc-Bar_1/>
+           </function>
+         </gesture>
+       </behaviorspec>
+
+       <behaviorspec id="gesture_2">
+         <gesture>
+           <affiliate onset="t3" end="t4"/>
+           <constraints>
+             <symmetrical dominant="right_arm" symmetry="SymMS">
+               <parallel>
+                 <static slot="HandShape" value="BSflat (FBround all o) (ThCpart o)"/>
+                 <static slot="ExtFingerOrientation" value="DirA"/>
+                 <static slot="PalmOrientation" value="DirL"/>
+                 <static slot="HandLocation" value="LocLowerChest LocCenterRight LocNorm"/>
+               </parallel>
+             </symmetrical>
+           </constraints>
+         </gesture>
+       </behaviorspec>
+     </utterance>
+   #+END_SRC
 
    The BodySpeech system was developed to remove the need to specify which
    gestures have to be chosen. It uses an audio clip of a recorded voice,
@@ -773,8 +694,8 @@
    motion-captured gestures the one that most closely aligns with that part of
    speech and then blends between those movements cite:Fernandez:2013.
    
-   Interesting reference points for realistic gesture synthesis can be found in
-   3D animated movies or video games. Movies are mostly manually animated but
+   Interesting references for realistic gesture synthesis systems can be found
+   in 3D animated movies or video games. Movies are mostly manually animated but
    provide a point of reference---not only in the sense that the people in these
    movies move in a way we recognize as being human, but also in how these
    movements are often purposely not precisely imitated from humans. Animators
@@ -783,10 +704,10 @@
    
    Modern video games present many in-game avatars that have to move in a
    realistic manner yet not all move in the same way. This means they face
-   similar challenges and try to generate animation instead of extensive motion
-   capture by actors. In practice, these avatars have a few keypoints animated
-   manually and the animation for the rest of the avatar is generated using
-   physics-based engines that take into account the biomechanics of humans
+   similar challenges and try to generate animation instead of expensive motion
+   capture by actors. In practice, these avatars often have a few keypoints
+   animated manually. The animation for the rest of the avatar is then generated
+   using physics-based engines that take into account the biomechanics of humans
    cite:deepmotion_avatar, or a base animation is created manually or via motion
    capture and some variations are generated automatically
    cite:2013-SCA-diverse.
@@ -815,17 +736,65 @@
    
    With these improvements in performance the possibilty arrived to train large
    neural networks, machine learning algorithms that automatically learn
-   abstract representations of their data, became a possibility. This alleviated
-   the need for manual feature engineering, which is time-consuming and requires
-   extensive domain knowledge. Many complex problems such as object recognition,
-   speech synthesis and machine translation are dominantly being tackled with
-   deep neural networks cite:lecun15_deep_learn.
+   abstract representations of their data. This alleviated the need for manual
+   feature engineering, which is time-consuming and requires extensive domain
+   knowledge. Many complex problems such as object recognition, speech synthesis
+   and machine translation are dominantly being tackled with deep neural
+   networks cite:lecun15_deep_learn.
+
+*** Neural Networks
+    
+    Neural networks are large structures of deceptively simple components, often
+    called /neurons/, /nodes/ or /cells/ that from the foundation of the most
+    powerful machine learning methods to date. Mathematically a neural network
+    is nothing more than a specific kind of function, with a set of parameters
+    that can be optimized, where the goal is to approximate another unknown
+    function. In this case, the neural network should approximate "the function
+    that returns a gesture for a given subtitle." The way such networks are
+    visualized, though, is what warrants their name.
+
+    A neuron, the building block of a neural network, is visualized in
+    cref:fig:neuron. It performs two operations $f$ and $g$, respectively a
+    linear combination of some trainable (i.e., that will be optimized)
+    /weights/ and its inputs (in this case with weights $\vec{w}$ and input
+    $\vec{x} = x_i, i \in \{0, 1, 2, 3, 4\}$) and a non-linear /activation
+    function/ $g$ (often the Rectified Linear Unit or ReLU, $x \mapsto \max(0,
+    x)$). Often, the activation functino is not shown separately but is instead
+    assumed to be a part of $f$.
+    
+    #+BEGIN_SRC latex :exports results :results output
+      \begin{figure}[h]
+        \adjustbox{center}{%
+          \begin{tikzpicture}
+
+            \node [block, center coordinate] (neuron) at (\gridsize, -2) {$f$};
+            \node [variable block, above = \smallgridsize of neuron] (weights) {$\vec{w}$};
+            \draw [->] (weights) -- (neuron);
+
+            \foreach \i in {0, 1, 2, 3, 4} {
+              \node (i-\i) at (0, -\i\smallgridsize) {$x_\i$};
+              \draw[->] (i-\i) -- (neuron);
+            }
+
+            \draw[->] (neuron) -- ++(2\smallgridsize, 0) node (activation) [block] {$g$};
+            \draw[->] (activation) -- ++(2\smallgridsize, 0);
+          \end{tikzpicture}%
+        }
+        \caption{\label{fig:neuron} A neuron is the simple bulding block of a neural network.}
+      \end{figure}
+    #+END_SRC
+    
+    One /layer/ of neurons is then a set of neurons that share the same inputs
+    but have different weights. In a deep neural network, a large amount of
+    layers are present where the outputs of the neurons in one layer are used as
+    inputs in the next layer.
 
 *** Recurrent Neural Networks
 
-    Those last two problems require an extension of "plain" neural networks
-    because they must produce a /sequence/ of features (e.g., sound samples or
-    words) which can have a variable length.
+    The last two problems mentioned earlier, speech synthesis and machine
+    translation, require an extension of "plain" neural networks because they
+    must produce a /sequence/ of features (e.g., sound samples or words) which
+    can have a variable length.
 
     In order to be able to read or produce a sequence, the cells in the neural
     network need some kind of memory. The simplest way to do this is to give
@@ -838,19 +807,25 @@
     Both these computations are, as in other neural networks, linear
     combinations with some learned weights. This computation is repeated for
     each element in the sequence with the same weights. A network composed of
-    these kind of cells is called a gls:rnn, who can be represented as very
-    deep neural networks where each time step (an iteration where the cell
-    computation is performed) is a layer in this network and the weights are
-    shared across layers. This way, recurrent neural networks are similar to
-    deep neural networks.
-    
+    this kind of cells is called a gls:rnn. The simplest one only has a single
+    cell and performs a single "loop" at each time step, using as state input
+    the state output of the previous step.
+
+    In order to see how this roughly corresponds with a regular (deep) neural
+    network and how it is implemented in practice, remark that in practice,
+    these networks are /unrolled/ in time: instead of a looping construct, all
+    iterations are explicitly "written down" so that the network no is now deep
+    and narrow instead of truly recurrent. All the nodes in each layer then
+    share the same weights.
+
     Cref:fig:rnn shows a high-level diagram of an gls:rnn, where two time
     steps are unrolled. In this figure and further diagrams, the convention will
     be adopted that 
     #+latex: \tikz[baseline]{\node[block,inline spacing,anchor=base]{grey rounded rectangles};} 
     represent operations and 
     #+latex: \tikz[baseline]{\node[variable block,inline spacing,anchor=base]{orange rectangles};} 
-    represent variables.
+    represent variables. When the data type is annotated in between operators,
+    the variable styling will often be omitted for clarity.
     
     Simple glspl:rnn have difficulty learning long-term relationships because of a
     problem called the /vanishing gradient problem/ that also occurs in very
@@ -913,15 +888,15 @@
     be used for more complex tasks. 
 
     An encoder-decoder architecture consists of two recurrent neural networks.
-    The first is used to read a source sequence and the state from the final
-    time step is then interpreted as a representation of the entire
-    sequence---often referred to as the /thought vector/. This thought vector
-    then serves as input to a second gls:rnn that again outputs a sequence but of a
-    different kind. This architecture is used in sequence-to-sequence problems
-    where there is no one-to-one mapping between the steps in the source
-    sequence and steps in the destination sequence. In machine translation, for
-    example, the number of words in a sentence in different languages can
-    differ, as well as the word order.
+    The first---the encoder---is used to "read" an input sequence. The state
+    from the final time step is then interpreted as a representation of the
+    entire sequence---often referred to as the gls:thought-vector. This
+    gls:thought-vector then serves as input to a second gls:rnn that again
+    outputs a sequence but of a different kind. This architecture is used in
+    sequence-to-sequence problems where there is no one-to-one mapping between
+    the steps in the source sequence and steps in the destination sequence. In
+    machine translation, for example, the number of words in a sentence in
+    different languages can differ, as well as the word order.
     
     Encoder-decoder architectures can also be used to solve problems which do
     not transform a sequence to another sequence. For example, in image caption
@@ -951,8 +926,7 @@
       \end{tikzpicture}
       \caption{\label{fig:encoder-decover}A high-level overview of the encoder-decoder
         architecture that reads a variable-length input sequence and outputs another
-        sequence. Often, both the encoder and the decoder networks are recurrent
-        neural networks.}
+        sequence. Often, both the encoder and the decoder networks are \glspl{rnn}.}
       \end{figure}
     #+end_src
     
@@ -968,15 +942,15 @@
     a sequence, when the encoder and decoder networks are recurrent neural
     networks.
 
-    One of the most use applications of this encoder-decoder architecture is in
-    /text embedding/, which is the process of creating a vector representation
-    for parts of text (characters, parts of words, words or sentences). The
-    ~word2vec~ algorithm is a popular implementation that embeds words in a
-    vector space, where the positional relationship in this vector space is
-    related to the semantic relationship between words. For example, the
-    operation $\mathrm{vec}(``king'') - \mathrm{vec}(``man'') +
-    \mathrm{vec}(``woman'')$ resulted in the vector which was closest to the
-    vector representation of the word "queen"
+    One of the most widely used applications of this encoder-decoder
+    architecture is /text embedding/, which is the process of creating a vector
+    representation for parts of text (characters, parts of words, words or
+    sentences). The ~word2vec~ algorithm is a popular implementation that embeds
+    words in a vector space, where the positional relationship in this vector
+    space is related to the semantic relationship between words. For example,
+    the authors found that the operation $\mathrm{vec}(``king'') -
+    \mathrm{vec}(``man'') + \mathrm{vec}(``woman'')$ resulted in the vector
+    which was closest to the vector representation of the word "queen"
     cite:mikolov13_effic_estim_word_repres_vector_space.
     
     Since it is reasonable to assume that sentences with a similar semantic
@@ -986,13 +960,62 @@
     This could increase the effectiveness of the gesture synthesis process,
     especially if only a small dataset can be collected as training data. 
 
-    The TensorFlow team recently announced a new library /TensorFlow Hub/ that
-    is now part of the TensorFlow ecosystem, which allows access to pre-trained
-    models with a very simple API cite:introducing-tfhub. This library includes
-    built-in access to a variety of text embedding modules, including the
-    ~word2vec~ algorithm and the /universal sentence encoder/ which processes
-    greater-than-word length text cite:tfhub-text.
-
+*** High-Level Interfaces
+    
+    The recent increase in popularity of and interest in deep learning methods
+    could not have been possible without the introduction of tools that allow
+    programmers to use these techniques without having to know precisely how the
+    algorithms work or how to create programs that work efficiently on GPUs. The
+    reason why the previous sections did not include extensive mathematical
+    descriptions of the techniques explained is simply because it is not
+    necessary to know these details when implementing these methods. While a
+    foundational understanding is necessary to understand why these methods
+    work, where they could fail and how they can be evaluated, modern frameworks
+    change the skills that developers and researchers need from understanding
+    mathematics (even though the mathematics behind neural networks are
+    relatively simple), optimization techniques and multi-threaded GPU
+    programming to knowing how to use the interfaces presented by these new
+    frameworks and libraries.
+    
+    The most popular framework for deep learning (by far) today is TensorFlow
+    cite:tensorflow,dl-rankings. At its core, this is an engine that builds a
+    /computation graph/ based on the operations that need to be performed. This
+    decouples the code the programmer writes from the execution of this code and
+    allows the engine to execute the computations on a variety of hardware and
+    optimize them for each type specifically. Because the framework knows
+    exactly which computations are happening, it can automatically differentiate
+    them in order to perform optimization methods like gradient descent without
+    additional effort. On top of this engine, a large amount of machine learning
+    and deep learning functions and algorithms have been implemented so they can
+    be used relatively easily. A lot of machine learning research is done with
+    TensorFlow, meaning that even very recently developed algorithms are often
+    available for use. A small amount of these components are explained below.
+    
+    The Dataset and Estimator APIs cite:tf-estimators,tf-datasets set a standard
+    for handling data and organizing learning models, respectively. The Dataset
+    API allows reading from a variety of sources such as /TFRecords/
+    (TensorFlow's binary format for datasets), performing all the necessary
+    transformations and inserting it into the computational graph efficiently.
+    The Estimator API wraps a model, allows it to run on a multitude of
+    computers (perhaps distributed) and handles building the graph, running
+    training and evaluation, saving the results and reporting summaries.
+    
+    TensorBoard is a graphical interface included with TensorFlow that
+    automatically shows graphs of various learning metrics, visualizes the
+    computational graph and can show representations of embedding layers.
+    Cref:fig:tensorboard-screenshot shows a screenshot of this interface.
+    
+    #+CAPTION: label:fig:tensorboard-screenshot Screenshot of TensorBoard, the graphical utility to visualize learning metrics and debug models, included with TensorFlow.
+    #+ATTR_LATEX: :width 0.5\textwidth :float wrap :placement {R}[2cm]{0.5\textwidth}
+    [[file:./img/tensorboard-screenshot.png]]
+    
+    Finally, the TensorFlow team recently announced a new library /TensorFlow
+    Hub/ that is now part of the TensorFlow ecosystem, which allows access to
+    pre-trained models with a very simple API cite:introducing-tfhub. This
+    library includes built-in access to a variety of text embedding modules,
+    including the ~word2vec~ algorithm and the /universal sentence encoder/
+    which processes greater-than-word length text cite:tfhub-text.
+    
 ** The Dataset
    :PROPERTIES:
    :Effort:   1:00
@@ -1434,36 +1457,34 @@
     compiled, can read a directory of images and write the poses in each image
     to a JSON file. This "demo" program is run on the output directory of the
     images Video Picker extracted and afterwards, the pose data from OpenPose is
-    added to the database of clips. When adding the results from OpenPose to the
-    clips, the location of interest that the user specified when extracting the
-    clip in the video picker is used to select the desired person if multiple
-    people were detected.
+    added to the database of clips.
 
-    The OpenPose output format is a list wherein the $x$ position, $y$ position
-    and confidence score of each joint is specified, in the order of the pose
-    model OpenPose used cite:openpose_output. This list is specified for each
-    person detected in the image. If, in a clip, one or more joint positions
-    have a very small confidence, that clip is not used further to avoid errant
-    results later on in the process. Cref:fig:pose-format-comparison shows
-    the order of keypoints in this list.
-
-    Note that there is no stability in the detected people, i.e., people can
-    disappear or appear over time and the order in which they are specified can
-    change throughout frames. This is why the user must specify the center of
-    the target person while selecting video clips in the video picker.
-    
-    Cref:fig:sanity_check_openpose shows an example result from this step of
-    the pipeline. This "sanity check" was performed on a subset of the captured
-    clips in order to verify whether the data was sent to and processed by
-    OpenPose correctly.
-    
     #+BEGIN_SRC latex :exports results
-      \begin{figure}[htbp]
+      \begin{figure}[h]
         \centering
         \adjustbox{max width=1.2\linewidth,center}{\input{./img/sanity-check-openpose.pgf}}
         \caption{\label{fig:sanity_check_openpose} "Sanity check" for OpenPose 2D detections, showing a source video frame and the extracted pose information.}
       \end{figure}
     #+END_SRC
+    
+    The JSON files generated by OpenPose store a list of all the people detected
+    in the frame, with the position and confidence score for each joint. This
+    joint data is stored in a single-dimensional of the $x$ position, $y$
+    position and confidence score for each joint in the order as shown in
+    cref:fig:pose-format-comparison cite:openpose_output.
+    Cref:fig:sanity_check_openpose shows an example result from this step of the
+    pipeline. This "sanity check" was performed on a subset of the captured
+    clips in order to verify whether the data was sent to and processed by
+    OpenPose correctly.
+
+    OpenPose provides no stability or continuity of detected people across
+    frames, i.e., people can disappear or appear over time and the order in
+    which they are specified can change throughout frames. Thus, before using
+    these results as input for the next step, all but one person are discarded
+    according to the region of interest annotation that was made in Video
+    Picker. Additionally, to ensure data quality, clips are discarded when, in
+    at least one frame in the clip, the mean confidence for all joints is lower
+    than $60\%$.
 
 **** DONE Figure: sanity check - example of OpenPose detection
      CLOSED: [2018-07-20 vr 10:35]
@@ -1491,7 +1512,8 @@
     good as those from OpenPose. The Stacked Hourglass network can only detect a
     single person and requires precise annotation of the person's center and
     size in an image, which would also make the data collection step more
-    difficult.
+    difficult. These differences were visualized in
+    cref:fig:pose-format-comparison.
 
     While the ideal solution---when using OpenPose's 2D results---for the
     incompatibility between pose formats would be to re-train the 3D Pose
@@ -1499,7 +1521,8 @@
     their entire training set with OpenPose and then training it, which would
     take too much time. Instead, a rough direct conversion was made. Before
     passing the 2D detections as input to 3D Pose Baseline, their points were
-    reordered and the following points were added:
+    reordered and the following points were added, based on some simple vector
+    calculations:
     
     - Hip :: Center of left hip and left hip
     - Head (top of head) :: Half the distance between the Neck/Nose and the
@@ -1510,14 +1533,17 @@
     The second modification is necessary to use this 3D Pose Baseline for making
     predictions. While the authors' code allowed running the training and
     validation steps, there was no code present to run the inference step, i.e.,
-    predicting 3D poses for new 2D detections. Additionally, the 2D predictions
-    were smoothed before feeding them into this model, since OpenPose processes
-    videos frame-by-frame resulting in motion that was not always smooth.
+    predicting 3D poses for new 2D detections. Additionally, a smoothing step
+    was added to reduce jittering between the frame-per-frame 2D predictions
+    from OpenPose.
     
     After these two changes the 3D Pose Baseline code is usable but does not yet
     produce results that were of adequate quality. Sometimes poses are
-    completely incorrect or deformed throughout a clip. Three issues were found
-    rooted in the data.
+    completely incorrect or deformed throughout a clip.
+    Cref:fig:crappy-3d-detection shows some samples of these low-quality
+    results. Three issues were found rooted in the data.
+    
+    #+CALL: pgf_figure(var_name="crappy-3d-detections", var_caption="Samples of unusable results from the 3D Pose Baseline, who were discarded from the final dataset.")
 
     First, a missing point in the 2D detection has large effects on the results
     in 3D. When only joints in the upper body are detected by OpenPose, the
@@ -1894,21 +1920,16 @@
     4. Run the clustering algorithm to classify the gestures and create
        the centroids representing glspl:motion-primitive.
 ** Predicting Gestures label:sec:pose-prediction
-   
-   Now the dataset is annotated with gesture classes, it is possible to build a
-   machine learning model that can predict these. This section explains the
-   network structure for a model that predicts classes based on an input
-   sentence and for the alternative approach, which predicts gestures directly
-   instead.
-   
-   In all cases, the network can be seen as having an encoder-decoder
-   architecture. This section will explain two different encoders and two
-   decoders.
 
+   With the dataset in place, a model can be built that can make predictions of
+   gestures. This section shows the model used and its variations. In all cases,
+   the overall architecture is that of an encoder-decoder network but there are
+   two alternatives for each half.
+   
    The encoder is responsible for reading the input text and interpreting that
    sequence into a thought vector. In one case, the encoder uses an gls:rnn and a
    vocabulary based on the input data while in the other case, the encoder uses
-   a pretrained sequence encoder.
+   a pretrained sequence encoder for text embedding of sentences.
 
    The decoder then generates the desired output based on the results from the
    encoder. In one case, the decoder will return a set of probabilities for
@@ -2414,7 +2435,74 @@
    possible. In order to do that, we first need to find a metric that can
    compare the results from the two decoders who have different types of
    outputs.
-  
+   
+*** Hidden Size
+    
+    The /hidden size/ is defined as the size of the hidden representation in
+    between the encoder and decoder architectures. As displayed in
+    cref:fig:experiment-hidden-size, changing this parameter only has a small
+    impact on the loss function.
+    
+    #+BEGIN_SRC latex :exports results :results output
+      \begin{figure}
+        \adjustbox{center}{
+          \begin{tikzpicture}
+            \begin{groupplot}[
+              group style={
+                group name = myplot,
+                group size = 2 by 1,
+                horizontal sep = 2\smallgridsize
+              },
+              ybar,
+              xlabel = {Hidden Size},
+              ylabel = {Gesture Loss},
+              xtick = data,
+              symbolic x coords = {4, 8, 16, 32, 64, 128, 256},
+              ymin = 0,
+              cycle list name = default filled,
+              width = 8\smallgridsize
+              ]
+
+              \nextgroupplot[title = RNN Encoder]
+              \addplot table [x=Hidden Size, y=Value, col sep=comma] {./img/data-experiment-hidden-size.csv};
+              \label{plot:p1}
+
+              \nextgroupplot[title = Pretrained Encoder]
+              \addplot table [x=Hidden Size, y=Value, col sep=comma] {./img/data-experiment-hidden-size-pretrained.csv};
+              \label{plot:p2}
+        
+            \end{groupplot}
+          \end{tikzpicture}
+        }
+        \caption{\label{fig:experiment-hidden-size} The effect of the size of the
+          hidden representation in the encoder-decoder architecture has little effect
+          on the evaluation loss.}
+      \end{figure}
+    #+END_SRC
+
+*** Using the Pretrained Encoder
+
+    Cref:fig:TODO shows the effect of using the pretrained encoder instead of a
+    custom encoder to process the subtitle. For the classification decoder, the
+    difference is small but for the sequence decoder, /not/ using the pretrained
+    encoder improves the model's performance significantly. This is probably due
+    to the fact that the attentional system can be used.
+    
+*** Motion Loss Weight
+
+    When the gesture loss is calculated, a weighted average of the position loss
+    and motion loss is taken. Important to note here is the scale difference:
+    since the motion loss operates on the difference between two frames, its
+    value is much smaller than the position loss. The position loss is usually
+    about 10 times larger than the motion loss.
+
+*** Dropout
+    
+    Dropout layers are used throughout the model to prevent overfitting. A
+    dropout layer removes a certain fraction of the intermediate values forcing
+    the model to learn from incomplete data. In many applications, this
+    technique has been proven very useful.
+    
 ** Classification-based vs. \glsentrytext{rnn} label:sec:decoder-comparison
    :PROPERTIES:
    :Effort:   2:00
@@ -2469,6 +2557,35 @@
    own loss function this decoder immediately starts to overfit the training
    data).
 
+** Looking At the Gestures
+
+   While the results from optimizing the loss function clearly show the
+   sequence-based decoder as better than the classification-based one, this
+   result might not transfer to the qualitative evaluation of these gestures.
+   The sequence-based indeed predicts a gesture that looks natural, it tends to
+   slow down and stop quickly. At the same time, the network seems to have
+   difficulty predicting the sequence length parameter, resulting in a long
+   sequence that is stopped after the maximum threshold is reached. Thus, in
+   practice, the results from the sequence-based decoder are very still.
+   Cref:sec:survey will verify whether those observations match the opinion of
+   other people.
+   
+   The metrics used while training show a much higher gesture loss for the
+   classification-based decoder but the results look humanlike simply because
+   the cluster centroids are actual samples of the data. Thus, they do not
+   correspond with the way the actual gestures were performed in the dataset but
+   they do look like "a moving human."
+   
+   In a real-life context, when including the subtitle, the robot is pronouncing
+   the text wile performing its gestures. Since this project does not include
+   any interaction between those engines, gestures do not match up with the
+   text-to-speech engine. Previous gesture synthesis systems that could
+   synchronize motion with the text required annotation but this system has the
+   opportunity to learn speech pronunciation along with the gestures. Alas, that
+   is not currently included. It can thus be expected that the length of the
+   generated gesture will differ from the length of the TTS engine (unless the
+   audio clip is manipulated to match the predicted gesture).
+
 ** Survey label:sec:survey
 
    A better metric to validate this method is with qualitative results from
@@ -2486,8 +2603,8 @@
         for the same subtitle: the ground truth, a baseline (the default NAO
         animation), the result from the classification-based prediction and the
         result from the sequence-based prediction.
-      - Users were asked to rate the human-ness of each animation on a 5-point
-        scale (from "stiff, robot-like" to "humanlike")
+      - Users were asked to rate the human-ness of each animation on a
+        five-point scale (from "stiff, robot-like" to "humanlike")
       - Users were asked which of the animations they prefer
    4. A final checker question that asked the color of the robot's shoulders
 
@@ -2497,6 +2614,14 @@
    #+caption: label:fig:survey-screenshot Screenshot of one of the main questions from the survey used to qualitatively test the results of these gesture synthesis methods.
    #+attr_latex: :width 1.2\textwidth,center
    [[file:./img/survey-screenshot.png]]
+
+   A few respondents provided feedback about the survey and said they found it
+   difficult to compare. The video had an audio track recorded from NAO's
+   text-to-speech engine while it was performing its own gestures but the timing
+   of this does not match up with the other gestures, since every method decides
+   the output length by itself. Perhaps a better solution would be to present
+   respondents with a single video per gesture synthesis system, where the speed
+   of the text-to-speech system is modified to match with the generated gesture.
     
 * Conclusions and Future Work
   :PROPERTIES:
@@ -2504,6 +2629,23 @@
   :END:
   label:chap:conclusion
 
+  Deep learning methods can be used effectively to synthesize gestures that a
+  robot performs while it is talking. The pipeline introduced in this thesis
+  builds a dataset from videos that are freely available on the internet,
+  allowing a dataset to be created of arbitraty size, and built a
+  proof-of-concept model that shows this method, which uses a recurrent neural
+  network-based encoder-decoder architecture to directly synthesize gestures,
+  can lead to satisfying results.
+
+  A survey was proposed and the results provided as a baseline, who showed
+  that...
+
+  While the results shown here are preliminary, they are promising and ample
+  opportunities for improvement are presented. A machine learning-based model
+  such as the one presented in this thesis is likely the best road to a gesture
+  synthesis system that fulfills the desirable properties of continuity,
+  variability and congruence.
+  
 ** The Outlook
 
    This thesis is only a starting point. It proposes a new type of method,
@@ -2543,7 +2685,7 @@
    person or make big, enthusiastic gestures when he is trying to sell a product
    to an extroverted person.
 
-** Checklist
+** TODO Checklist
    - [ ] Findings: What are the main results?
    - [ ] Take-home message: What should the reader remember?
    - [ ] Future work: what is the outlook?

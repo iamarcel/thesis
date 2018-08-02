@@ -1,0 +1,172 @@
+\usepackage[url=true]{biblatex}
+\usepackage{grffile}
+\usepackage{float}
+\usepackage{color}
+\usepackage{array,graphicx}
+\usepackage{wrapfig}
+\usepackage{tcolorbox}
+\usepackage{keycommand}
+\usepackage{tabularx}
+\usepackage{soul}
+\usepackage{rotating}
+\usepackage[font=small]{caption}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{amsmath,amssymb}
+\usepackage{textcomp}
+\usepackage{capt-of}
+\usepackage{minted}
+\usemintedstyle{tango}
+\setminted{fontsize=\small,baselinestretch=1}
+
+% Allow spill-out-of-textwidth images
+\usepackage[export]{adjustbox}
+
+% Consistently use acronyms
+\usepackage{glossaries}
+
+\usepackage{cleveref}
+
+% https://styleguide.ugent.be/basisprincipes/grid-en-lay-out.html
+\newlength{\gridsize}
+\setlength{\gridsize}{0.142857143\paperheight} % 1/7
+\newlength{\smallgridsize}
+\setlength{\smallgridsize}{0.035714286\paperheight} % 1/7/4
+
+
+
+\usetikzlibrary{shapes,arrows,backgrounds,fit,calc}
+\usepgfplotslibrary{groupplots}
+
+\tikzset{
+  center coordinate/.style={
+    execute at end picture={
+      \path ([rotate around={180:#1}]perpendicular cs: horizontal line through={#1},
+      vertical line through={(current bounding box.east)})
+      ([rotate around={180:#1}]perpendicular cs: horizontal line through={#1},
+      vertical line through={(current bounding box.west)});}}}
+
+\tikzset{
+  x= \smallgridsize, y= \smallgridsize,
+  node distance=\smallgridsize,
+  semithick,
+  default matrix/.style = {
+    row sep = \smallgridsize,
+    column sep = \smallgridsize,
+    align = center,
+    nodes = {
+      anchor = center,
+      align = center
+    }
+  }
+}
+
+\pgfplotscreateplotcyclelist{default}{
+  {thick, draw=ugent-blue}\\%
+  {thick, draw=ugent-green}\\%
+  {thick, draw=ugent-orange}\\%
+}
+
+\pgfplotscreateplotcyclelist{default filled}{
+  {thick, draw=ugent-blue!60,   fill=ugent-blue!20}\\%
+  {thick, draw=ugent-green!60,  fill=ugent-green!20}\\%
+  {thick, draw=ugent-orange!60, fill=ugent-orange!20}\\%
+}
+
+\pgfplotsset{
+  compat=newest,
+  every axis legend/.append style = {legend cell align = left},
+  legend style = {
+    % font=\headingfont\small, 
+    draw=none, 
+    text width=3\smallgridsize, 
+    align=left,
+    row sep=1ex,
+    /tikz/every odd column/.style={yshift=0.5ex},
+    /tikz/nodes={text depth=,anchor=base},
+  },
+  legend pos = outer north east,
+  legend cell align = left,
+  width = 12\smallgridsize,
+  height = 6\smallgridsize,
+  axis x line = bottom,
+  axis y line = left,
+  axis line style = {thick, black!60},
+  every x tick/.style={thick, black!60},
+  every y tick/.style={thick, black!60},
+  enlargelimits = 0.1,
+  cycle list name = default,
+  /pgfplots/ybar legend/.style={
+    /pgfplots/legend image code/.code={%
+      \draw[##1,/tikz/.cd,bar width=3pt,yshift=-0.2em,bar shift=0pt]
+      plot coordinates {(0cm,0.8em) (2*\pgfplotbarwidth,0.6em)};},
+  }
+}
+
+\tikzstyle{draw-blue} = [
+draw=ugent-blue
+]
+
+\tikzstyle{fill-blue} = [
+fill=ugent-blue!10
+]
+
+\tikzstyle{draw-green} = [
+draw=ugent-green
+]
+
+\tikzstyle{fill-green} = [
+fill=ugent-green!10
+]
+
+\tikzstyle{draw-orange} = [
+draw=ugent-orange
+]
+
+\tikzstyle{fill-orange} = [
+fill=ugent-orange!10
+]
+
+\tikzstyle{draw-black} = [
+draw=black!60
+]
+
+\tikzstyle{fill-black} = [
+fill=black!6
+]
+
+\tikzstyle{base-block} = [
+rectangle,
+thick, minimum width=\smallgridsize, minimum height=\smallgridsize,
+inner xsep=12pt, inner ysep=6pt
+]
+
+\tikzstyle{block} = [
+base-block,
+rounded rectangle,
+draw-black, fill-black
+]
+
+\tikzstyle{blue-block} = [
+block, 
+draw-blue, fill-blue
+]
+
+\tikzstyle{variable block} = [
+base-block,
+draw-orange, fill-orange
+]
+
+\tikzstyle{inline spacing} = [
+inner xsep=4pt, inner ysep=2pt,
+minimum width=0pt, minimum height=0pt
+]
+
+\tikzstyle{tight spacing} = [
+inner xsep=6pt, inner ysep=4pt,
+minimum width=0pt, minimum height=0pt
+]
+
+\addbibresource{/home/marcel/org/bibliography/references.bib}
+
+\makeglossaries

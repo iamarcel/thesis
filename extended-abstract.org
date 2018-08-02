@@ -1,0 +1,347 @@
+# -*- org-confirm-babel-evaluate: nil -*-
+#+TITLE: Autonomous Production of Gestures on a Social Robot using Deep Learning
+#+AUTHOR: Marcel Samyn @@latex:\\@@ Supervisors: Tony Belpaeme, \and Fréderic Godin
+#+LATEX_CLASS: IEEEtran
+#+OPTIONS: toc:nil ':t
+#+KEYWORDS: hello, world, robot
+#+LATEX_HEADER: \input{preamble.tex}
+#+LATEX: \input{glossary.tex}
+
+#+BEGIN_abstract
+When humanoid robots interact with humans in an intuitive manner, these robots
+are perceived as more likable, communicate more effectively and minimizes the
+need to adapt to the robot's particular manners of communication. This paper
+proposes a novel method for gesture synthesis, that is, making the robot move
+while it is talking. Using a dataset built from publicly available videos, a
+deep learning model is trained that learns to predict a gesture based on the
+input subtitle. A survey was performed to evaluate people's perception of
+humanness which showed that TODO. While these results are preliminary, this
+method could lay the foundations for future, more advanced, gesture synthesis
+methods.
+#+END_abstract
+
+#+BEGIN_IEEEkeywords
+humanoid robots, robot learning, human-robot interaction
+#+END_IEEEkeywords
+
+* Introduction
+ 
+  Social robots can interact and communicate with humans by following the
+  behavioral norms that their conversational partners expect cite:bartneckil.
+  This property is powerful because the prerequisites for fluent interaction are
+  essentially reversed: the human no longer needs to learn how to interact with
+  the machine; rather, the machine learned how people naturally operate so that
+  they can interact without any special skills or training.
+  
+  Building machines which are modeled after human form and behavior is called
+  /antropomorphic design/. This is important to support an intuitive and
+  meaningful interaction with humans cite:breazeal04_desig and a key component
+  of antropomorphism is animacy or aliveness
+  cite:bartneck08_measur_instr_anthr_animac_likeab. People's perception of
+  animacy is greatly influenced by the amount and type of motion they perceive
+  in an object---as shown, for example, in Heider and Simmel's work
+  cite:heider44_exper_study_appar_behav. Indeed, motion is a prerequisite for a
+  perceived notion of aliveness.
+
+  In situations with both virtual agents and humanoid robots it has been shown
+  that speech-accompanying non-verbal behaviors have a positive effect on
+  antropomorphism, likeability and future contact intentions---key objectives
+  in the field of Human Robot Interaction (HRI)
+  cite:bremner16_iconic_gestur_robot_avatar_recog,salem13_to_err_is_human,adalgeirsson10_mebot.
+  Congruent gesture improves task performance
+  cite:kramer16_nonverbal_mimicry,mamode13_cooper but even incongruent
+  gesturing increases people's evaluation of a robot's human-like qualities
+  cite:huang13_model_evaluat_narrat_gestur_human_robot.
+  
+  This presents opportunities to significantly improve the quality of
+  communication between humans and machines. First, human-like motion improves
+  people's perception of the robot. Second, gesturing can provide additional
+  information that is not conveyed in speech and improve the quality of
+  communication. Third, communicating on an intuitive level reduces the need
+  for training people who need to work with these robots.
+  
+* Related Work
+  
+  To understand the state of current gesture synthesis technologies, one can
+  look at both gesture synthesis in robot and in virtual agents. Translating
+  the motion of such an agent to a live robot is challenging but possible
+  cite:Salem2012.
+
+  Three desirable properties for an effective gesture synthesis are proposed:
+
+  *Continuity.* The avatar keeps moving. If a humanoid robot or avatar is
+  motionless even for a small amount of time, people can think it is crashing
+  and thus stop seeing the avatar as a being that is alive.
+
+  *Variability.* The avatar should be able to perform gestures for any text
+  given.
+
+  *Congruence.* The gestures performed should have some relationship to the
+  semantics of the text that is  being spoken. For example, extreme cases like
+  nodding while the avatar says "no" should be avoided.
+
+  In current research and industry, these are popular approaches for gesture
+  synthesis:
+
+  /The gestures are pre-recorded or otherwise pre-determined./ This could be by
+  manually animating the robot for specific sentences or by annotating text
+  files with the gestures which should be performed and when
+  cite:neff08_gestur_model_animat_based_probab,Kipp2007,kopp04_synth_multim_utter_conver_agent.
+  This can produce natural results but is very labor-intensive and not suited
+  to the large amount of interactions a humanoid robot might have. This method
+  succeeds at /Continuity/ and /Congruence/ but fails for the /Variability/
+  requirement (with a significant cost for animation).
+
+  /Gestures are generated randomly./ They might be chosen from a repertoire of
+  movements and then stiched together or be completely random altogether. Often,
+  this method introduces noticeable stuttering and might produce gestures that
+  are inconsistent with the content of the spoken text, which is confusing to
+  the person listening. An improvement for this method is adding fixed motions
+  for specific keywords, which introduces the problems of pre-recording again.
+  Random gestures allow /Variability/ but have difficulty with /Congruence/ and
+  /Continuity/. Popular modern robots like Softbank's Pepper and NAO
+  cite:softbank-robotics use this kind of gesture synthesis.
+
+  /Gestures are generated from a set of rules cite:ng-thow-hing10_synch./ The
+  gesture synthesis system analyzes the content of the text that will be
+  pronounced and chooses a category of gesture for each text part. Then,
+  category-specific rules are applied (such as matching for a keyword or parts
+  of words) with some randomness to generate the final gestures. In principle,
+  this system can allow all three desired properties but at a high cost for
+  creating the gesture generation rules. To create this kind of system, it is
+  necessary to perform social studies that examine how humans gesture and try
+  to extract general rules.
+
+  Neither of these solutions are ideal. In a truly social robot, the gesture
+  synthesis system should be able to generate these gestures for arbitrary text
+  (so that the robot can be reprogrammed) and still look natural---just like
+  humans can say things they have never said before and still look alive.
+
+* A Modern Method for Gesture Synthesis
+  
+  The nature of this problem is in some sense very similar to that of other
+  problems where intuitive human abilities are to be imitated like speech
+  synthesis, bipedal locomotion and image recognition. In all of these tasks,
+  machine learning-based approaches have proven to be very successful
+  cite:hintin-need-ml so adopting a similar approach here seems promising.
+   
+  Based on this premise---the power of machine learning---this thesis proposes
+  a novel system for gesture synthesis, creates a proof of concept and reports
+  on the initial results. This system uses a deep learning-based approach to
+  synthesize gestures for a robot to perform while it is talking based on the
+  content of its spoken words.
+
+** Overview
+
+   The pipeline developed consists of two main parts: one to build the dataset
+   and another to build the model.
+
+   The dataset is a crucial component of any machine learning project. Since the
+   publicly available datasets on human motion such as the Human3.6M and CMU
+   Panopticon datasets
+   cite:h36m_pami,Joo_2017_TPAMI,PoseletsICCV09,Shahroudy_2016_CVPR are created
+   with the intent of training pose estimation or activity recognition methods,
+   they include an inadequate amount of data for talking people. Thus, a large
+   part of this work is focused on creating a dataset using publicly available
+   video and state-of-the-art pose estimation methods.
+
+   After this dataset has been produced, a deep learning model is constructed
+   that uses an encoder-decoder architecture with glspl:rnn to transform the
+   input subtitle into a gesture. Two methods for representing a gesture are
+   compared: one directly generates the gestures and another uses a
+   classification network in the decoder step to predict a gls:motion-primitive
+   extracted by a clustering algorithm from the dataset.
+   
+** Creating the Dataset
+   
+   To build the necessary dataset, publicly available videos from YouTube will
+   be downloaded, with their automatically generated subtitles, after which pose
+   estimation methods are used to extract the gestures from these videos. While
+   there is indeed a lot of video material available on YouTube, the
+   requirements for the dataset are very specific:
+
+   - The clip should be of a person talking
+   - The person should talk English and subtitles should be available
+   - The person should be visible in its entirety (as will be explained below,
+     this is necessary for further steps in the pipeline)
+   - The clip should be a single contiguous shot, i.e., the video cannot cut to
+     a shot from another angle
+
+   Here, the term /clip/ is used to denote a part of the video that corresponds
+   with the timing of a single subtitle. In order to extract only the parts of
+   videos that fulfill the above needs and to cut these parts into clips, a GUI
+   application /Video Picker/ was built to assist in the data collection
+   process. It allows the user to select parts of a video and saves the image
+   frames in order to be used in the next steps.
+   
+   #+caption: label:fig:video-picker Screenshot of the Video Picker application. This allows the user to select usable clips from videos and extracts their frames and subtitles for further processing.
+   #+attr_latex: :width \columnwidth,center
+   [[file:./img/video-picker-screenshot.png]]
+
+   In the second step, the OpenPose cite:cao16_realt_multi_person_pose_estim
+   pose estimation library is used to perform (2D) pose estimation of the
+   people in the videos, yielding the positions of the people's joints in the
+   images. The next step "lifts" these poses to three-dimensional space using
+   the /3D Pose Baseline/ cite:martinez17_simpl_yet_effec_basel_human_pose_estim
+   library. In between these two steps, a translation step is necessary that
+   converts poses from the format used in OpenPose to the format in 3D Pose
+   Baseline.
+   
+   Before being usable in a machine learning model, the resulting data had to be
+   cleaned and normalized. Some examples of issues are that, when a person is
+   not in frame with its full body some of his joints are not detected by
+   OpenPose and the resulting 3D pose is incorrect (in all the points---not just
+   those missed by OpenPose) and some scaling and orientation differences. After
+   removing useless data points and patching the rest, the data format is
+   changed to one where the position is represented in terms of joint /angles/.
+   The specific angles as used by SoftBank's NAO robot cite:naoqi_joints were
+   chosen because this makes performing these poses on that robot trivial
+   cite:naoqi_joint_control.
+
+   In order to train a model that outputs classes of motion representing
+   glspl:motion-primitive, a clustering algorithm needs to examine the
+   gestures, cluster them and provide a centroid gesture representing that
+   class. The specific requirements for such an algorithm, which should perform
+   unsupervised clustering across multiple samples of multidimensional time
+   series, could unfortunately not be fulfilled by any methods researched (for
+   which an implementation was available, at least). As a compromise, a DTW
+   (Dynamic Time Warping) clustering algorithm is used to extract these
+   clusters, which are now based on a clustering of entire clips rather than
+   subsequences.
+   
+** Predicting Gestures
+   
+   The network that predicts gestures (i.e., sequences of frames representing
+   poses) follows the overall architecture of an encoder-decoder architecture.
+   Here, the encoder part processes the input which results in a /thought
+   vector/, a hidden, internal representation of this processed input. Then, the
+   decoder network starts from this thought vector and produces the output
+   requested from the network.
+
+   One variation of the encoder network parses the input subtitle using a
+   gls:rnn, reading the words one by one which are encoded using one-hot
+   encoding followed by a word embedding that is trained along with the rest of
+   the network. The other variation uses the Universal Sentence Encoder, a
+   pre-trained network available from the TensorFlow Hub
+   cite:cer18_univer_senten_encod.
+
+   The first decoder network, the classification decoder, uses the following
+   neural network layers to transform the thought vector into a vector
+   representing the probabilities for each gesture class:
+
+   1. A dropout layer for regularization
+   2. An intermediate fully-connected layer with ReLU activation
+   3. A fully-connected layer with ReLU activation, representing the classes'
+      logits
+
+   The second decoder network uses a customized gls:rnn that directly predicts
+   gestures, including their length. The length of the sequence is encoded as an
+   extra dimension which has a value of $1$ in the first frame and decreases
+   linearly until reaching $0$ in the last frame.
+   
+   In this network, the gls:rnn cell uses the thought vector as its initial
+   state and the pose from its previous output as the new input. During
+   training, the ground truth pose from the previous step is used instead.
+   
+   Similar to previous research that animated 3D face meshes based on audio
+   input cite:karras17_audio_driven_facial_animat_by, the loss function used is
+   a sum of two terms: the /position loss/ and the /motion loss/. The position
+   loss is the squared error between the predicted pose and the ground truth
+   pose, while the motion loss measures the squared error of the difference
+   between consecutive frames. This way, the network is explicitly forced to
+   learn the correct speed of motion as well as the position of the joints.
+   These terms, defined in terms of the network input $x$ are, respectively:
+
+   \begin{align*}
+     P: x \mapsto \sum_{t=0}^{T(x)-1}\sum_{i=0}^{n-1} & \Big[ y_i^{(t)}(x) - \hat{y}_i^{(t)}(x) \Big]^2 \\
+     M: x \mapsto \sum_{t=0}^{T(x)-1}\sum_{i=0}^{n-1} & \Big[ \big(y_i^{(t)}(x) - y_i^{(t-1)}(x)\big) \\
+                  & - \big(\hat{y}_i^{(t)}(x) - \hat{y}_i^{(t-1)}(x)\big) \Big]^2.
+   \end{align*}
+
+   Here, we defined $y$ and $\hat{y}$ as the functions that map the input to
+   the ground truth output and the network's prediction respectively. The
+   output of both of these functions is a temporal sequence of /frames/
+   $y^{(t)}, t \in \{0,\ldots,T(x)-1\}$, where $T$ is the length of the ground
+   truth sequence and thus dependent on $x$, and where each frame is a vector
+   of $n$ frames $y^{(t)}_i, i \in \{0,\ldots,n-1\}$.
+   
+   When used in conjunction with the gls:rnn encoder, a Bahdanau attention
+   cite:bahdanau14_neural_machin_trans_by_joint attention is added that allows
+   the decoder network to access intermediate states from the encoder network.
+   It does this by learning the weights for a linear combination of these
+   intermediate states, based on the previous state of the decoder cell.
+
+* Evaluation
+  
+  One of the biggest challenges in this project and machine learning in general
+  is defining what a "good result" is. In this case it is especially
+  ill-defined since human perception is involved and body language is by no
+  means a formal language. The most "real" measure of success would be
+  something like /"the majority of people agree that this robot gestures in a
+  natural way"/---which is not a precise measure and is influenced by a large
+  amount of factors we cannot control like culture differences, the physical
+  shape of the robot and the text-to-speech engine it uses.
+  
+  In between the steps to create the dataset, sanity checks were done to make
+  sure the resulting gestures looked good. The model is optimized with a
+  different loss function for each decoder but the gesture loss can be used to
+  compare the results of these two when the actual gesture represented by a
+  class is inserted. Under this criterion the sequence decoder performs orders
+  of magnitude better but this is perhaps not a fair comparison since there are
+  only eight possible gestures for the classifier as compared to the completely
+  unique gestures in the dataset.
+
+  A better metric to validate this method is with qualitative results from
+  people, obtained through a survey. This section desribes the survey that was
+  created and its results.
+
+  An online survey was created that includes six questions where a video was
+  shown of a NAO robot performing four gestures for the same subtitle (the
+  ground truth, the default NAO animation, the result from the
+  classification-based model and the result from the sequence-based prediction).
+  Then, users are asked to rate the humanness of the robot's gestures on a
+  five-point scale ranging from "stiff, robot-like" to "humanlike."
+  
+** TODO Results from survey
+
+* Conclusion and Future Work
+  
+  Deep learning methods can be used effectively to synthesize gestures that a
+  robot performs while it is talking. The pipeline introduced in this thesis
+  builds a dataset from videos that are freely available on the internet,
+  allowing a dataset to be created of arbitraty size, and built a
+  proof-of-concept model that shows this method, which uses a recurrent neural
+  network-based encoder-decoder architecture to directly synthesize gestures,
+  can lead to satisfying results.
+
+  A survey was proposed and the results provided as a baseline, who showed
+  that...
+
+  While the results shown here are preliminary, they are promising and ample
+  opportunities for improvement are presented. A machine learning-based model
+  such as the one presented in this thesis is likely the best road to a gesture
+  synthesis system that fulfills the desirable properties of continuity,
+  variability and congruence.
+  
+  What follows are three suggestions for future work:
+  
+  /Collect more data./ The dataset used here is very small. A larger dataset is
+  probably a prerequisite for most of the other improvements.
+        
+  /Find or create and implement a clustering algorithm that clusters
+  subsequences./ One major drawback of the clustering algorithm used in this
+  thesis is that it compares entire clips at once. With an algroithm that can
+  cluster subsequences, true glspl:motion-primitive could be found.
+
+  /Build a Generative Adversarial Network around the current network./ Building
+  an adversarial network allows the machine learning model to train towards a
+  goal that is closer to the actual goal, that is, perceived human-ness. With a
+  GAN, it is no longer implied that the same input text has to produce the same
+  gesture.
+
+* References
+  :PROPERTIES:
+  :UNNUMBERED: t
+  :END:
+  
+  \printbibliography[heading=none]

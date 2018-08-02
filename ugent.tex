@@ -1,27 +1,5 @@
-\usepackage[url=true]{biblatex}
-\usepackage{grffile}
-\usepackage{float}
-\usepackage{color}
-\usepackage{array,graphicx}
-\usepackage{wrapfig}
-\usepackage{tcolorbox}
-\usepackage{keycommand}
-\usepackage{tabularx}
-\usepackage{soul}
-\usepackage{rotating}
-\usepackage[font=small]{caption}
-\usepackage{tikz}
-\usepackage{pgfplots}
-\usepackage{baskervald}
-\usepackage{amsmath,amssymb}
-\usepackage{textcomp}
-\usepackage{capt-of}
+\input{preamble.tex}
 
-% https://styleguide.ugent.be/basisprincipes/grid-en-lay-out.html
-\newlength{\gridsize}
-\setlength{\gridsize}{0.142857143\paperheight} % 1/7
-\newlength{\smallgridsize}
-\setlength{\smallgridsize}{0.035714286\paperheight} % 1/7/4
 \usepackage[paper=a4paper, top=1in, bottom=1.25in, left=\gridsize, right=\gridsize]{geometry}
 
 % Color definitions
@@ -41,7 +19,6 @@
 
 
 % Heading font
-\listfiles
 \usepackage{titlesec}
 \newfontfamily\headingfont[Path=fonts/,
     UprightFont = *-Normal.otf,
@@ -97,10 +74,19 @@
 % Increase spacing between columns = spacing around floating figure
 \setlength\columnsep{18pt}
 
-% Allow spill-out-of-textwidth images
-\usepackage[export]{adjustbox}
+\tikzset{
+  font=\headingfont,
+  every picture/.style={/utils/exec={\headingfont}},
+  base-block/.append style = {
+    font=\headingfont,
+  }
+}
 
-% Consistently use acronyms
-\usepackage{glossaries}
-
-\usepackage{cleveref}
+\pgfplotsset{
+  tick label style = {font=\headingfont, black!60},
+  every axis label = {font=\headingfont, black},
+  legend style = {
+    font=\headingfont\small, 
+  },
+  label style/.append style = {font=\headingfont}
+}
