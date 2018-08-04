@@ -279,7 +279,7 @@ def get_named_pose(in_pose, fmt='h36m'):
   elif fmt == 'coco':
     names = COCO_BODY_PARTS
   elif fmt == 'angle':
-    return {ANGLE_NAMES_ORDER[i]: v for i, v in enumerate(angle_list)}
+    return {ANGLE_NAMES_ORDER[i]: v for i, v in enumerate(in_pose)}
   elif fmt == 'sh':
     raise NotImplementedError("Doesn't support SH yet")
   else:
@@ -507,7 +507,7 @@ class Pose(object):
 
   def as_list(self, fmt='h36m'):
     if fmt == 'angles':
-      return get_angle_list(self.data, fmt=self.fmt)
+      return get_angle_list(self.data, fmt=fmt)
     else:
       return get_point_list(self.data, fmt=fmt)
 

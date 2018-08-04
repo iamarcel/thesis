@@ -173,6 +173,7 @@ def create_sanity_check_2d(clip):
   ax_img = plt.imshow(img.imread(image))
 
   ax_skel = fig.add_subplot(122)
+  ax_skel.axis('off')
   plot_2d_pose(ax_skel, poses[0], fmt='coco')
 
   _save_for_report(fig, 'sanity-check-openpose')

@@ -20,6 +20,7 @@ import numpy as np
 import tensorflow as tf
 
 import common.data_utils
+from common.pose_utils import Gesture
 
 logger = logging.getLogger(__name__)
 
@@ -598,7 +599,7 @@ def write_clips_to_tfrecords(clips, file_name):
 
     context = {
         'id': _str_feature(clip['id']),
-        'class': _int_feature(clip['class']),
+        'class': _int_feature(clip['class'] - 1), # R results are 1-indexed, fix it in dataset
         'n_frames': _int_feature(n_frames),
         'subtitle': _str_feature(clip['subtitle'])
     }
@@ -748,3 +749,68 @@ def input_fn(filenames, batch_size=32, buffer_size=2048, n_epochs=None,
 def count_tfrecords(file_name):
   return sum(1 for _ in tf.python_io.tf_record_iterator(file_name))
 
+
+def print_some_tfrecords(file_name, motion_loss_weight=0.5):
+
+  # Load normalization parameters
+  config_path = common.data_utils.DEFAULT_CONFIG_PATH
+  if os.path.isfile(config_path):
+    with open(config_path) as config_file:
+      config = json.load(config_file)
+    mean = config['angle_stats']['mean']
+    std = config['angle_stats']['std']
+  else:
+    logger.warn('No angle stats found')
+    mean = 0
+    std = 1
+
+  # Get centers
+  centers = common.data_utils.get_clusters()
+  centers_lengths = [len(center) for center in centers]
+  centers = [Gesture(frames).as_list(fmt='angles') for frames in centers]
+  centers = [add_length_indicator(center) for center in centers]
+  centers = [normalize(np.asarray(center), np.asarray(mean), np.asarray(std)) for center in centers]
+
+  # Pad until maximum length
+  frame_length = len(centers[0][0])
+  max_center_len = max(x.shape[0] for x in centers)
+  centers = np.array([np.concatenate([center, np.zeros((max_center_len - center.shape[0], frame_length))]) for center in centers])
+  centers = np.swapaxes(centers, 0, 1)
+
+  with tf.Session() as sess:
+    centers = tf.constant(centers)
+    print('Shape of centers: {}'.format(centers.shape))
+    # centers.shape == (time_index, cluster_index, angle_index)
+
+    gesture_losses = []
+    for r in tf.python_io.tf_record_iterator(file_name):
+      record = parse_tfrecord(r)
+      cluster, angles, len_labels = record[0]['class'], record[1]['angles'], record[0]['n_frames']
+
+      seq_weights = tf.tile(
+          tf.transpose([tf.sequence_mask(len_labels)]),
+          multiples=[1, 11])
+
+      output = tf.gather(centers, cluster, axis=1)
+      label = angles
+
+      # Pad/slice output so it matches ground truth
+      output = tf.pad(output, [[0, tf.maximum(0, tf.shape(label)[0] - tf.shape(output)[0])], [0, 0]])
+      output = tf.slice(output, [0, 0], tf.shape(label))
+
+      position_loss = tf.losses.mean_squared_error(
+        output, label, weights=seq_weights)
+
+      output_diff = output[1:, :] - output[:-1, :]
+      label_diff = label[1:, :] - label[:-1, :]
+      motion_loss = tf.losses.mean_squared_error(
+          output_diff, label_diff, weights=seq_weights[:-1, :])
+
+      gesture_loss = ((1.0 - motion_loss_weight) * position_loss +
+                      motion_loss_weight * motion_loss)
+
+      gesture_losses.append(gesture_loss)
+
+    gesture_losses = tf.stack(gesture_losses)
+    mean_loss = tf.reduce_mean(gesture_losses)
+    return sess.run(mean_loss)

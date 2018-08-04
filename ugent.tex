@@ -25,8 +25,8 @@
     BoldFont = *-SemiBold.otf]{UGentPannoText}
 \titleformat{\chapter}[display]
   {\fontsize{16}{16}\headingfont}
-  {\chaptertitlename\ \thechapter}{0pt}
-  {\fontsize{28}{22}\selectfont\uppercase}
+  {\MakeUppercase\chaptertitlename\ \thechapter}{0pt}
+  {\fontsize{28}{22}\selectfont\MakeUppercase}
 \titleformat{\section}
   {\LARGE\headingfont}
   {\hspace{-2\smallgridsize}\makebox[1.5\smallgridsize][r]{\thesection}\hspace{.5\smallgridsize}}{0pt}{}
@@ -53,12 +53,6 @@
 
 % Less widows and orphans
 \usepackage[all]{nowidow}
-
-\usepackage[]{todonotes}
-\makeatletter
-\def\blx@maxline{77}
-\makeatother
-\PassOptionsToPackage{hyphens}{url}\usepackage{hyperref}
 
 % Consistantly format references
 \newcommand{\tabref}[1]{Table~\ref{#1}}

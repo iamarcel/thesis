@@ -73,8 +73,17 @@ class DatasetCommand(RunnerCommand):
       'add-angles',
       'create-tfrecords',
       'create-vocabulary',
-      'count-tfrecords'
+      'count-tfrecords',
+      'calculate-clustering-loss'
     ]
+
+  def setup_options(self, parser):
+    parser.add_argument(
+        'args',
+        metavar='args',
+        type=str,
+        nargs='*',
+        help='Extra arguments')
 
   def run(self, args):
     command_name = args.command[0]
@@ -119,6 +128,9 @@ class DatasetCommand(RunnerCommand):
     elif command_name == 'count-tfrecords':
       import learning.data
       print(learning.data.count_tfrecords(args.args[0]))
+    elif command_name == 'calculate-clustering-loss':
+      import learning.data
+      print(learning.data.print_some_tfrecords(args.args[0]))
     else:
       logger.error('Could not find command {}.\nYour options: {}'
                   .format(command_name, self.command_choices))

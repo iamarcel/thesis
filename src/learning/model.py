@@ -83,6 +83,7 @@ def rnn_model_fn(features, labels, mode, params):
   train_op = None
   loss = None
   predictions = None
+  accuracy_metric = None
 
   n_labels = params.n_labels
 
@@ -163,6 +164,9 @@ def rnn_model_fn(features, labels, mode, params):
           indices=tf.cast(labels['class'], tf.int32), depth=params.n_classes)
       loss = tf.losses.softmax_cross_entropy(
           onehot_labels=onehot_labels, logits=logits)
+      accuracy_metric = tf.metrics.accuracy(
+        labels=labels['class'],
+        predictions=tf.argmax(logits, axis=1))
 
   # Output needs to be unnormalized for predictions
   predictions = data.unnormalize(output, params.labels_mean,
@@ -178,14 +182,18 @@ def rnn_model_fn(features, labels, mode, params):
     train_op = optimizer.minimize(
         loss=loss, global_step=tf.train.get_global_step())
 
+    metric_ops = dict(
+      gesture_loss=gesture_loss_metric)
+
+    if accuracy_metric is not None:
+      metric_ops['accuracy'] = accuracy_metric
+
     return tf.estimator.EstimatorSpec(
         mode=mode,
         predictions=predictions,
         loss=loss,
         train_op=train_op,
-        eval_metric_ops={
-            'gesture_loss': gesture_loss_metric
-        })
+        eval_metric_ops=metric_ops)
 
 
 def generate_model_spec_name(params):
@@ -283,9 +291,7 @@ def setup_estimator(custom_params=dict(), cluster_centers_path=CLUSTER_CENTERS_P
 
   model_spec_name = generate_model_spec_name(model_params)
   run_config = tf.estimator.RunConfig(
-      model_dir=os.path.join(LEARNING_DIRECTORY, 'log', model_spec_name),
-      save_checkpoints_secs=120,
-      save_summary_steps=200)
+      model_dir=os.path.join(LEARNING_DIRECTORY, 'log', model_spec_name))
 
   estimator = tf.estimator.Estimator(
       model_fn=rnn_model_fn, config=run_config, params=model_params)
@@ -405,8 +411,11 @@ def run_experiment(custom_params=dict(), options=None):
     #   train_spec,
     #   eval_spec)
 
-    estimator.train(train_input_fn, max_steps=15000)
-    return estimator.evaluate(eval_input_fn)
+    estimator.train(train_input_fn, max_steps=12000)
+    train_data_eval = estimator.evaluate(train_input_fn, steps=10)
+    eval_data_eval = estimator.evaluate(eval_input_fn)
+
+    return (train_data_eval, eval_data_eval)
 
   if options.predict:
     subtitle = 'no dont worry its something else'
@@ -471,12 +480,13 @@ if __name__ == '__main__':
     output_type=['sequences', 'classes'],
     embedding_size=[8, 16, 32, 256],
     dropout=[0.2, 0.5, 0.8],
-    motion_loss_weight=[0.1, 0.5, 0.9]
+    motion_loss_weight=[0.1, 0.5, 0.9],
+    use_pretrained_encoder=[True, False]
   )
 
   stars = itertools.product(*space.values())
   names = space.keys()
-  csv_names = list(names) + ['loss', 'gesture_loss', 'global_step']
+  csv_names = list(names) + ['loss', 'gesture_loss', 'accuracy', 'global_step', 'train_loss']
 
   finished_stars = []
   with open('hp-results.csv') as in_file:
@@ -495,7 +505,14 @@ if __name__ == '__main__':
         print('Already calculated: {}'.format(setup))
         continue
 
-      results = run_experiment(setup, cmd_options)
+      train_results, results = run_experiment(setup, cmd_options)
+      if 'accuracy' not in results:
+        results['accuracy'] = 0.0 # Sequence predictor has no accuracy
+
+      train_to_write = dict(
+        train_loss=train_results['gesture_loss'])
+
       results_to_write = merge_two_dicts(results, setup)
+      results_to_write = merge_two_dicts(results_to_write, train_to_write)
       print(results_to_write)
       writer.writerow(results_to_write)

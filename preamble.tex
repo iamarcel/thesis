@@ -1,4 +1,5 @@
-\usepackage[url=true]{biblatex}
+\usepackage[url=true, backend=biber]{biblatex}
+\PassOptionsToPackage{hyphens}{url}\usepackage{hyperref}
 \usepackage{grffile}
 \usepackage{float}
 \usepackage{color}
@@ -35,7 +36,7 @@
 
 
 
-\usetikzlibrary{shapes,arrows,backgrounds,fit,calc}
+\usetikzlibrary{positioning,shapes,arrows,backgrounds,fit,calc}
 \usepgfplotslibrary{groupplots}
 
 \tikzset{
@@ -68,9 +69,9 @@
 }
 
 \pgfplotscreateplotcyclelist{default filled}{
-  {thick, draw=ugent-blue!60,   fill=ugent-blue!20}\\%
-  {thick, draw=ugent-green!60,  fill=ugent-green!20}\\%
-  {thick, draw=ugent-orange!60, fill=ugent-orange!20}\\%
+  {thick, draw=ugent-blue!60,   fill=ugent-blue!20, every mark/.append style = {solid, draw=ugent-blue!60,   fill=ugent-blue!20}}\\%
+  {thick, draw=ugent-green!60,   fill=ugent-green!20, every mark/.append style = {solid, draw=ugent-green!60,   fill=ugent-green!20}}\\%
+  {thick, draw=ugent-orange!60,   fill=ugent-orange!20, every mark/.append style = {solid, draw=ugent-orange!60,   fill=ugent-orange!20}}\\%
 }
 
 \pgfplotsset{
@@ -100,6 +101,25 @@
     /pgfplots/legend image code/.code={%
       \draw[##1,/tikz/.cd,bar width=3pt,yshift=-0.2em,bar shift=0pt]
       plot coordinates {(0cm,0.8em) (2*\pgfplotbarwidth,0.6em)};},
+  },
+  discard if/.style 2 args={
+    x filter/.append code={
+      \edef\tempa{\thisrow{#1}}
+      \edef\tempb{#2}
+      \ifx\tempa\tempb
+      \def\pgfmathresult{inf}
+      \fi
+    }
+  },
+  discard if not/.style 2 args={
+    x filter/.append code={
+      \edef\tempa{\thisrow{#1}}
+      \edef\tempb{#2}
+      \ifx\tempa\tempb
+      \else
+      \def\pgfmathresult{inf}
+      \fi
+    }
   }
 }
 
