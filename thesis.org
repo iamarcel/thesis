@@ -2392,6 +2392,8 @@
   CLOCK: [2018-07-27 vr 09:18]--[2018-07-27 vr 11:56] =>  2:38
   :END:
   label:chap:evaluation
+
+  How does one evaluate "humanlike gestures?"
   
   While the metrics and many "sanity checks" used up until now give some
   confidence that the gestures generated look natural, that conclusion is
@@ -2399,8 +2401,8 @@
   starts by covering the evaluation and optimization of the neural network
   discussed previously, after which it explains the setup and results for a
   Turing-like test that was performed to validate the results produced
-  qualitatively by sending out a survey. Before that, however, a note on finding
-  a good evaluation metric is in order.
+  qualitatively by sending out a survey. Before that, however, a short dicussion
+  on finding a good evaluation metric is in order.
 
 ** Defining Good Results
    
@@ -2427,21 +2429,21 @@
         cref:sec:pose-prediction. These hard numbers drive the learning
         mechanisms but differ from the ideal perception-based metric. They also
         differ between decoders. In cref:sec:decoder-comparison, a single metric
-        will be described to compare the decoders.
+        will be described that can be used to compare the decoders.
    - The survey :: By asking people's opinion, human perception is accounted for
                    and the final results can be evaluated. Unfortunately, this
                    is time-consuming for participants so the amount of
                    approaches that can be compared is very limited. It is also
                    difficult to measure the external factors as mentioned above.
 
-   Next, the loss functions will be used to evaluate the neural network, compare
-   its architectures and optimize its hyperparameters. After that, the survey
-   setup and its results are described.
+   Understanding that each of these metrics has its shortcomings, let us still
+   continue by optimizing the neural network and assume that this will at least
+   improve the results.
 
 ** Optimizing the Neural Network
   
    The gesture synthesis network has quite a few parameters, the first of which
-   is the network structure itself. \Cref{sec:pose-prediction} presented
+   is the network structure itself. Cref:sec:pose-prediction presented
    the network as an encoder-decoder architecture and explained two encoders (a
    recurrent text encoder and a pre-trained black box encoder) and two decoders
    (a classification decoder and a sequence decoder). This results in four
@@ -2460,7 +2462,7 @@
    possible. In order to do that, we first need to find a metric that can
    compare the results from the two decoders who have different types of
    outputs.
-    
+   
 *** Comparing the Classification and Sequence Decoders
     :PROPERTIES:
     :Effort:   2:00
@@ -2480,21 +2482,19 @@
     clusters were predicted with perfect accuracy, there would still be a loss
     because of the "simplification" made by the clustering algorithm.
 
-    Directly comparing the generated gestures with the ground truth data from the
-    dataset implies that there is only a single gesture possible (perhaps with
-    some noise) for each part of text, which is clearly not the case for humans.
-    A better solution would be to use an adversarial network model that has two
-    components: one that learns to predict gestures and another that learns what
-    kind of gestures humans perceive as being "natural". Sadly this approach was
-    determined as out of scope for the current project and is thus recommended as
-    one of the next steps in future works towards gesture synthesis
-    (cref:chap:conclusion).
+    Directly comparing the generated gestures with the ground truth data from
+    the dataset also implies that there is only a single gesture possible
+    (perhaps with some noise) for each part of text, which is clearly not the
+    case for humans. A better solution would be to use an adversarial network
+    model that has two components: one that learns to predict gestures and
+    another that learns what kind of gestures humans perceive as being
+    "natural". Sadly this approach was determined as out of scope for the
+    current project and is thus recommended as one of the next steps in future
+    works towards gesture synthesis (cref:chap:conclusion).
     
     In order to compare the two decoders, this leaves us with comparing the
     generated gestures using the position-motion-loss from the sequence decoder.
-    This is not a completely fair game since the minimum loss the classification
-    decoder can achieve is the loss during the clustering step, which is also
-    determined by the amount of clusters created.
+    The loss incurred from clustering is estimated to be about $0.47$.
     
     #+BEGIN_SRC latex :exports results :results output
       \begin{figure}
@@ -2507,15 +2507,18 @@
             symbolic x coords = {sequences, classes},
             cycle list name = default filled,
             xtick distance = 1,
-            xtick = data,
+            xtick = {sequences, classes},
             width = 2\gridsize,
             enlarge x limits = 1,
+            % restrict y to domain=-inf:1,
+            log basis y = 10,
             % log ticks with fixed point,
             % y tick label style={/pgf/number format/1000 sep=\,},
           ]
             \addplot+[
               only marks,
               discard if not = {motion_loss_weight}{0.5},
+              x filter/.code=\pgfmathparse{\pgfmathresult-0.1}
             ] table [x=output_type, y=gesture_loss, col sep=comma] {./img/hp-results.csv};
           \end{semilogyaxis}
         \end{tikzpicture}
@@ -2524,19 +2527,21 @@
       \end{figure}
     #+END_SRC
     
-    Cref:fig:classification-vs-sequence shows the results on the validation
-    set. The model with the sequence decoder clearly learns to predict the
-    gestures while the classification decoder does not learn (in terms of its
-    own loss function this decoder immediately starts to overfit the training
-    data).
+    Cref:fig:classification-vs-sequence shows the results of comparing both
+    decoders on the evaluation set. Note that the $y$ axis is on a logarithmic
+    scale, just like in the following graphs. The sequence decoder fails to
+    learn and converge in some configurations but achieves much better in the
+    cases when it does succeed in the training step. In the following
+    subsections, the configurations where the sequence decoder fails to converge
+    will be uncovered.
    
 *** Hidden Size
     
     The /hidden size/ is defined as the size of the hidden representation in
-    between the encoder and decoder architectures. As displayed in
-    cref:fig:experiment-hidden-size, changing this parameter only has a small
-    impact on the loss function unless, for the sequence decoder, this size
-    becomes very large. 
+    between the encoder and decoder architectures. As shown in
+    cref:fig:experiment-hidden-size, a larger hidden size improves the model
+    performance slightly. The sequence decoder-based model fails to converge on
+    too large hidden sizes, though.
 
     Note that, in this and the following figures, multiple data points are
     plotted for each value in the $x$ axis. These data points represent the
@@ -2561,7 +2566,8 @@
               ylabel = {Gesture Loss},
               xtick = data,
               ymode = log,
-              restrict y to domain=-inf:50,
+              restrict y to domain=-inf:1,
+              log basis y = 10,
               width = 8\smallgridsize,
               cycle list name = default filled,
               ]
@@ -2570,44 +2576,94 @@
               \addplot+[only marks,
                 discard if not = {output_type}{sequences},
                 discard if not = {motion_loss_weight}{0.5},
+                discard if not = {use_pretrained_encoder}{False},
               ] table [x=hidden_size, y=gesture_loss, col sep=comma] {./img/hp-results.csv};
 
               \nextgroupplot[title = Classes]
               \addplot+[only marks,
                 discard if not = {output_type}{classes},
                 discard if not = {motion_loss_weight}{0.5},
+                discard if not = {use_pretrained_encoder}{True},
               ] table [x=hidden_size, y=gesture_loss, col sep=comma] {./img/hp-results.csv};
 
             \end{groupplot}
           \end{tikzpicture}
         }
-        \caption{\label{fig:experiment-hidden-size} The the size of the hidden
-          representation in the encoder-decoder architecture has little effect on the
-          evaluation loss. In case of the sequence decoder, a very large hidden size
-          resulted in a network that was unable to converge. (Some even larger points
-          were omitted for clarity.)}
+        \caption{\label{fig:experiment-hidden-size} Increasing the hidden size
+          slightly decreases the loss for the sequence decoder. Though, making the
+          hidden size too large causes the model to become untrainable (the results
+          for a hidden size of $512$ were omitted from this graph since the loss was
+          in the order of $10^2$). For the classification decoder, too, increasing the
+          hidden size improves model performance slightly.}
       \end{figure}
     #+END_SRC
 
 *** Using the Pretrained Encoder
 
-    Cref:fig:TODO shows the effect of using the pretrained encoder instead of a
+    Cref:fig:pretrained shows the effect of using the pretrained encoder instead of a
     custom encoder to process the subtitle. For the classification decoder, the
-    difference is small but for the sequence decoder, /not/ using the pretrained
+    pretrained encoder improved results but for the sequence decoder /not/ using the pretrained
     encoder improves the model's performance significantly. This is probably due
     to the fact that the attentional system can be used.
+    
+    #+BEGIN_SRC latex :exports results :results output
+      \begin{figure}
+        \adjustbox{center}{
+          \begin{tikzpicture}
+            \begin{groupplot}[
+              group style={
+                group name = pretrainedplot,
+                group size = 2 by 1,
+                horizontal sep = 2\smallgridsize
+              },
+              xlabel = {Encoder pretrained?},
+              ylabel = {Gesture Loss},
+              ymode = log,
+              symbolic x coords = {True, False},
+              cycle list name = default filled,
+              xtick distance = 1,
+              xtick = data,
+              width = 2\gridsize,
+              enlarge x limits = 1,
+              restrict y to domain=-inf:1,
+              log basis y = 10,
+              % log ticks with fixed point,
+              % y tick label style={/pgf/number format/1000 sep=\,},
+            ]
+              \nextgroupplot[title = Sequences]
+              \addplot+[
+                only marks,
+                discard if not = {motion_loss_weight}{0.5},
+                discard if not = {output_type}{sequences},
+              ] table [x=use_pretrained_encoder, y=gesture_loss, col sep=comma] {./img/hp-results.csv};
+
+              \nextgroupplot[title = Classes]
+              \addplot+[
+                only marks,
+                discard if not = {motion_loss_weight}{0.5},
+                discard if not = {output_type}{classes},
+              ] table [x=use_pretrained_encoder, y=gesture_loss, col sep=comma] {./img/hp-results.csv};
+            \end{groupplot}
+          \end{tikzpicture}
+        }
+        \caption{\label{fig:pretrained} Using a pretrained text encoder negatively
+          impacts the performance of the sequence decoder but has a small beneficial
+          effect on the classification decoder..}
+      \end{figure}
+    #+END_SRC
     
 *** Motion Loss Weight
 
     When the gesture loss is calculated, a weighted average of the position loss
     and motion loss is taken. Important to note here is the scale difference:
     since the motion loss operates on the difference between two frames, its
-    value is much smaller than the position loss. The position loss is usually
-    about 10 times larger than the motion loss. Thus, choosing the value for the
-    motion loss weight is a difficult task since the usual metrics cannot be
-    used. This is even intuitively a difficult question to answer: for humanlike
-    gestures, how much more (or less) important is moving at the right speed
-    versus holding your hands at the right position?
+    value is much smaller than the position loss. That means the results in
+    cref:fig:experiment-motion-loss are difficult to interpret: the position
+    loss is usually about 10 times larger than the motion loss so it makes sense
+    that, if this is weighted more, the total sum will be smaller. Even
+    intuitively, choosing the motion loss weight is a difficult question to
+    answer: for humanlike gestures, how much more (or less) important is moving
+    at the right speed versus holding your hands at the right position?
     
     #+BEGIN_SRC latex :exports results :results output
       \begin{figure}
@@ -2634,6 +2690,7 @@
                 % discard if not = {motion_loss_weight}{0.5},
                 % discard if not = {dropout}{0.5},
                 % discard if not = {embedding_size}{512},
+                discard if not = {use_pretrained_encoder}{False},
                 discard if not = {output_type}{sequences}
               ] table [x=motion_loss_weight, y=gesture_loss, col sep=comma] {./img/hp-results.csv};
 
@@ -2642,6 +2699,7 @@
                 % discard if not = {motion_loss_weight}{0.5},
                 % discard if not = {dropout}{0.5},
                 % discard if not = {embedding_size}{512},
+                discard if not = {use_pretrained_encoder}{True},
                 discard if not = {output_type}{classes}
               ] table [x=motion_loss_weight, y=gesture_loss, col sep=comma] {./img/hp-results.csv};
 
@@ -2659,8 +2717,11 @@
     
     Dropout layers are used throughout the model to prevent overfitting. A
     dropout layer removes a certain fraction of the intermediate values forcing
-    the model to learn from incomplete data. In many applications, this
-    technique has been proven very useful.
+    the model to learn from incomplete data. In many deep learning applications,
+    this technique has been proven very useful.
+    
+    Cref:fig:experiment-dropout shows the results of varying the dropout rate. A
+    dropout rate of $0.5$ seems to perform slightly better in both case.
     
     #+BEGIN_SRC latex :exports results :results output
       \begin{figure}
@@ -2668,37 +2729,74 @@
           \begin{tikzpicture}
             \begin{groupplot}[
               group style={
-                group name = myplot,
+                group name = experiment-dropout,
                 group size = 2 by 1,
                 horizontal sep = 2\smallgridsize
               },
               % ybar,
-              xlabel = {Motion Loss Weight},
+              xlabel = {Dropout},
               ylabel = {Gesture Loss},
-              xtick = data,
+              xtick = {0.2, 0.5, 0.8},
               ymode = log,
               width = 8\smallgridsize,
               cycle list name = default filled,
               ]
 
               \nextgroupplot[title = Sequences]
-              \addplot+[only marks, restrict y to domain = -inf:1,
+              \addplot+[only marks,
                 discard if not = {output_type}{sequences},
                 discard if not = {motion_loss_weight}{0.5},
+                discard if not = {use_pretrained_encoder}{False},
+                discard if = {hidden_size}{512},
+                x filter/.append code={\pgfmathparse{\pgfmathresult-0.02}},
               ] table [x=dropout, y=gesture_loss, col sep=comma] {./img/hp-results.csv};
+              \label{plot:dropout:validation}
+              \coordinate (top) at (rel axis cs:0,1);% coordinate at top of the first plot
+
+              \addplot+[only marks,
+                discard if not = {output_type}{sequences},
+                discard if not = {motion_loss_weight}{0.5},
+                discard if not = {use_pretrained_encoder}{False},
+                discard if = {hidden_size}{512},
+                x filter/.append code={\pgfmathparse{\pgfmathresult+0.02}},
+              ] table [x=dropout, y=train_loss, col sep=comma] {./img/hp-results.csv};
+              \label{plot:dropout:training}
 
               \nextgroupplot[title = Classes]
-              \addplot+[only marks, restrict y to domain = -inf:0.5,
+              \addplot+[only marks,
                 discard if not = {output_type}{classes},
                 discard if not = {motion_loss_weight}{0.5},
+                discard if not = {use_pretrained_encoder}{True},
+                x filter/.append code={\pgfmathparse{\pgfmathresult-0.02}},
               ] table [x=dropout, y=gesture_loss, col sep=comma] {./img/hp-results.csv};
+              \addplot+[only marks,
+                discard if not = {output_type}{classes},
+                discard if not = {motion_loss_weight}{0.5},
+                discard if not = {use_pretrained_encoder}{True},
+                x filter/.append code={\pgfmathparse{\pgfmathresult+0.02}},
+              ] table [x=dropout, y=train_loss, col sep=comma] {./img/hp-results.csv};
+              \coordinate (bot) at (rel axis cs:1,0);% coordinate at bottom of the last plot
 
             \end{groupplot}
+            % legend
+            \path (top|-current bounding box.north)--
+              coordinate(legendpos)
+              (bot|-current bounding box.north);
+            \matrix[
+              matrix of nodes,
+              anchor=south,
+              inner sep=0.2em,
+            ] at ([yshift=1ex]legendpos) {
+              \ref{plot:dropout:training}& Training&[5pt]
+              \ref{plot:dropout:validation}& Validation\\
+            };
+
           \end{tikzpicture}
         }
-        \caption{\label{fig:experiment-dropout} A larger amount of dropout has the
-          effect that the loss becomes unbounded in less cases, but for the sequence
-          decoder only.}
+        \caption{\label{fig:experiment-dropout} The dropout rate should prevent
+          overfitting. In all cases presented here overfitting is not a big problem
+          but a dropout rate of $0.5$ seems to perform slightly better on the
+          validation set.}
       \end{figure}
     #+END_SRC
 
@@ -2853,3 +2951,70 @@
   
   \renewcommand{\glossarysection}[2][]{}
   \printglossaries
+
+* Appendices                                                         :ignore:
+#+LaTeX: \begin{appendices}
+** A Personal Note: Questioning the Engineering Approach
+  
+   Sitting at the kitchen table on a sunny but otherwise rather ordinary day, my
+   father and I were discussing this thesis and its approach to gesture
+   synthesis. Drawing from his experience in creating and animating convincing
+   characters in video games cite:tale-of-tales, he challenged the entire
+   purpose of this research with one simple question:
+
+   #+BEGIN_QUOTE
+   "Why are you trying to do that by mimicking people?"
+   #+END_QUOTE
+   
+   While I touched upon the arguments surrounding that question throughout this
+   thesis, I want to take the time to emphasize them here and highlight how
+   input from non-engineers can help drive more creative and meaningful
+   research.
+   
+   The crux of the argument is this: animating lifelike characters is not a new
+   problem---in fact, it has successfully been done for tens of years by
+   animators in animation movies and video games. There are literally people
+   whose job it is to perform what we called "gesture synthesis" so sidestepping
+   those experts completely might not be the best approach.
+
+   On the other hand, relieving the need for animators was precisely one of the
+   core aims of this study. It is practically impossible to manually animate all
+   the gestures of a robot when his range of interactions is quasi-infinite.
+   
+   And yet, there is probably something to learn from the art of animation. The
+   book /The Illusion of Life/ by Disney animators Ollie Johnston and Frank
+   Thomas was summarized in a video explaining its 12 principles by Cento
+   Lodigiani cite:animation-12-principles-video, who visualized them by
+   animating a cube. Watching the video, one indeed has the impression that this
+   cube is somehow "alive." At animating a cube, the method outlined in this
+   thesis would very likely fail.
+   
+   Animated characters seldom move in ways that are as close as possible to
+   humans. Animators use this departure from mimicking human motion closely to
+   evoke emotion, build characters and create tension that draws viewers in and
+   keeps their attention. The recently released Cozmo toy is probably the robot
+   that I would classify as looking the most lifelike I know cite:cozmo and is
+   animated by ex-Disney animators. Kismet partly appealed to people because of
+   its exaggerated, almost caricatural, way of moving. 
+   
+   Just like most humanoid robots stay out of the uncanny valley by
+   "acknowledging" their identity as a robot in their appearance by not being
+   skin-toned or having hair, perhaps the social robots we are building would
+   appeal more if they would adopt some of these principles of animation such as
+   exaggeration, appeal and anticipation---that make their gesturing less
+   "humanlike." Creating more distinctive characters for robots could make them
+   more interesting, thus increasing the quality of interaction with people.
+
+   That is not to say that the method proposed in this thesis is useless,
+   though. The challenge of generalizing these animations to a system that can
+   synthesize gestures in any context remains and a deep learning-based approach
+   is, right now, probably the best method to approach it.
+
+   As with most challenges in Human-Robot Interaction, a multidisciplinary
+   approach is required. Bringing together people from a variety of fields like
+   engineering, animation and psychology is probably the best way to build a
+   gesture synthesis system that works under all conditions, moves in a way that
+   is lifelike and relatable and entices people to interact on an emotional
+   level with the robot.
+
+#+LaTeX: \end{appendices}
