@@ -35,6 +35,20 @@ LEARNING_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 CLUSTER_CENTERS_PATH = '../cluster-centers.json'
 
 
+def dict_in(x, dicts):
+  for d in dicts:
+    different = False
+    for k, v in x.iteritems():
+      if k not in d or str(d[k]) != str(v):
+        different = True
+        break
+    if different:
+      continue
+    else:
+      return True
+  return False
+
+
 def merge_two_dicts(x, y):
     z = x.copy()   # start with x's keys and values
     z.update(y)    # modifies z with y's keys and values & returns None
@@ -316,19 +330,18 @@ def predict_classes(subtitles, cluster_centers_path=CLUSTER_CENTERS_PATH):
     return preds
 
 
-def predict_sequences(subtitles):
+def predict_sequences(subtitles, cluster_centers_path=CLUSTER_CENTERS_PATH):
   estimator, model_params = setup_estimator({
       'output_type': 'sequences',
-      'motion_loss_weight': 0.9,
+      'motion_loss_weight': 0.5,
       'rnn_cell': 'GRUCell',
       'batch_size': 32,
       'use_pretrained_encoder': False,
       'hidden_size': 128,
       'learning_rate': 0.001,
       'dropout': 0.5,
-      'embedding_size': 64,
-      'note': '2_extra_layers'
-  })
+      'embedding_size': 64
+  }, cluster_centers_path=cluster_centers_path)
 
   if not model_params.use_pretrained_encoder:
     def parse_subtitle(subtitle):
@@ -492,7 +505,7 @@ if __name__ == '__main__':
   with open('hp-results.csv') as in_file:
     reader = csv.DictReader(in_file, fieldnames=csv_names)
     for constellation in reader:
-      finished_stars.append(constellation)
+      finished_stars.append(constellation.copy())
 
   with open('hp-results.csv', 'ab') as out_file:
     writer = csv.DictWriter(out_file, fieldnames=csv_names)
@@ -501,7 +514,7 @@ if __name__ == '__main__':
     for constellation in stars:
       setup = dict(zip(names, constellation))
 
-      if setup in finished_stars:
+      if dict_in(setup, finished_stars):
         print('Already calculated: {}'.format(setup))
         continue
 

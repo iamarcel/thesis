@@ -460,6 +460,7 @@
    perform?
 
 ** How People Gesture
+   label:sec:how-people-gesture
 
    In his classical work on human gesturing, McNeill argues that gesture and
    speech are created in concert; they are neither used as an addition to
@@ -1367,7 +1368,7 @@
    Having defined the data structure, the time has come to start browsing
    through the wealth of videos available on YouTube (for science).
 
-*** The Video Picker
+*** Selecting Clips with the Video Picker
     :PROPERTIES:
     :Effort:   1:00
     :END:
@@ -1866,7 +1867,7 @@
      version of cref:fig:cluster-samples reveals that the results from
      clustering are good in some cases and not that good in others. For example,
      one of the poses in cluster 3 (where the person's right upper arm is
-     extended to the right and their lower arm is pointing downwards) would make
+     extended to the right and their left arm is pointing downwards) would make
      more sense if it would belong to cluster 5, where two instances of similar
      gestures are present. The samples within cluster 4 and cluster 6 are all
      very similar but they could perhaps even be combined into a single cluster.
@@ -1874,21 +1875,19 @@
      The author suspects that much better results can be achieved with a larger
      dataset or if an algorithm could be implemented that can extract clusters
      from subsequences of the gestures, which would be real
-     glspl:motion-primitive. For now, these results will be used for the rest
-     of the project since building the entire flow that collects and processes
-     data and generates gestures from that is deemed more important. As
-     explained in cref:sec:video-picker, collecting more data is time-consuming
-     but straightforward.
+     glspl:motion-primitive. For now, these results will be used for the rest of
+     the project since building the entire flow that collects and processes data
+     and generates gestures from that is deemed more important. As explained in
+     cref:sec:video-picker, collecting more data is straightforward.
      
      A noteworthy consequence of a clustering method is the tendency to produce
      smoothed, average results instead of outliers: the cluster representatives
      are close to the average of all the elements in that cluster. While this is
      often a desired property, that might not be the case here. Humans have a
      repertoire of specific, iconic gestures such as waving while saying
-     "hello." If the clustering or prediction algorithm would be able to
-     reproduce these gestures this would give a high confidence in its ability
-     to accurately synthesize gestures, but this averaging property impedes
-     this.
+     "hello." If the clustering or prediction algorithm would be able to extract
+     these gestures we would have a high confidence in its ability to categorize
+     gestures, but this averaging property impedes that.
 
      In order to still gain the ability to perform these iconic gestures, the
      dataset could be biased to include a large amount of samples for each of
@@ -1902,10 +1901,10 @@
       CLOSED: [2018-07-23 ma 14:51]
 *** Summary
     
-    In summary, the dataset can be created by repeatedly adding clips from
-    videos and then processing the results. 
-
-    Processing a video is a three-step process:
+    The dataset is created by finding a video, processing it to split it up into
+    /clips/ (slices of video that have one subtitle associated with them),
+    performing pose estimation, clustering the poses and cleaning up the
+    results. Processing a video is a three-step process:
 
     1. Find and download a suitable video. It should
        - be of a person talking in front of an audience,
@@ -1929,23 +1928,28 @@
        normalization.
     4. Run the clustering algorithm to classify the gestures and create
        the centroids representing glspl:motion-primitive.
-** Predicting Gestures 
+
+    Repeating the above steps, more data can be added at will. Now the videos
+    are diced, the poses cleaned and the clusters separated. Time to cook up a
+    deep learning model.
+    
+** Predicting Gestures
    label:sec:pose-prediction
-
-   With the dataset in place, a model can be built that can make predictions of
-   gestures. This section shows the model used and its variations. In all cases,
-   the overall architecture is that of an encoder-decoder network but there are
-   two alternatives for each half.
    
-   The encoder is responsible for reading the input text and interpreting that
-   sequence into a thought vector. In one case, the encoder uses an gls:rnn and a
-   vocabulary based on the input data while in the other case, the encoder uses
-   a pretrained sequence encoder for text embedding of sentences.
+   The model that serves up predictions will be based on the encoder-decoder
+   architecture. Both the encoder and decoder courses have two variations, which
+   will all be presented below.
 
-   The decoder then generates the desired output based on the results from the
-   encoder. In one case, the decoder will return a set of probabilities for
-   output classes while in the other case, the decoder will return a sequence of
-   poses, i.e., a gesture.
+   The encoder is the starter: it responsible for reading the input text and
+   interpreting that sequence into a gls:thought-vector. In one case, the
+   encoder uses an gls:rnn and a vocabulary based on the input data while in the
+   other case, the encoder uses a pretrained sequence encoder for text embedding
+   of sentences.
+
+   The decoder, then, is the meat of the predictor: it generates the desired
+   output based on the results from the encoder. In one case, the decoder will
+   return a set of probabilities for output classes while in the other case, the
+   decoder will return a sequence of poses, i.e., a gesture.
 
 *** DONE Figure: graph of the model(s)
     CLOSED: [2018-07-27 vr 08:36]
@@ -2337,6 +2341,8 @@
    CLOCK: [2018-07-27 vr 08:39]--[2018-07-27 vr 09:18] =>  0:39
    :END:
    label:sec:playback
+   
+   Finally, the courses can be served and performed on a robot.
    
    When researching the dataset and data formats in
    cref:sec:research-dataset, it was decided that the representation of poses
@@ -2808,10 +2814,8 @@
    The sequence-based indeed predicts a gesture that looks natural, it tends to
    slow down and stop quickly. At the same time, the network seems to have
    difficulty predicting the sequence length parameter, resulting in a long
-   sequence that is stopped after the maximum threshold is reached. Thus, in
-   practice, the results from the sequence-based decoder are very still.
-   Cref:sec:survey will verify whether those observations match the opinion of
-   other people.
+   gesture that is for the most part nearly still. Cref:sec:survey will verify
+   whether those observations match the opinion of other people.
    
    The metrics used while training show a much higher gesture loss for the
    classification-based decoder but the results look humanlike simply because
@@ -2829,11 +2833,12 @@
    generated gesture will differ from the length of the TTS engine (unless the
    audio clip is manipulated to match the predicted gesture).
 
-** Survey label:sec:survey
+** Survey
+   label:sec:survey
 
-   A better metric to validate this method is with qualitative results from
-   people, obtained through a survey. This section desribes the survey that was
-   created and its results.
+   Likely the best method to evaluate the system developed here and compare
+   implementations is through a survey by asking respondent's opinion. This
+   section desribes the survey that was created for this thesis and its results.
 
    An online survey was created that includes the following sections:
 
@@ -2859,12 +2864,43 @@
    [[file:./img/survey-screenshot.png]]
 
    A few respondents provided feedback about the survey and said they found it
-   difficult to compare. The video had an audio track recorded from NAO's
-   text-to-speech engine while it was performing its own gestures but the timing
-   of this does not match up with the other gestures, since every method decides
-   the output length by itself. Perhaps a better solution would be to present
-   respondents with a single video per gesture synthesis system, where the speed
-   of the text-to-speech system is modified to match with the generated gesture.
+   difficult to compare. There were $34$ respondents who completed the survey in
+   full, of which only $18$ passed the first attention check question. The
+   evaluation for each method is summarized in cref:fig:survey-ratings. Two
+   findings are described below.
+
+   /The native method is rated most positively./ Respondents preferred the
+   gesture synthesis method that is built in to the NAO robot over other
+   methods. This includes the motion captured "ground truth" data and the
+   generated gestures. This might be due to the fact that the voice was timed
+   according to this gesture, because of hardware limitations limiting how well
+   the other gestures could be performed or perhaps people still prefer these
+   slow, predictable movements in robots.
+   
+   /The ground truth is regarded similar to the classification-based predictor./
+   This is an interesting result since it would imply that a strict
+   correspondence between text and gesture does not exist. As explained in
+   cref:sec:how-people-gesture, beat gestures make up the largest part of human
+   gesture and are not directly related to the context of the communication.
+   Instead, beat gestures in human communication are used to stress the rhythm
+   of the conversation.
+
+   #+CALL: pgf_figure(var_name="survey-ratings", var_caption="Ratings for the different gesture generation methods presented in the survey.")
+
+   It could be concluded from these findings that timing is more important than
+   any correspondence between the gesture and the subtitle. This timing has two
+   components: one is the alignment between the lengths of the gesture and the
+   spoken text, the other is the general speed of gestures. The most-preferred
+   method moved more slowly, "deliberately" and had its start and end points
+   timed with the text-to-speech engine.
+
+   However, discounting the deep learning-based method for gesture synthesis
+   based on these results would be premature. The implementation in this thesis
+   likely suffers from a lack of data (speech synthesis and translation systems
+   usually have orders of magnitude more data) and is versatile in its
+   structure. For example, one could create an encoder that uses as input data
+   timing information of the speech synthesis (alone or with the existing text
+   data) or that parses the spoken text as audio.
     
 * Conclusions and Future Work
   :PROPERTIES:
@@ -2878,16 +2914,24 @@
   allowing a dataset to be created of arbitraty size, and built a
   proof-of-concept model that shows this method, which uses a recurrent neural
   network-based encoder-decoder architecture to directly synthesize gestures,
-  can lead to satisfying results.
+  can indeed learn to predict these gestures.
 
-  A survey was proposed and the results provided as a baseline, who showed
-  that...
-
-  While the results shown here are preliminary, they are promising and ample
-  opportunities for improvement are presented. A machine learning-based model
-  such as the one presented in this thesis is likely the best road to a gesture
-  synthesis system that fulfills the desirable properties of continuity,
-  variability and congruence.
+  A survey format was proposed to assess people's perception of human-ness when
+  these gestures were performed and conducted. Initial results showed that the
+  robot's native gesture synthesis system, which performs a random set of
+  predefined gestures, was evaluated as more human-like than the methods
+  proposed and even the "ground truth" (motion captured data performed by the
+  robot). Notable differences between these gestures were that the preferred
+  native gestures are much slower and corresponded with the timing of the
+  text-to-speech system.
+  
+  While the results shown here are no improvement over previous methods (in
+  terms of how people evaluate the gestures' "human-ness"), the pipeline for
+  building a dataset and architecture for a general deep learning-based gesture
+  synthesis system were developed and used in this proof-of-concept. A machine
+  learning-based model such as the one presented in this thesis is likely the
+  best road to a gesture synthesis system that fulfills the desirable properties
+  of continuity, variability and congruence, but still needs more research.
   
 ** The Outlook
 

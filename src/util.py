@@ -327,7 +327,7 @@ class BotCommand(RunnerCommand):
         animation = list(itertools.chain.from_iterable(clusters[x] for x in predictions))
         bot.play_angles(animation)
       elif gesture_type == 'sequence':
-        animation = list(itertools.chain.from_iterable(learning.model.predict_sequences(subtitles)))
+        animation = list(itertools.chain.from_iterable(learning.model.predict_sequences(subtitles, cluster_centers_path='cluster-centers.json')))
         bot.play_angles(animation)
       else:
         logger.error('Did not recognize that gesture type.')
