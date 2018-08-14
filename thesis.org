@@ -2,11 +2,12 @@
 #+TITLE: Autonomous Production of Gestures on a Social Robot using Deep Learning
 #+AUTHOR: Marcel Samyn
 #+COLUMNS: %4TODO(To Do) %40ITEM(Task)  %12EFFORT(Effort){:}
-#+OPTIONS: tasks:nil ':t H:5
+#+OPTIONS: tasks:nil ':t H:5 toc:nil title:nil
 #+LATEX_CLASS: report-noparts
-#+LATEX_HEADER_EXTRA: \usepackage{animate}
 #+LATEX_HEADER: \input{ugent.tex}
 #+LATEX_HEADER: \input{glossary.tex}
+#+LATEX_HEADER_EXTRA: \usepackage{animate}
+#+LATEX_HEADER_EXTRA: \usepackage{pdfpages}
 
 #+BEGIN_SRC emacs-lisp :exports none :session python-env
    ;; If you have the pipenv package, this initalializes the environment so that
@@ -176,11 +177,71 @@
 **** DONE Decode + geef tussen-states mee aan decoder
      CLOSED: [2018-07-20 vr 15:04]
 
-* TODO Preface
+     
+* Title                                                              :ignore:
+#+BEGIN_EXPORT latex
+\includepdf{./titlepage.pdf}
+
+\clearpage % end title page
+\begingroup
+  \pagestyle{empty}
+  \null
+  \newpage
+\endgroup
+
+\includepdf{./titlepage.pdf}
+#+END_EXPORT
+
+
+* Preface
   :PROPERTIES:
   :UNNUMBERED: t
   :Effort:   2:00
   :END:
+
+  What if robots could be social and truly interact as equals with the people
+  around them? That question jolted my brain instantly, with sparks firing in
+  the regions of interest in technology, psychology, theater and guiding people
+  to better lives. Over the course of about half an hour in that first meeting
+  with Tony, we had probably explored a decade of potential exciting research.
+  But it had to fit in the scope of a thesis, so with the title /Autonomous
+  Production of Gestures on a Social Robot using Deep Learning/ in hand, I
+  ventured into the unknown.
+
+  A year-long research project where you go at it alone sheds light not only at
+  the topic under consideration but also at the adventurer navigating it. The
+  first semester was riddled with the tasks and responsibilities of writing,
+  directing and organizing a theater play at the same time---why take on only
+  one adventure when you can do two?---shifting efforts to the examination
+  period and the second half of the past year. The greatest villains are those
+  you want to keep around, those who give you joy and opportunity to grow.
+
+  Yet, when that other adventure was brought to completion, the next challenge
+  already lay waiting: the Great Inner Demons. Spitting fire and doom at
+  anything that tries to move, they greet their passers-by with an ultimatum:
+  learn to keep running despite their fiery breath or drift away slowly in the
+  quicksand. Only when one teaches himself the art of accelerating (sadly this
+  is not taught in any school, but I digress) and leaning in to the heat, does
+  he gain the ability to sprint with an infectious grin of joy on his face. And
+  so one returns from the abyss, bringing along the fruits of his labor but,
+  more importantly, a heightened sense of self that itches for another road of
+  trials.
+  
+  There are probably more people I have to thank than I realize. Thank you,
+  Tony, for your enthusiasm, ideas and guidance. Thank you, Fréderic, for
+  keeping my eyes on the prize and wheels on the road. Thank you /mama/ for
+  running the household so I could spend such a portion of my days working on
+  this. Thank you Jacoba for your companionship and respect for my time. Thanks
+  to all the people who listened, thought out loud and provided ideas and
+  feedback. Thanks to all the authors who taught me how to work and do it well.
+  "The author(s) gives (give) permission to make this master dissertation available for
+  
+  #+LATEX: \paragraph{Permission for Usage}
+  The author gives permission to make this master dissertation available for
+  consultation and to copy parts of this master dissertation for personal use.
+  In all cases of other use, the copyright terms have to be respected, in
+  particular with regard to the obligation to state explicitly the source when
+  quoting results from this master dissertation.
 
 * Abstract
   :PROPERTIES:
@@ -209,11 +270,28 @@
   perception is difficult to measure quantitatively, a survey was conducted to
   evaluate respondent's perception of humanness on the synthesized gestures.
 
-  Results show that TODO. While these results are preliminary, this method could
-  lay the foundation for future developments, tackles the intial hurdle of a
-  lack of training data and shows next steps in the path ahead.
+  The results show that the built-in method for gesture synthesis of the robot
+  it was tested on, which performs a random sequence of some predefined
+  animations, is preferred over the method introduced here and the ground truth
+  motion capture data from the videos used in the dataset. While these results
+  are not immediately promising, this method could lay the foundation for future
+  developments, tackles the initial hurdle of a lack of training data and shows
+  next steps for the path ahead.
+
+* Extended Abstract                                                  :ignore:
+#+LATEX: \includepdf[pages=-]{./extended-abstract.pdf}
+* Table of Contents                                                  :ignore:
+#+TOC: headlines
+
+* Glossary
+  :PROPERTIES:
+  :UNNUMBERED: t
+  :END:
   
-** TODO Add in results
+  @@latex: \addcontentsline{toc}{chapter}{Glossary}@@
+  
+  \renewcommand{\glossarysection}[2][]{}
+  \printglossaries
 * Introduction
   :PROPERTIES:
   :Effort:   1:00
@@ -328,10 +406,10 @@
    Kismet naturally talked slower and were more expressive in their voice:
    Kismet managed to intuitively define the social context in which it could
    operate well. The goal of allowing interaction without training the user was
-   achieved while the robot could still use its method of communication, in a
-   way that was almost unnoticed by the people interacting with Kismet
-   cite:breazeal04_desig. This appeared to work: people formed an emotional
-   connection to the robot and enjoyed interacting with it.
+   met while the robot could still use its own method of communication in a way
+   that was almost unnoticed by the people interacting with Kismet. This
+   appeared to work: people formed an emotional connection to the robot and
+   enjoyed interacting with it cite:breazeal04_desig.
    
    #+CAPTION: label:fig:kismet Kismet is a social robot that presents itself as an infant, to which people intuitively react by being more expressive in their voice and talking more slowly. This is precisely what Kismet's computer system needed to work well.
    #+ATTR_LATEX: :width 0.323\textwidth :float wrap :placement {R}[2cm]{0.5\textwidth}
@@ -472,15 +550,15 @@
    when pointing at the location of an object that is being talked about.
    McNeill proposes four categories of gesture cite:cassell_1998,mcneill95_hand:
 
-   - Iconic gestures :: literally depict an object or action that is being
+   - Glspl:iconic-gesture :: literally depict an object or action that is being
         described. For example, spreading your arms while saying "big" or
         standing on your toes while explaining a ballet move.
-   - Metaphoric gestures :: also represent something but not directly, for
+   - Glspl:metaphoric-gesture :: also represent something but not directly, for
         example, making a rolling motion with the hands while saying "the
         meeting went on and on."
-   - Deictic gestures :: reference positions in space. For example, pointing at
+   - Glspl:deictic-gesture :: reference positions in space. For example, pointing at
         the bus stop when directing someone.
-   - Beat gestures :: are not closely related to the content of the
+   - Glspl:beat-gesture :: are not closely related to the content of the
                       communication but rather are used to emphasize words or to
                       clarify the structure of a sentence. For example, holding
                       the hands together left from the body in the first part of
@@ -496,13 +574,13 @@
    the palm facing the gesturer is considered offensive in British culture
    cite:archer97.
 
-   Deictic gestures reveal information that is not present in speech and
+   Glspl:deictic-gesture reveal information that is not present in speech and
    generating these gestures would thus require semantic information along with
    the words that are being spoken. Once that information is present, though,
-   generating deictic gestures is straightforward.
+   generating glspl:deictic-gesture is straightforward.
 
-   Beat gestures make up the biggest part of all gestures (almost half, followed
-   closely by iconic gestures) cite:mcneill95_hand but do not directly
+   Glspl:beat-gesture make up the biggest part of all gestures (almost half, followed
+   closely by glspl:iconic-gesture) cite:mcneill95_hand but do not directly
    correspond to the content of the communication, making these difficult to
    generate procedurally. Subsequently, this type of gesture has not been
    focused on much in gesture synthesis research. Yet in order to build a robot
@@ -527,11 +605,12 @@
    machine learning-based approaches have proven to be very successful
    cite:hintin-need-ml so adopting a similar approach here seems promising.
 
-   Especially the generation of beat gestures might benefit from a deep learning
-   approach: a neural network could learn a general sense of how people move,
-   which can be used as a starting point for other methods to add their more
-   specific gestures to (like deictic ones) or it might even be able to learn
-   iconic and metaphoric gestures given enough of the right data is present.
+   Especially the generation of glspl:beat-gesture might benefit from a deep
+   learning approach: a neural network could learn a general sense of how people
+   move, which can be used as a starting point for other methods to add their
+   more specific gestures to (like deictic ones) or it might even be able to
+   learn iconic and metaphoric gestures given enough of the right data is
+   present.
    
    Based on this premise---the power of machine learning---this thesis proposes
    a novel system for gesture synthesis, creates a proof of concept and reports
@@ -582,11 +661,11 @@
    Cref:sec:state-robot-synthesis evaluated the current gesture synthesis
    systems qualitatively, concluding that the methods investigated lack in one
    or more of the desired properties of continuity, variability and congruence.
-   Below, the inner workings of two gesture synthesis---those of the Kismet and
-   SoftBank robots---are explained in more detail.
+   Below, the inner workings of two gesture synthesis systems---those of the
+   Kismet and SoftBank robots---are explained in more detail.
 
    Kismet's range of gestures is limited: it can only move its face actuators
-   and move its head with the neck motors. Its movements are organized into
+   and move its head with the neck motors. These movements are organized into
    /skills/, each of which is a finite state machine of positions where a
    transition is a certain gls:motion-primitive, a unit of gesture. These skills
    and the transitions between them are activated by the robot's other
@@ -604,12 +683,13 @@
 
    SoftBank's robots all use the same software framework and API, /NAOqi/
    cite:softbank_naoqi. This framework includes a few modules that regulate
-   their autonomous life cite:naoqi_autonomous_life:
+   their autonomous life cite:naoqi_autonomous_life, which synthesize gestures
+   automatically:
 
    - ALAutonomousBlinking :: makes the robot blink its eyes (flash the LEDs
         around its eyes).
-   - ALBackgroundMovement :: makes the robot make slight movements when it is
-        idle and runs a breathing animation.
+   - ALBackgroundMovement :: makes the robot move slightly when it is idle and
+        runs a breathing animation.
    - ALBasicAwareness :: makes the robot look at people's faces when it sees
         them, hears them or notices when they touch it.
    - ALListeningMovement :: makes the robot move slightly when it is listening.
@@ -654,8 +734,8 @@
    The gestures produced by ACE are continuous and precise. However, they
    require extensive metadata accompanying the speech. When no behavior
    specification is defined, the avatar does not move. This makes the ACE system
-   useful when a high level of precision is required, such as for deictic
-   gestures, but less for free-form text.
+   useful when a high level of precision is required, such as for
+   glspl:deictic-gesture, but less for free-form text.
    
    #+NAME: fig:ace-murml-example
    #+CAPTION: label:fig:ace-murml-example Example of MURML multi-modal gesture and speech specification.
@@ -695,8 +775,8 @@
      </utterance>
    #+END_SRC
 
-   The BodySpeech system was developed to remove the need to specify which
-   gestures have to be chosen. It uses an audio clip of a recorded voice,
+   Another system called BodySpeech was developed to remove the need to specify
+   which gestures have to be chosen. It uses an audio clip of a recorded voice,
    analyzes its intensity in segmented parts of speech, chooses from a set of
    motion-captured gestures the one that most closely aligns with that part of
    speech and then blends between those movements cite:Fernandez:2013.
@@ -737,8 +817,8 @@
    Over the past ten years, tremendous progress has been made in the field of
    machine learning. With the invention of effective training algorithms such as
    the backpropagation algorithm and stochastic gradient descent, along with the
-   exploitation of GPUs, we now have the capability to process more data orders
-   of magnitude more quickly with algorithms that are more effective
+   exploitation of glspl:gpu, we now have the capability to process more data
+   orders of magnitude more quickly with algorithms that are more effective
    cite:nvidia-ai-computing.
    
    With these improvements in performance the possibility arrived to train large
@@ -834,15 +914,14 @@
     represent variables. When the data type is annotated in between operators,
     the variable styling will often be omitted for clarity.
     
-    Simple glspl:rnn have difficulty learning long-term relationships because of a
-    problem called the /vanishing gradient problem/ that also occurs in very
-    deep neural networks. The LSTM (Long Short-Term Memory) cell solves this
-    problem by splitting the state in two parts: one part is the output for
-    every step and another part is a more long-term part that is only changed
-    linearly with a filtered set of values from the first part cite:colah-lstm.
-    The GRU (Gated Recurrent Unit) is a variation on the LSTM structure which
-    appears to perform better on smaller datasets
-    cite:chung14_empir_evaluat_gated_recur_neural.
+    Simple glspl:rnn have difficulty learning long-term relationships because of
+    a problem called the /vanishing gradient problem/ that also occurs in very
+    deep neural networks. The gls:lstm cell solves this problem by splitting the
+    state in two parts: one part is the output for every step and another part
+    is a more long-term part that is only changed linearly with a filtered set
+    of values from the first part cite:colah-lstm. The GRU (Gated Recurrent
+    Unit) is a variation on the gls:lstm structure which appears to perform
+    better on smaller datasets cite:chung14_empir_evaluat_gated_recur_neural.
 
     #+begin_src latex :exports results :results output
       \begin{figure}[h]
@@ -972,17 +1051,16 @@
     The recent increase in popularity of and interest in deep learning methods
     could not have been possible without the introduction of tools that allow
     programmers to use these techniques without having to know precisely how the
-    algorithms work or how to create programs that work efficiently on GPUs. The
-    reason why the previous sections did not include extensive mathematical
-    descriptions of the techniques explained is simply because it is not
-    necessary to know these details when implementing these methods. While a
-    foundational understanding is necessary to understand why these methods
-    work, where they could fail and how they can be evaluated, modern frameworks
-    change the skills that developers and researchers need from understanding
-    mathematics (even though the mathematics behind neural networks are
-    relatively simple), optimization techniques and multi-threaded GPU
-    programming to knowing how to use the interfaces presented by these new
-    frameworks and libraries.
+    algorithms work or how to create programs that work efficiently on
+    glspl:gpu. The reason why the previous sections did not include extensive
+    mathematical descriptions of the techniques explained is simply because it
+    is not necessary to know these details when implementing these methods.
+    While a foundational understanding is necessary to understand why these
+    methods work, where they could fail and how they can be evaluated, modern
+    frameworks change the skills that developers and researchers need from
+    understanding mathematics, optimization techniques and multi-threaded
+    gls:gpu programming to knowing how to use the interfaces presented by these
+    new frameworks and libraries.
     
     The most popular framework for deep learning (by far) today is TensorFlow
     cite:tensorflow,dl-rankings. At its core, this is an engine that builds a
@@ -1062,7 +1140,7 @@
    a more detailed description is deferred until cref:sec:preprocessing.
    
    Next to this difference in data format, it should be noted that these robots
-   do not have the range of motion of humans, nor can they move their joints as
+   do not posses a human range of motion, nor can they move their joints as
    quickly as people. This is a hard constraint on the extent to which human
    gesture can be imitated by a robot. The NAOqi API allows developers to
    specify the desired joint angles at every moment, which the robot will
@@ -1105,7 +1183,7 @@
     need to be done on the downloaded videos. In particular, the parts of the
     videos that have suitable footage will need to be selected and the video
     will need to be split up in sentences with the corresponding footage.
-    ~ffprobe~ is a command line utility that is part of the ~ffmpeg~ multimedia
+    ~ffprobe~ is a command line utility that is part of the FFmpeg multimedia
     framework and can be used to detect scene changes (for example, when the
     footage cuts to another camera angle) cite:ffprobe. This can be used to aid
     the selection of footage, because pose estimation will be unstable across
@@ -1174,8 +1252,8 @@
    label:sec:research-clustering
 
    Instead of directly predicting poses, the problem of gesture synthesis can be
-   much simplified if we break down movement into a sequence of motion
-   primitives. This way, a two-step process appears:
+   much simplified if we break down movement into a sequence of
+   glspl:motion-primitive. This way, a two-step process appears:
 
    1. Extract glspl:motion-primitive from the pose data
    2. Predict glspl:motion-primitive from parts of text
@@ -1232,7 +1310,8 @@
    
    With that, the /mise en place/ is finished. These components can now be
    assembled into a pipeline that performs all the steps necessary to build a
-   model synthesizes gestures based on a subtitle and play them back on a robot.
+   model that synthesizes gestures based on a subtitle and play them back on a
+   robot.
 
 * A Modern Method for Gesture Synthesis
   SCHEDULED: <2018-07-02 ma>--<2018-07-15 zo>
@@ -1244,7 +1323,7 @@
   system to create a dataset, build a gesture prediction model and perform these
   gestures on a robot. Cref:sec:dataset walks through the steps needed to create
   the dataset, introducing an application designed to simplify finding suitable
-  videos, showing how these video clips are processed and explaining how the
+  video clips, showing how these clips are processed and explaining how the
   data is prepared for use in the prediction model. This model is explained in
   cref:sec:pose-prediction, where two methods to process the features
   and two methods to generate the gestures are shown. Finally, cref:sec:playback
@@ -1501,7 +1580,7 @@
     Now that the 2D gestures are extracted, the next step is to lift the poses
     into three-dimensional space. The /3D Pose Baseline/ project had its source
     code and trained model available online so this was used as a starting
-    point. Some modifications were made in order to use it in this pipeline.
+    point. Some modifications are made in order to use it in this pipeline.
 
     The first modification is made because the pose data format that 3D Pose
     Baseline expects is different from the one OpenPose outputs: they use the
@@ -1722,9 +1801,9 @@
     space of possible movements is reduced to a sequence of predefined /motion
     primitives/, assuming a gesture can be split up in such a sequence. Instead
     of producing a continuous sequence of angles, the model could classify a
-    sentence under a gls:motion-primitive and then concatenate these
-    glspl:motion-primitive into a coherent, continuous whole. This approach
-    poses two more questions:
+    sentence under a sequence of glspl:motion-primitive and then concatenate
+    them into a coherent, continuous whole. This approach poses two more
+    questions:
 
     - Can we make this look continuous? Continuity was one of the main
       objectives but given the discrete nature of a sequence of motion
@@ -1884,18 +1963,18 @@
      smoothed, average results instead of outliers: the cluster representatives
      are close to the average of all the elements in that cluster. While this is
      often a desired property, that might not be the case here. Humans have a
-     repertoire of specific, iconic gestures such as waving while saying
+     repertoire of specific, glspl:iconic-gesture such as waving while saying
      "hello." If the clustering or prediction algorithm would be able to extract
      these gestures we would have a high confidence in its ability to categorize
      gestures, but this averaging property impedes that.
 
-     In order to still gain the ability to perform these iconic gestures, the
-     dataset could be biased to include a large amount of samples for each of
-     these gestures. That would both help the clustering algorithm recognize
+     In order to still gain the ability to perform these glspl:iconic-gesture,
+     the dataset could be biased to include a large amount of samples for each
+     of these gestures. That would both help the clustering algorithm recognize
      these gestures and help a direct gesture synthesis machine learning model
      learn these gestures. It would also be possible annotate the data and to
-     bias the learning algorithm to weight these iconic gestures more heavily,
-     forcing it to learn them.
+     bias the learning algorithm to weight these glspl:iconic-gesture more
+     heavily, forcing it to learn them.
 
 ***** DONE Figure: examples of extracted clusters
       CLOSED: [2018-07-23 ma 14:51]
@@ -1940,7 +2019,7 @@
    architecture. Both the encoder and decoder courses have two variations, which
    will all be presented below.
 
-   The encoder is the starter: it responsible for reading the input text and
+   The encoder is the starter: it is responsible for reading the input text and
    interpreting that sequence into a gls:thought-vector. In one case, the
    encoder uses an gls:rnn and a vocabulary based on the input data while in the
    other case, the encoder uses a pretrained sequence encoder for text embedding
@@ -2034,10 +2113,10 @@
      4. Read this sequence of embeddings with an gls:rnn and return the thought
         vector.
 
-     The first design choice in the encoder is the definition of a /text object/.
+     One design choice in the encoder is the definition of a /text object/.
      This is the unit of text to which the sentence will be reduced. Common
      examples are words and n-grams ($n$ characters). Larger text objects need
-     higher-dimensionality neural network layers since each unique instance needs
+     higher-dimensionality neural network layers since each text object needs
      its own representation, but they can more readily be used to model time
      dependencies. Smaller text objects like single characters only need a small
      vocabulary (in this example, each letter of the alphabet and perhaps some
@@ -2186,10 +2265,10 @@
      of processing but the state is internal. Intuitively, one can interpret the
      state as the context while the input represents the progress of decoding.
 
-     In the sequence decoder, the initial state is given by the thought vector as
-     created by the encoder. The input is the pose from the previous time step
-     but in practice, this differs depending on the network structure. During the
-     training step, the ground truth pose is passed as input and during
+     In the sequence decoder, the initial state is given by the thought vector
+     as created by the encoder. The input is the pose from the previous time
+     step but in practice, this differs depending on the running mode. During
+     the training step, the ground truth pose is passed as input and during
      inference, the generated pose from the previous time step is fed back into
      the cell.
     
@@ -2344,15 +2423,15 @@
    
    Finally, the courses can be served and performed on a robot.
    
-   When researching the dataset and data formats in
-   cref:sec:research-dataset, it was decided that the representation of poses
-   throughout the project would be based on the joint angles of the NAO robot,
-   so they can directly be used on this robot.
-   
    During most of the project, the results were tested on a virtual robot.
    SoftBank provides the /Choregraphe/ application cite:softbank_tools which
    provides a visual programming interface and hosts a simulated robot with a 3D
    view. 
+   
+   #+CAPTION: label:fig:nao-performing The NAO robot performing a generated gesture
+   #+NAME: fig:nao-performing
+   #+ATTR_LATEX: :width 6\smallgridsize :float wrap :placement {R}[2\smallgridsize]{6\smallgridsize}
+   [[file:./img/nao-performing.png]]
 
    Softbank's robots can be controlled over the local network, either wired or
    over Wi-Fi. They provide the Python NAOqi API that adds an abstraction layer
@@ -2365,15 +2444,10 @@
      robot will thus never fall over and its torso is always displayed upright.
    - Some of NAO's capabilities cannot be simulated.
    
-   #+CAPTION: label:fig:nao-performing The NAO robot performing a generated gesture
-   #+NAME: fig:nao-performing
-   #+ATTR_LATEX: :width 6\smallgridsize :float wrap :placement {R}[2\smallgridsize]{6\smallgridsize}
-   [[file:./img/nao-performing.png]]
-   
    Of these capabilities not supported in the simulation, though, two are
    critical for this project: the gesture synthesis and the text-to-speech
    engines. This means that to compare NAOqi's existing gesture synthesis system
-   with the ones created here a physical robot is needed.
+   with the ones created here, a physical robot is needed.
    
    Controlling the robot's pose is done by setting the value of each joint's
    angle through this API. Though these angles might contain positions that are
@@ -2384,14 +2458,14 @@
    
    In a production environment, this would not be a good solution. Spotty
    network connections and a dependency on a separate computer for gesture
-   synthesis will make it diffifult in real life situations. Eventually, the
+   synthesis will make it difficult in real-life situations. Eventually, the
    best solution would be that the gesture synthesis system is part of the robot
-   and has direct control over its pose. For this research, though, the method
-   used here works well.
+   and has direct control over its pose.
 
 *** TODO Figure: screenshot of Choregraphe
    
-*** TODO Figure: photo of NAO
+*** DONE Figure: photo of NAO
+    CLOSED: [2018-08-08 wo 11:15]
 * Evaluation
   SCHEDULED: <2018-06-28 do>--<2018-06-29 vr>
   :LOGBOOK:
@@ -2399,21 +2473,21 @@
   :END:
   label:chap:evaluation
 
-  How does one evaluate "humanlike gestures?"
+  How does one evaluate "humanlike gestures"?
   
-  While the metrics and many "sanity checks" used up until now give some
-  confidence that the gestures generated look natural, that conclusion is
-  clearly subjective and should be verified with a proper test. This section
-  starts by covering the evaluation and optimization of the neural network
-  discussed previously, after which it explains the setup and results for a
-  Turing-like test that was performed to validate the results produced
-  qualitatively by sending out a survey. Before that, however, a short dicussion
-  on finding a good evaluation metric is in order.
+  While the metrics and many sanity checks used until now give some confidence
+  that the gestures generated look natural, that conclusion is clearly
+  subjective and should be verified with a proper test. This section starts by
+  covering the evaluation and optimization of the neural network, after which it
+  explains the setup and results for a Turing-like test that was performed to
+  validate the results produced qualitatively by sending out a survey. Before
+  that, however, a short dicussion on finding a good evaluation metric is in
+  order.
 
 ** Defining Good Results
    
    One of the biggest challenges in this project and machine learning in general
-   is defining what a "good result" is. In this case it is especially
+   is defining what a good result" is. In this case it is especially
    ill-defined since human perception is involved and body language is by no
    means a formal language. The most "real" measure of success would be
    something like /"the majority of people agree that this robot gestures in a
@@ -2425,78 +2499,78 @@
    results or have an idea about whether the outcome is actually something
    useful. Three different "levels" of metrics are used throughout the project:
 
-   - Quick-and-dirty sanity checks :: The figures throughout cref:chap:method
+   - Quick-and-dirty sanity checks. :: The figures throughout cref:chap:method
         provide a quick, qualitative pass-or-fail answer that make sure the
         results are at least somewhat meaningful. This was necessary because of
         the many steps in the pipeline and to prevent needing to debug this
         entire process at once.
-   - Prediction loss functions :: The gesture synthesis models are trained and
+   - Prediction loss functions. :: The gesture synthesis models are trained and
         evaluated based on their loss functions as defined in
         cref:sec:pose-prediction. These hard numbers drive the learning
         mechanisms but differ from the ideal perception-based metric. They also
         differ between decoders. In cref:sec:decoder-comparison, a single metric
         will be described that can be used to compare the decoders.
-   - The survey :: By asking people's opinion, human perception is accounted for
+   - The survey. :: By asking people's opinion, human perception is accounted for
                    and the final results can be evaluated. Unfortunately, this
                    is time-consuming for participants so the amount of
                    approaches that can be compared is very limited. It is also
                    difficult to measure the external factors as mentioned above.
 
    Understanding that each of these metrics has its shortcomings, let us still
-   continue by optimizing the neural network and assume that this will at least
-   improve the results.
+   continue by optimizing the neural network for its loss function and assume
+   that this will at least improve the results.
 
 ** Optimizing the Neural Network
   
    The gesture synthesis network has quite a few parameters, the first of which
-   is the network structure itself. Cref:sec:pose-prediction presented
-   the network as an encoder-decoder architecture and explained two encoders (a
-   recurrent text encoder and a pre-trained black box encoder) and two decoders
-   (a classification decoder and a sequence decoder). This results in four
-   possible network architectures.
+   is the network structure itself. Cref:sec:pose-prediction presented the
+   network as an encoder-decoder architecture with two options for the encoder
+   (a recurrent text encoder and a pre-trained black box encoder) and two for
+   the decoder (a classification decoder and a sequence decoder). This results
+   in four possible network architectures.
   
-   There is one special case in these four architectures. Since the
-   attention-based decoder model (see cref:sec:decoder) requires access to the
-   intermediate results of the encoder, it cannot be used in combination with
-   the black box pre-trained text encoder. In that case, the decoder falls back
-   to a "regular" recurrent neural network that only uses the final output of
-   the encoder to generate its predictions.
+   One of these four is a special case. Since the attention-based decoder model
+   (see cref:sec:decoder) requires access to the intermediate results of the
+   encoder, it cannot be used in combination with the black box pre-trained text
+   encoder. In that case, the decoder falls back to a "regular" recurrent neural
+   network that only uses the final output of the encoder to generate its
+   predictions.
   
    The rest of this section shows the results from tweaking the hyperparameters
-   of the encoder and decoder networks. In these results, the differences
-   between these high-level network architectures will be shown as much as
-   possible. In order to do that, we first need to find a metric that can
-   compare the results from the two decoders who have different types of
-   outputs.
-   
+   across the encoder and decoder networks. In the upcoming graphs, the results
+   for the classification-based and sequence-based networks will be shown next
+   to each other in separate graphs, as their loss value differs significantly.
+   Thus, first those decoders need to compared and a loss value defined that can
+   be used to compare them.
+
 *** Comparing the Classification and Sequence Decoders
     :PROPERTIES:
     :Effort:   2:00
     :END:
     label:sec:decoder-comparison
 
-    The loss function for the classification decoder is the softmax cross
-    entropy function, which measures the classification error, and for the
-    sequence decoder the generated gesture is compared to the ground truth
-    gesture directly. This gesture loss can be used as the shared metric when
-    we generate gestures in the classification decoder by substituting the
-    predicted cluster centers. (Note that this is only during evaluation, the
-    training step still uses the classification loss.) This allows for a common
-    ground to compare the decoders but it implicitly evaluates the clustering
-    method too. Because of the limited amount of clusters, there is thus a lower
-    bound for the gesture loss from the classification decoder: even if all
-    clusters were predicted with perfect accuracy, there would still be a loss
-    because of the "simplification" made by the clustering algorithm.
+    The loss function for the classification decoder measures the classification
+    error while in the sequence decoder, the difference between the predicted
+    and ground truth gesture is measured directly. This gesture loss can be used
+    as the mutual metric when we the classification decoder generates gestures
+    by substituting the predicted cluster centers. (Note that this is only
+    during evaluation, the training step still uses the classification loss.)
+    This allows for common ground to compare the decoders but it implicitly
+    evaluates the clustering method simultaneously. Because of the limited amount of
+    clusters, there is thus a lower bound for the gesture loss from the
+    classification decoder: even if all clusters were predicted with perfect
+    accuracy, there would still be a loss because of the "simplification" made
+    by the clustering algorithm.
 
     Directly comparing the generated gestures with the ground truth data from
-    the dataset also implies that there is only a single gesture possible
-    (perhaps with some noise) for each part of text, which is clearly not the
-    case for humans. A better solution would be to use an adversarial network
-    model that has two components: one that learns to predict gestures and
-    another that learns what kind of gestures humans perceive as being
-    "natural". Sadly this approach was determined as out of scope for the
-    current project and is thus recommended as one of the next steps in future
-    works towards gesture synthesis (cref:chap:conclusion).
+    the dataset also, for either method, implies that there is only a single
+    gesture possible (perhaps with some noise) for each part of text, which is
+    clearly not the case for humans. A better solution could be to use an
+    adversarial network model that has two components: one that learns to
+    predict gestures and another that learns what kind of gestures humans
+    perceive as being "natural". Sadly this approach was determined as out of
+    scope for the current project and is thus recommended as one of the next
+    steps in future works towards gesture synthesis (cref:chap:conclusion).
     
     In order to compare the two decoders, this leaves us with comparing the
     generated gestures using the position-motion-loss from the sequence decoder.
@@ -2536,10 +2610,9 @@
     Cref:fig:classification-vs-sequence shows the results of comparing both
     decoders on the evaluation set. Note that the $y$ axis is on a logarithmic
     scale, just like in the following graphs. The sequence decoder fails to
-    learn and converge in some configurations but achieves much better in the
-    cases when it does succeed in the training step. In the following
-    subsections, the configurations where the sequence decoder fails to converge
-    will be uncovered.
+    learn and converge in some configurations but fares much better in the cases
+    when it does succeed in the training step. The following subsections will
+    uncover the configurations where the sequence decoder fails to converge.
    
 *** Hidden Size
     
@@ -2553,7 +2626,7 @@
     plotted for each value in the $x$ axis. These data points represent the
     results from various other parameters. Since some parameter values have a
     very large effect on the loss (such as a hidden size that is too large for
-    the sequence decoder), these "outlier" values will often be ommited in the
+    the sequence decoder), these "outlier" values will often be omitted in the
     following figures. Refer to the figure captions to confirm if that is the
     case.
     
@@ -2599,8 +2672,8 @@
           slightly decreases the loss for the sequence decoder. Though, making the
           hidden size too large causes the model to become untrainable (the results
           for a hidden size of $512$ were omitted from this graph since the loss was
-          in the order of $10^2$). For the classification decoder, too, increasing the
-          hidden size improves model performance slightly.}
+          in the order of $10^2$). For the classification decoder, the hidden size
+          seems to have an optimum at $128$.}
       \end{figure}
     #+END_SRC
 
@@ -2666,10 +2739,12 @@
     value is much smaller than the position loss. That means the results in
     cref:fig:experiment-motion-loss are difficult to interpret: the position
     loss is usually about 10 times larger than the motion loss so it makes sense
-    that, if this is weighted more, the total sum will be smaller. Even
+    that, if this is weighted more, the total loss will be higher. Even
     intuitively, choosing the motion loss weight is a difficult question to
     answer: for humanlike gestures, how much more (or less) important is moving
-    at the right speed versus holding your hands at the right position?
+    at the right speed versus holding your hands at the right position? The
+    other graphs use a motion loss weight of $0.5$ in order to show the effects
+    of the parameter of focus there clearly.
     
     #+BEGIN_SRC latex :exports results :results output
       \begin{figure}
@@ -2727,7 +2802,7 @@
     this technique has been proven very useful.
     
     Cref:fig:experiment-dropout shows the results of varying the dropout rate. A
-    dropout rate of $0.5$ seems to perform slightly better in both case.
+    dropout rate of $0.5$ seems to perform slightly better in both cases.
     
     #+BEGIN_SRC latex :exports results :results output
       \begin{figure}
@@ -2753,6 +2828,7 @@
                 discard if not = {output_type}{sequences},
                 discard if not = {motion_loss_weight}{0.5},
                 discard if not = {use_pretrained_encoder}{False},
+                discard if = {hidden_size}{256},
                 discard if = {hidden_size}{512},
                 x filter/.append code={\pgfmathparse{\pgfmathresult-0.02}},
               ] table [x=dropout, y=gesture_loss, col sep=comma] {./img/hp-results.csv};
@@ -2763,6 +2839,7 @@
                 discard if not = {output_type}{sequences},
                 discard if not = {motion_loss_weight}{0.5},
                 discard if not = {use_pretrained_encoder}{False},
+                discard if = {hidden_size}{256},
                 discard if = {hidden_size}{512},
                 x filter/.append code={\pgfmathparse{\pgfmathresult+0.02}},
               ] table [x=dropout, y=train_loss, col sep=comma] {./img/hp-results.csv};
@@ -2806,34 +2883,43 @@
       \end{figure}
     #+END_SRC
 
-** Looking At the Gestures
+** Looking at the Gestures
 
    While the results from optimizing the loss function clearly show the
    sequence-based decoder as better than the classification-based one, this
    result might not transfer to the qualitative evaluation of these gestures.
-   The sequence-based indeed predicts a gesture that looks natural, it tends to
-   slow down and stop quickly. At the same time, the network seems to have
-   difficulty predicting the sequence length parameter, resulting in a long
-   gesture that is for the most part nearly still. Cref:sec:survey will verify
-   whether those observations match the opinion of other people.
+   Realizing this, what follows are a few observations from directly looking at
+   the gestures that are generated. Cref:sec:survey will verify the extent to
+   which this influences respondent's perception of humanness.
    
-   The metrics used while training show a much higher gesture loss for the
-   classification-based decoder but the results look humanlike simply because
-   the cluster centroids are actual samples of the data. Thus, they do not
-   correspond with the way the actual gestures were performed in the dataset but
-   they do look like "a moving human."
+   First, while the sequence-based predictor indeed generates a gesture that
+   looks natural, it tends to slow down and stop quickly. At the same time, the
+   network seems to have difficulty predicting the sequence length parameter,
+   resulting in a long gesture that is for the most part nearly still.
    
-   In a real-life context, when including the subtitle, the robot is pronouncing
-   the text wile performing its gestures. Since this project does not include
-   any interaction between those engines, gestures do not match up with the
-   text-to-speech engine. Previous gesture synthesis systems that could
+   Second, for the classification-based predictor, the gesture loss is much
+   higher but the results look humanlike simply because the cluster centroids
+   are actual samples of the data. Thus, they do not correspond with the way the
+   actual gestures were performed in the dataset but they do look like "a moving
+   human."
+   
+   Third, the slight jitter still present in the 3D pose estimations stands out
+   much more prominently when performed on a robot (and even on a 3D skeleton).
+   Even in cases where this jitter was correctly detected from the video (for
+   example, someone shaking both of their hands slightly up and down while
+   talking), they appear tense and tight on the robot.
+   
+   Finally, in a real-life context, when including the subtitle, the robot is
+   pronouncing the text wile performing its gestures. Since this project does
+   not include any interaction between those engines, gestures do not match up
+   with the text-to-speech engine. Previous gesture synthesis systems that could
    synchronize motion with the text required annotation but this system has the
    opportunity to learn speech pronunciation along with the gestures. Alas, that
    is not currently included. It can thus be expected that the length of the
    generated gesture will differ from the length of the TTS engine (unless the
    audio clip is manipulated to match the predicted gesture).
 
-** Survey
+** The Survey
    label:sec:survey
 
    Likely the best method to evaluate the system developed here and compare
@@ -2845,13 +2931,13 @@
    1. An introduction with an explanation of the project and the task
    2. An attention checker question, where users are given the simple question
       "what is your gender?" while they are instructed, in a long block of
-      text, to answer "orange penguin" instead of the true answer.
+      text, to answer "orange penguin" instead of the true answer
    3. Six questions where
       - A video was shown with a NAO robot performing four different animations
-        for the same subtitle: the ground truth, a baseline (the default NAO
+        for the same subtitle: the ground truth, a baseline (the native NAO
         animation), the result from the classification-based prediction and the
-        result from the sequence-based prediction.
-      - Users were asked to rate the human-ness of each animation on a
+        result from the sequence-based prediction
+      - Users were asked to rate the humanness of each animation on a
         five-point scale (from "stiff, robot-like" to "humanlike")
       - Users were asked which of the animations they prefer
    4. A final checker question that asked the color of the robot's shoulders
@@ -2864,13 +2950,13 @@
    [[file:./img/survey-screenshot.png]]
 
    A few respondents provided feedback about the survey and said they found it
-   difficult to compare. There were $34$ respondents who completed the survey in
-   full, of which only $18$ passed the first attention check question. The
-   evaluation for each method is summarized in cref:fig:survey-ratings. Two
-   findings are described below.
+   difficult to compare. There were $37$ respondents who completed the survey in
+   full, of which only $20$ passed the first attention check question. The
+   results from the five-point rating scale are summarized in
+   cref:fig:survey-ratings. Two findings come to mind:
 
    /The native method is rated most positively./ Respondents preferred the
-   gesture synthesis method that is built in to the NAO robot over other
+   gesture synthesis method that is built-in to the NAO robot over other
    methods. This includes the motion captured "ground truth" data and the
    generated gestures. This might be due to the fact that the voice was timed
    according to this gesture, because of hardware limitations limiting how well
@@ -2880,19 +2966,22 @@
    /The ground truth is regarded similar to the classification-based predictor./
    This is an interesting result since it would imply that a strict
    correspondence between text and gesture does not exist. As explained in
-   cref:sec:how-people-gesture, beat gestures make up the largest part of human
-   gesture and are not directly related to the context of the communication.
-   Instead, beat gestures in human communication are used to stress the rhythm
-   of the conversation.
+   cref:sec:how-people-gesture, glspl:beat-gesture make up the largest part of
+   human gesture and are not directly related to the context of the
+   communication. Instead, glspl:beat-gesture in human communication are used to
+   stress the rhythm of the conversation.
 
    #+CALL: pgf_figure(var_name="survey-ratings", var_caption="Ratings for the different gesture generation methods presented in the survey.")
+   
+   #+CALL: pgf_figure(var_name="survey-preference", var_caption="Preferences for the different gesture generation methods. The built-in NAO gestures are, still, clearly preferred.")
 
    It could be concluded from these findings that timing is more important than
    any correspondence between the gesture and the subtitle. This timing has two
-   components: one is the alignment between the lengths of the gesture and the
-   spoken text, the other is the general speed of gestures. The most-preferred
-   method moved more slowly, "deliberately" and had its start and end points
-   timed with the text-to-speech engine.
+   components: one is the alignment between the length of the gesture (in total
+   length as well as synchronization of sentence structure with gestures) and
+   the spoken text, the other is the general speed of gestures. The
+   most-preferred method moved more slowly, "deliberately" and had its start and
+   end points timed with the text-to-speech engine.
 
    However, discounting the deep learning-based method for gesture synthesis
    based on these results would be premature. The implementation in this thesis
@@ -2911,22 +3000,23 @@
   Deep learning methods can be used effectively to synthesize gestures that a
   robot performs while it is talking. The pipeline introduced in this thesis
   builds a dataset from videos that are freely available on the internet,
-  allowing a dataset to be created of arbitraty size, and built a
+  allowing a dataset to be created of arbitrary size, and built a
   proof-of-concept model that shows this method, which uses a recurrent neural
   network-based encoder-decoder architecture to directly synthesize gestures,
-  can indeed learn to predict these gestures.
+  can indeed learn to predict these gestures (albeit with limited initial
+  results).
 
-  A survey format was proposed to assess people's perception of human-ness when
+  A survey format was proposed to assess people's perception of humanness when
   these gestures were performed and conducted. Initial results showed that the
   robot's native gesture synthesis system, which performs a random set of
   predefined gestures, was evaluated as more human-like than the methods
   proposed and even the "ground truth" (motion captured data performed by the
   robot). Notable differences between these gestures were that the preferred
-  native gestures are much slower and corresponded with the timing of the
+  native gestures are much slower and corresponded more with the timing of the
   text-to-speech system.
   
   While the results shown here are no improvement over previous methods (in
-  terms of how people evaluate the gestures' "human-ness"), the pipeline for
+  terms of how people evaluate the gestures' "humanness"), the pipeline for
   building a dataset and architecture for a general deep learning-based gesture
   synthesis system were developed and used in this proof-of-concept. A machine
   learning-based model such as the one presented in this thesis is likely the
@@ -2936,28 +3026,24 @@
 ** The Outlook
 
    This thesis is only a starting point. It proposes a new type of method,
-   rooted in modern technological developments, to synthesize gestures for
+   rooted in recent technological developments, to synthesize gestures for
    social robots and provides a proof of concept, but a lot more work is needed
    to be able to use this in the real world. Below, a few possible improvements
    are listed, roughly in order of declining expected improvement:
 
    /Collect more data./ The dataset used here is very small. A larger dataset is
    probably a prerequisite for most of the other improvements.
-   
-   /Add samples for specific gestures to the dataset./ Explicitly adding samples
-   for specific iconic gestures, like waving while saying "hello" or nodding
-   while saying "yes," could teach this system to generate these gestures.
         
    /Find or create and implement a clustering algorithm that clusters
    subsequences./ One major drawback of the clustering algorithm used in this
    thesis is that it compares entire clips at once. With an algroithm that can
    cluster subsequences, true glspl:motion-primitive could be found.
 
-   /Build a Generative Adversarial Network around the current network./ Building
-   an adversarial network allows the machine learning model to train towards a
-   goal that is closer to the actual goal, that is, perceived human-ness. With a
-   GAN, it is no longer implied that the same input text has to produce the same
-   gesture.
+   /Build a Generative Adversarial Network (GAN) around the current network./
+   Building an adversarial network allows the machine learning model to train
+   towards a goal that is closer to the actual goal, that is, perceived
+   humanness. With a GAN, it is no longer implied that the same input text has
+   to produce the same gesture.
    
    /Combine gesture synthesis with speech synthesis./ People are quite
    sensitive to how the timing of gestures lines up with the spoken text. In
@@ -2965,6 +3051,10 @@
    multimodal way, using both speech and gesture cooperatively. To be able to
    communicate in the same seamless manner as people, robots should have an
    integrated system that synthesizes both of these modalities simultaneously.
+   
+   /Add samples for specific gestures to the dataset./ Explicitly adding samples
+   for specific glspl:iconic-gesture, like waving while saying "hello" or nodding
+   while saying "yes," could teach this system to generate these gestures.
 
    /Use contextual features./ The style of gestures varies widely across
    communicative intent and people. With additional context, the robot could
@@ -2985,17 +3075,6 @@
   @@latex: \addcontentsline{toc}{chapter}{References}@@
   
   \printbibliography[heading=none]
-  
-* Glossary
-  :PROPERTIES:
-  :UNNUMBERED: t
-  :END:
-  
-  @@latex: \addcontentsline{toc}{chapter}{Glossary}@@
-  
-  \renewcommand{\glossarysection}[2][]{}
-  \printglossaries
-
 * Appendices                                                         :ignore:
 #+LaTeX: \begin{appendices}
 ** A Personal Note: Questioning the Engineering Approach
@@ -3034,20 +3113,21 @@
    thesis would very likely fail.
    
    Animated characters seldom move in ways that are as close as possible to
-   humans. Animators use this departure from mimicking human motion closely to
-   evoke emotion, build characters and create tension that draws viewers in and
-   keeps their attention. The recently released Cozmo toy is probably the robot
-   that I would classify as looking the most lifelike I know cite:cozmo and is
-   animated by ex-Disney animators. Kismet partly appealed to people because of
-   its exaggerated, almost caricatural, way of moving. 
+   humans. Animators use this departure from mimicking human motion to evoke
+   emotion, build character and create tension that draws viewers in and keeps
+   their attention. The recently released Cozmo toy is probably the robot that I
+   would classify as looking the most lifelike I know cite:cozmo and is animated
+   by ex-Disney animators. Kismet partly appealed to people because of its
+   exaggerated, almost caricatural, way of moving.
    
    Just like most humanoid robots stay out of the uncanny valley by
    "acknowledging" their identity as a robot in their appearance by not being
    skin-toned or having hair, perhaps the social robots we are building would
    appeal more if they would adopt some of these principles of animation such as
    exaggeration, appeal and anticipation---that make their gesturing less
-   "humanlike." Creating more distinctive characters for robots could make them
-   more interesting, thus increasing the quality of interaction with people.
+   literally humanlike. Creating more distinctive characters for robots could
+   make them more interesting, thus increasing the quality of interaction with
+   people.
 
    That is not to say that the method proposed in this thesis is useless,
    though. The challenge of generalizing these animations to a system that can
@@ -3062,3 +3142,15 @@
    level with the robot.
 
 #+LaTeX: \end{appendices}
+
+* Blank pages                                                        :ignore:
+#+BEGIN_EXPORT latex
+\clearpage % end title page
+\begingroup
+  \pagestyle{empty}
+  \null
+  \newpage
+  \null
+  \newpage
+\endgroup
+#+END_EXPORT

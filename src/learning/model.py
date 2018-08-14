@@ -489,7 +489,7 @@ if __name__ == '__main__':
   cmd_options = parser.parse_args()
 
   space = dict(
-    hidden_size=[8, 64, 128, 512],
+    hidden_size=[8, 64, 128, 256, 512],
     output_type=['sequences', 'classes'],
     embedding_size=[8, 16, 32, 256],
     dropout=[0.2, 0.5, 0.8],

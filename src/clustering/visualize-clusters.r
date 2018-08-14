@@ -2,8 +2,14 @@ if (!require("pacman")) install.packages("pacman")
 pacman::p_load(gdata, animation, ggplot2, tikzDevice)
 
 save_histogram <- function(data) {
-  tikz('../../img/clustering-results-histogram.pgf', width = 4, height = 4)
-  ggplot(data, aes(class)) + geom_histogram(stat = "count", bins = 8, fill = "gray80") + theme_minimal()
+  tikz('../../img/clustering-results-histogram.pgf', width = 6, height = 3)
+  ggplot(data, aes(class)) +
+  geom_histogram(stat = "count", bins = 8, fill = "#e6effb", colour = "#1E64C8", size = 1) +
+  theme_bw() +
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), axis.line = element_line(colour = "#666666"),
+        axis.text = element_text(colour = "#666666")) +
+  labs(x = "Class", y = "Count")
   dev.off()
 }
 
